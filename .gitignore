@@ -1,0 +1,93 @@
+# --- Maven / build output ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# --- Compiled / packaged files ---
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# --- Logs ---
+*.log
+*.log.*
+logs/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.properties
+
+# --- Security keys / keystores ---
+*.key
+*.pem
+*.p12
+*.jks
+
+# --- NetBeans ---
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# --- IntelliJ IDEA ---
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# --- Eclipse / STS ---
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+
+# --- VS Code ---
+.vscode/
+!.vscode/extensions.json
+
+# --- Vim ---
+*.sw?
+
+# --- OS ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# --- Local / project specific ---
+data/
+localResources/
+READMELOCAL.md
+.notes/
+postman/
