@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:colegio;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+app:
+  jwt:
+    secret: dGVzdC1qd3Qtc2VjcmV0LW11c3QtYmUtYXQtbGVhc3QtMzItYnl0ZXMtbG9uZy0xMjM0NTY=
+    expiration-ms: 3600000
+  security:
+    max-login-attempts: 3
+    lock-time-duration-minutes: 15
