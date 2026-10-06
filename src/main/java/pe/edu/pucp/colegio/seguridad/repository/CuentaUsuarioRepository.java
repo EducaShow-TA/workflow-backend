@@ -7,4 +7,6 @@ import pe.edu.pucp.colegio.seguridad.model.CuentaUsuario;
 public interface CuentaUsuarioRepository extends JpaRepository<CuentaUsuario, Integer> {
 
   Optional<CuentaUsuario> findByUsername(String username);
+
+  boolean existsByUsername(String username);
 }

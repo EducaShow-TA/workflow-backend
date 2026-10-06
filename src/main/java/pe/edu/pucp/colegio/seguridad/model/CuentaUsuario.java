@@ -28,6 +28,15 @@ public class CuentaUsuario extends EntidadBase {
   @JoinColumn(name = "persona_id", unique = true)
   private Persona persona;
 
+  protected CuentaUsuario() {}
+
+  public CuentaUsuario(String username, String passwordHash, Rol rol, Persona persona) {
+    this.username = username;
+    this.password = passwordHash;
+    this.rol = rol;
+    this.persona = persona;
+  }
+
   public String getUsername() {
     return username;
   }

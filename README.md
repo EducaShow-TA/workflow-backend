@@ -4,7 +4,7 @@ Backend Spring Boot 3 para el prototipo de arquitectura del módulo de seguridad
 
 ## Configuración
 
-El servicio requiere Java 17 y una base MySQL. No se versionan secretos: defina estas variables antes de iniciar la aplicación:
+El servicio requiere JDK 25 (ver `pom.xml`) y una base MySQL. No se versionan secretos: defina estas variables antes de iniciar la aplicación:
 
 ```bash
 export DB_URL='jdbc:mysql://localhost:3306/colegio_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
@@ -12,6 +12,8 @@ export DB_USERNAME='root'
 export DB_PASSWORD='...'
 export JWT_SECRET='base64-de-una-clave-aleatoria-de-al-menos-256-bits'
 ```
+
+`JWT_SECRET` es obligatorio (no hay valor por defecto): genere uno con `openssl rand -base64 32`. En IntelliJ defínalo en *Run → Edit Configurations → Environment variables*.
 
 También se pueden configurar `PORT`, `JWT_EXPIRATION_MS`, `MAX_LOGIN_ATTEMPTS` y `LOCK_TIME_MINUTES`. Flyway ejecuta `V1__init_security.sql` al iniciar y crea el administrador `admin@educore.edu.pe` con la contraseña indicada en la guía del proyecto.
 
@@ -25,3 +27,8 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 ```
 
 Use el `token` recibido como `Authorization: Bearer <token>` para `GET /api/v1/auth/me`.
+
+
+## Cuentas de usuario (solo ADMINISTRADOR)
+
+`POST /api/v1/cuentas-usuario` crea persona y cuenta; `GET /api/v1/cuentas-usuario` las lista. Los errores siguen el formato del Estándar 6.3 y quedan en `logs/colegio-backend.log` y en la tabla `registros_error`.
