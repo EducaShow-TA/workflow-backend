@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.dto;
+package pe.edu.pucp.colegio.security.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

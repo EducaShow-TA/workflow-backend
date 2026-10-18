@@ -1,11 +1,11 @@
-package pe.edu.pucp.colegio.seguridad.controller;
+package pe.edu.pucp.colegio.security.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import pe.edu.pucp.colegio.seguridad.dto.*;
-import pe.edu.pucp.colegio.seguridad.service.AuthService;
+import pe.edu.pucp.colegio.security.dto.*;
+import pe.edu.pucp.colegio.security.service.AuthService;
 
 @RestController
 @RequestMapping("/api/v1/auth")

@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.jwt;
+package pe.edu.pucp.colegio.security.jwt;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -7,7 +7,7 @@ import java.util.*;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import pe.edu.pucp.colegio.seguridad.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 
 @Component
 public class JwtTokenProvider {

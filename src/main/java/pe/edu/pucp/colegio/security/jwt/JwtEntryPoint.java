@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.jwt;
+package pe.edu.pucp.colegio.security.jwt;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

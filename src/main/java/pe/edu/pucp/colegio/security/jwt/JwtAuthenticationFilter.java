@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.jwt;
+package pe.edu.pucp.colegio.security.jwt;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -8,8 +8,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import pe.edu.pucp.colegio.seguridad.model.CuentaUsuario;
-import pe.edu.pucp.colegio.seguridad.repository.CuentaUsuarioRepository;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {

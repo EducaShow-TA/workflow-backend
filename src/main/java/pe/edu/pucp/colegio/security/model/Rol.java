@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.model;
+package pe.edu.pucp.colegio.security.model;
 
 public enum Rol {
   ADMINISTRADOR,

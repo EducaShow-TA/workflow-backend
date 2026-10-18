@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.service.impl;
+package pe.edu.pucp.colegio.security.service.impl;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -6,11 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.audit.*;
 import pe.edu.pucp.colegio.common.exception.UnauthorizedException;
-import pe.edu.pucp.colegio.seguridad.dto.*;
-import pe.edu.pucp.colegio.seguridad.jwt.JwtTokenProvider;
-import pe.edu.pucp.colegio.seguridad.model.CuentaUsuario;
-import pe.edu.pucp.colegio.seguridad.repository.CuentaUsuarioRepository;
-import pe.edu.pucp.colegio.seguridad.service.AuthService;
+import pe.edu.pucp.colegio.security.dto.*;
+import pe.edu.pucp.colegio.security.jwt.JwtTokenProvider;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+import pe.edu.pucp.colegio.security.service.AuthService;
 
 @Service
 public class AuthServiceImpl implements AuthService {

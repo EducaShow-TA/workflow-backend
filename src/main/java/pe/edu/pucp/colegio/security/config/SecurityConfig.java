@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.config;
+package pe.edu.pucp.colegio.security.config;
 
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -8,7 +8,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.*;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import pe.edu.pucp.colegio.seguridad.jwt.*;
+import pe.edu.pucp.colegio.security.jwt.*;
 
 @Configuration
 @EnableMethodSecurity
