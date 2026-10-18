@@ -28,6 +28,23 @@ Recibe `username` y `password`. Valida los campos, comprueba que la cuenta esté
 
 Requiere `Authorization: Bearer <token>`. Devuelve el perfil asociado al usuario autenticado. La aplicación es stateless; el login es público y las demás rutas requieren autenticación.
 
+### Áreas y competencias
+
+Los endpoints CRUD de `/api/v1/areas` y `/api/v1/competencias` requieren autenticación. Ambos recursos admiten `GET` para listar, `GET /{codigo}` para consultar, `POST` para crear, `PUT /{codigo}` para actualizar y `DELETE /{codigo}` para eliminar. El `codigo` es la clave primaria de tipo texto.
+
+La relación es muchos a muchos. Al crear o actualizar un área se puede enviar `competenciaCodigos`; al crear o actualizar una competencia se puede enviar `areaCodigos`. Omitir la lista o enviarla vacía deja el recurso sin relaciones. Las respuestas incluyen los códigos relacionados y no anidan objetos completos.
+
+Ejemplo de área:
+
+```json
+{
+  "codigo": "MAT",
+  "nombre": "Matemática",
+  "descripcion": "Área curricular de matemática",
+  "competenciaCodigos": ["MAT-01", "MAT-02"]
+}
+```
+
 ## Estructura
 
 ```text
