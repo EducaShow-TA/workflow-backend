@@ -11,7 +11,8 @@ public record CrearCuentaRequestDTO(
     @NotBlank(message = "El nombre es obligatorio") String nombre,
     @NotBlank(message = "El apellido paterno es obligatorio") String apellidoPaterno,
     @NotBlank(message = "El apellido materno es obligatorio") String apellidoMaterno,
-    @NotBlank(message = "El correo es obligatorio") @Size(max = 50, message = "El correo es muy largo")
+    @NotBlank(message = "El correo es obligatorio")
+        @Size(max = 50, message = "El correo es muy largo")
         String username,
     @NotBlank(message = "La contraseña es obligatoria")
         @Size(min = 8, message = "La contraseña debe tener al menos 8 caracteres")

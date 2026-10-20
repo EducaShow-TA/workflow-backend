@@ -56,8 +56,8 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
-  ResponseEntity<ErrorRespuestaDTO> malformado(HttpMessageNotReadableException e,
-      HttpServletRequest r) {
+  ResponseEntity<ErrorRespuestaDTO> malformado(
+      HttpMessageNotReadableException e, HttpServletRequest r) {
     return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "REQ_400", "JSON inválido", r);
   }
 
@@ -65,7 +65,11 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorRespuestaDTO> prohibido(AccessDeniedException e, HttpServletRequest r) {
     log.warn("event=access_denied path={}", r.getRequestURI());
     return responder(
-        HttpStatus.FORBIDDEN, NivelLog.ADVERTENCIA, "AUTH_403", "No tiene permiso para este recurso", r);
+        HttpStatus.FORBIDDEN,
+        NivelLog.ADVERTENCIA,
+        "AUTH_403",
+        "No tiene permiso para este recurso",
+        r);
   }
 
   @ExceptionHandler(Exception.class)

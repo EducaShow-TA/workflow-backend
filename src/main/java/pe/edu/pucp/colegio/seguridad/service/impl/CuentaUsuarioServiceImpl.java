@@ -66,7 +66,11 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
             responsable == null ? null : responsable.getRol().name(),
             AccionAuditoria.CREAR,
             "Alta de cuenta " + cuenta.getUsername() + " con rol " + cuenta.getRol()));
-    log.info("event=cuenta_creada id={} rol={} por={}", cuenta.getId(), cuenta.getRol(), usernameResponsable);
+    log.info(
+        "event=cuenta_creada id={} rol={} por={}",
+        cuenta.getId(),
+        cuenta.getRol(),
+        usernameResponsable);
     return aDto(cuenta);
   }
 

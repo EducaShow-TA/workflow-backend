@@ -17,7 +17,8 @@ public class JwtEntryPoint implements AuthenticationEntryPoint {
   public void commence(
       HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
       throws IOException {
-    var cuerpo = ErrorRespuestaDTO.de(HttpStatus.UNAUTHORIZED, "No autenticado", request.getRequestURI());
+    var cuerpo =
+        ErrorRespuestaDTO.de(HttpStatus.UNAUTHORIZED, "No autenticado", request.getRequestURI());
     response.setStatus(HttpStatus.UNAUTHORIZED.value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
     response
