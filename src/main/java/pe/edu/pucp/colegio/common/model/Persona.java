@@ -23,6 +23,16 @@ public class Persona extends EntidadBase {
   private String telefono;
   private String genero;
 
+  protected Persona() {}
+
+  public Persona(String dni, String nombre, String apellidoPaterno, String apellidoMaterno) {
+    this.dni = dni;
+    this.nombre = nombre;
+    this.apellidoPaterno = apellidoPaterno;
+    this.apellidoMaterno = apellidoMaterno;
+    this.genero = "NO_IDENTIFICADO";
+  }
+
   public String getDni() {
     return dni;
   }
