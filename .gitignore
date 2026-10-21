@@ -41,6 +41,9 @@ application-local.properties
 *.jks
 
 # --- NetBeans ---
+# nbactions*.xml guarda configuracion local de ejecucion (puede incluir variables de entorno con secretos).
+# nb-configuration.xml si se versiona: es configuracion compartida del proyecto (JDK_25).
+nbactions*.xml
 nbproject/private/
 nbbuild/
 dist/
