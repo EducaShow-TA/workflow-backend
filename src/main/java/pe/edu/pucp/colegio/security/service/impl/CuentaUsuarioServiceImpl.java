@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.service.impl;
+package pe.edu.pucp.colegio.security.service.impl;
 
 import java.util.List;
 import org.slf4j.Logger;
@@ -11,12 +11,12 @@ import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.exception.ConflictException;
 import pe.edu.pucp.colegio.common.model.Persona;
-import pe.edu.pucp.colegio.seguridad.dto.CrearCuentaRequestDTO;
-import pe.edu.pucp.colegio.seguridad.dto.CuentaResponseDTO;
-import pe.edu.pucp.colegio.seguridad.model.CuentaUsuario;
-import pe.edu.pucp.colegio.seguridad.repository.CuentaUsuarioRepository;
-import pe.edu.pucp.colegio.seguridad.repository.PersonaRepository;
-import pe.edu.pucp.colegio.seguridad.service.CuentaUsuarioService;
+import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
 @Service
 public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {

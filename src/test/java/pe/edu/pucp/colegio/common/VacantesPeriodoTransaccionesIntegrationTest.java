@@ -115,18 +115,11 @@ class VacantesPeriodoTransaccionesIntegrationTest {
 
   private Matricula agregarUsuarioMatriculado(Periodo periodo, EstadoMatricula estado) {
     String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-    Persona persona = new Persona();
-    persona.setDni(suffix);
-    persona.setNombre("Estudiante");
-    persona.setApellidoPaterno("Transaccional");
-    persona.setApellidoMaterno("Prueba");
+    Persona persona = new Persona(suffix, "Estudiante", "Transaccional", "Prueba");
     entityManager.persist(persona);
 
-    CuentaUsuario usuario = new CuentaUsuario();
-    usuario.setUsername("alumno-" + suffix);
-    usuario.setPassword("hash-de-prueba");
-    usuario.setRol(Rol.ALUMNO);
-    usuario.setPersona(persona);
+    CuentaUsuario usuario =
+        new CuentaUsuario("alumno-" + suffix, "hash-de-prueba", Rol.ALUMNO, persona);
     entityManager.persist(usuario);
 
     Estudiante estudiante = new Estudiante();

@@ -1,4 +1,4 @@
-package pe.edu.pucp.colegio.seguridad.controller;
+package pe.edu.pucp.colegio.security.controller;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -7,9 +7,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import pe.edu.pucp.colegio.seguridad.dto.CrearCuentaRequestDTO;
-import pe.edu.pucp.colegio.seguridad.dto.CuentaResponseDTO;
-import pe.edu.pucp.colegio.seguridad.service.CuentaUsuarioService;
+import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
+import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
 /** Endpoints de cuentas de usuario. Solo el rol ADMINISTRADOR puede usarlos. */
 @RestController

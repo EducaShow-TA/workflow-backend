@@ -1,9 +1,9 @@
-package pe.edu.pucp.colegio.seguridad.dto;
+package pe.edu.pucp.colegio.security.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import pe.edu.pucp.colegio.seguridad.model.Rol;
+import pe.edu.pucp.colegio.security.model.Rol;
 
 public record CrearCuentaRequestDTO(
     @NotBlank(message = "El DNI es obligatorio") @Size(max = 15, message = "El DNI es muy largo")

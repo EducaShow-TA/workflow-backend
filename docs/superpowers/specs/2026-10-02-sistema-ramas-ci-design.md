@@ -168,7 +168,7 @@ Corrección de incumplimientos de la revisión del 2026-10-02, en orden de prior
 5. Migración `V2`: FK `usuario_id` y CHECK en `accion`, `nivel`, `genero` (V1 no se modifica).
 6. Duración del JWT acorde a "corta duración".
 7. Identificadores en español.
-8. Cambiar `<java.version>` de 17 a 25 en `pom.xml` (el Estándar y la Arquitectura ya indican Java 25; verificado el 2026-10-04 que compila, pasa los tests y arranca con `release 25`).
+8. Mantener `<java.version>` en `25` en `pom.xml` (el Estándar y la Arquitectura indican Java 25; verificado el 2026-10-04 que compila, pasa los tests y arranca con `release 25`).
 
 ## 8. CD (pendiente, cuando exista el servidor EC2)
 

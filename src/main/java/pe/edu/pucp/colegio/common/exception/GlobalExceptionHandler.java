@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.NivelLog;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
 
@@ -59,6 +60,35 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorRespuestaDTO> malformado(
       HttpMessageNotReadableException e, HttpServletRequest r) {
     return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "REQ_400", "JSON inválido", r);
+  }
+
+  @ExceptionHandler(ResponseStatusException.class)
+  ResponseEntity<ErrorRespuestaDTO> estadoSolicitado(
+      ResponseStatusException e, HttpServletRequest r) {
+    HttpStatus estado =
+        HttpStatus.resolve(e.getStatusCode().value()) == null
+            ? HttpStatus.INTERNAL_SERVER_ERROR
+            : HttpStatus.resolve(e.getStatusCode().value());
+    NivelLog nivel =
+        estado.is5xxServerError()
+            ? NivelLog.ERROR
+            : estado == HttpStatus.CONFLICT
+                    || estado == HttpStatus.UNAUTHORIZED
+                    || estado == HttpStatus.FORBIDDEN
+                ? NivelLog.ADVERTENCIA
+                : NivelLog.INFO;
+    String codigo =
+        switch (estado) {
+          case BAD_REQUEST -> "REQ_400";
+          case UNAUTHORIZED -> "AUTH_401";
+          case FORBIDDEN -> "AUTH_403";
+          case NOT_FOUND -> "RES_404";
+          case CONFLICT -> "NEG_409";
+          case UNPROCESSABLE_ENTITY -> "NEG_422";
+          default -> "HTTP_" + estado.value();
+        };
+    String mensaje = e.getReason() == null ? estado.getReasonPhrase() : e.getReason();
+    return responder(estado, nivel, codigo, mensaje, r);
   }
 
   @ExceptionHandler(AccessDeniedException.class)

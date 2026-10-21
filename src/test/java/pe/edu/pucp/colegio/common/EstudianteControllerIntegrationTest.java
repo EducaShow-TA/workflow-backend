@@ -64,18 +64,16 @@ class EstudianteControllerIntegrationTest {
   @Test
   void asignarCambiaARolAlumnoYVinculaPerfilConPersonaDeCuentaExistente() throws Exception {
     String suffix = UUID.randomUUID().toString().substring(0, 8);
-    Persona persona = new Persona();
-    persona.setDni("2" + suffix.replace("-", ""));
-    persona.setNombre("Luis");
-    persona.setApellidoPaterno("Rojas");
-    persona.setApellidoMaterno("Luna");
+    Persona persona =
+        new Persona("2" + suffix.replace("-", ""), "Luis", "Rojas", "Luna");
     persona = personas.save(persona);
 
-    CuentaUsuario cuenta = new CuentaUsuario();
-    cuenta.setUsername("existente-" + suffix);
-    cuenta.setPassword(passwordEncoder.encode("ClaveSegura123"));
-    cuenta.setRol(Rol.DOCENTE);
-    cuenta.setPersona(persona);
+    CuentaUsuario cuenta =
+        new CuentaUsuario(
+            "existente-" + suffix,
+            passwordEncoder.encode("ClaveSegura123"),
+            Rol.DOCENTE,
+            persona);
     cuenta = cuentas.save(cuenta);
     Integer cuentaId = cuenta.getId();
     Integer personaId = persona.getId();

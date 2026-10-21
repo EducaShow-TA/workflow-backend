@@ -158,11 +158,7 @@ class VacantesPeriodoIntegrationTest {
 
   private void agregarMatricula(Periodo periodo, EstadoMatricula estado, boolean activa) {
     String dni = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-    Persona persona = new Persona();
-    persona.setDni(dni);
-    persona.setNombre("Estudiante");
-    persona.setApellidoPaterno("Prueba");
-    persona.setApellidoMaterno("Vacantes");
+    Persona persona = new Persona(dni, "Estudiante", "Prueba", "Vacantes");
     entityManager.persist(persona);
 
     Estudiante estudiante = new Estudiante();

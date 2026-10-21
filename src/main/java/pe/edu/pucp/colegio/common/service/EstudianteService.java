@@ -44,11 +44,12 @@ public class EstudianteService {
           HttpStatus.CONFLICT, "Ya existe una cuenta con ese nombre de usuario");
     }
 
-    Persona persona = new Persona();
-    persona.setDni(request.dni());
-    persona.setNombre(request.nombre());
-    persona.setApellidoPaterno(request.apellidoPaterno());
-    persona.setApellidoMaterno(request.apellidoMaterno());
+    Persona persona =
+        new Persona(
+            request.dni(),
+            request.nombre(),
+            request.apellidoPaterno(),
+            request.apellidoMaterno());
     persona.setFechaNacimiento(request.fechaNacimiento());
     persona.setTelefono(request.telefono());
     persona.setGenero(request.genero());
@@ -58,11 +59,9 @@ public class EstudianteService {
     estudiante.setPersona(persona);
     estudiante = estudiantes.save(estudiante);
 
-    CuentaUsuario cuenta = new CuentaUsuario();
-    cuenta.setUsername(request.username());
-    cuenta.setPassword(passwordEncoder.encode(request.password()));
-    cuenta.setRol(Rol.ALUMNO);
-    cuenta.setPersona(persona);
+    CuentaUsuario cuenta =
+        new CuentaUsuario(
+            request.username(), passwordEncoder.encode(request.password()), Rol.ALUMNO, persona);
     cuentas.save(cuenta);
 
     return new EstudianteResponse(

@@ -4,7 +4,7 @@ Backend REST en Spring Boot para el módulo de seguridad de un sistema escolar. 
 
 ## Tecnologías
 
-- Java 17 (`pom.xml`), Spring Boot 3.5.6.
+- Java 25 (`pom.xml`), Spring Boot 3.5.6.
 - Spring Web, Validation, Data JPA y Spring Security.
 - MySQL para ejecución y pruebas locales.
 - H2 para pruebas de integración.
@@ -267,7 +267,7 @@ Flyway crea las tablas de seguridad, catálogo curricular, matrículas y organiz
 
 ## Requisitos
 
-- JDK 17 o superior compatible con el nivel configurado en Maven.
+- JDK 25, requerido para compilar y ejecutar el proyecto.
 - Maven.
 - Un servidor MySQL accesible en `localhost:3306`.
 
