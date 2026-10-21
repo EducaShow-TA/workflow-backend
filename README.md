@@ -13,9 +13,42 @@ Backend REST en Spring Boot para el módulo de seguridad de un sistema escolar. 
 
 ## Funcionalidades y endpoints
 
-### `POST /api/v1/auth/login`
+Esta sección documenta las rutas REST implementadas, sus parámetros y los cuerpos JSON esperados. Hay 16 endpoints. Excepto `POST /api/v1/auth/login`, todos requieren autenticación Bearer.
 
-Recibe `username` y `password`. Valida los campos, comprueba que la cuenta esté activa y no bloqueada, y compara la contraseña con BCrypt. Una contraseña incorrecta incrementa el contador de intentos y puede bloquear la cuenta durante el periodo configurado. Un acceso exitoso reinicia los intentos, registra una auditoría y devuelve un token Bearer con el perfil.
+### Convenciones generales
+
+- Para las solicitudes con cuerpo, enviar `Content-Type: application/json`.
+- Para las rutas protegidas, enviar `Authorization: Bearer <token>`.
+- Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
+- Los errores tienen el formato `{"message":"..."}`. Se usan `400` para datos inválidos o reglas de negocio, `401` para autenticación ausente o inválida, `404` para recursos inexistentes, `409` para conflictos y `500` para errores internos.
+- No se exponen endpoints para consultar o gestionar directamente `Grado` y `Seccion`; sus identificadores se usan al crear un periodo.
+
+#### Resumen de rutas
+
+| Método | Endpoint | Propósito |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/login` | Iniciar sesión y obtener JWT |
+| `GET` | `/api/v1/auth/me` | Consultar el perfil autenticado |
+| `POST` | `/api/v1/areas` | Crear un área |
+| `GET` | `/api/v1/areas/{codigo}` | Consultar un área |
+| `PUT` | `/api/v1/areas/{codigo}` | Actualizar un área y sus competencias |
+| `DELETE` | `/api/v1/areas/{codigo}` | Eliminar un área |
+| `POST` | `/api/v1/competencias` | Crear una competencia |
+| `GET` | `/api/v1/competencias/{codigo}` | Consultar una competencia |
+| `PUT` | `/api/v1/competencias/{codigo}` | Actualizar una competencia y sus áreas |
+| `DELETE` | `/api/v1/competencias/{codigo}` | Eliminar una competencia |
+| `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
+| `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
+| `POST` | `/api/v1/periodos` | Crear un periodo académico |
+| `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
+| `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
+| `DELETE` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}` | Eliminar una matrícula |
+
+### Autenticación
+
+#### `POST /api/v1/auth/login`
+
+Público. Recibe `username` y `password`, ambos obligatorios y no vacíos. Valida que la cuenta esté activa y no bloqueada y compara la contraseña con BCrypt. Un login correcto reinicia los intentos fallidos, registra auditoría y devuelve un token.
 
 ```json
 {
@@ -24,23 +57,47 @@ Recibe `username` y `password`. Valida los campos, comprueba que la cuenta esté
 }
 ```
 
-### `GET /api/v1/auth/me`
+Respuesta `200`:
 
-Requiere `Authorization: Bearer <token>`. Devuelve el perfil asociado al usuario autenticado. La aplicación es stateless; el login es público y las demás rutas requieren autenticación.
+```json
+{
+  "token": "<jwt>",
+  "tokenType": "Bearer",
+  "expiresIn": 3600,
+  "usuario": {
+    "id": 12,
+    "username": "usuario@ejemplo.edu.pe",
+    "rol": "ADMIN",
+    "nombreCompleto": "Nombre Apellido",
+    "dni": "12345678"
+  }
+}
+```
 
-### Alta de estudiantes
+Credenciales inválidas, cuenta inactiva, bloqueada o datos de login vacíos producen `401` o `400` según corresponda.
 
-`POST /api/v1/estudiantes` crea una Persona, su perfil de estudiante y una cuenta nueva con rol `ALUMNO`. La contraseña se guarda con BCrypt; el rol no se recibe desde el cliente.
+#### `GET /api/v1/auth/me`
 
-`POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar` asigna el rol `ALUMNO` a una cuenta existente y crea el perfil de estudiante asociado a la Persona de esa cuenta. La cuenta debe estar vinculada a una Persona y esta no debe tener ya un perfil de estudiante.
+No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `usuario` mostrado arriba (`id`, `username`, `rol`, `nombreCompleto`, `dni`).
 
 ### Áreas y competencias
 
-Los endpoints CRUD de `/api/v1/areas` y `/api/v1/competencias` requieren autenticación. Cada recurso admite cuatro operaciones: `POST` para crear, `GET /{codigo}` para consultar, `PUT /{codigo}` para actualizar y `DELETE /{codigo}` para eliminar. El `codigo` es la clave primaria de tipo texto.
+Ambos recursos tienen exactamente cuatro operaciones. El `codigo` es una clave de texto de hasta 50 caracteres. La relación entre áreas y competencias es muchos a muchos. Las respuestas exponen los códigos relacionados, no objetos anidados.
 
-La relación es muchos a muchos. Al crear o actualizar un área se puede enviar `competenciaCodigos`; al crear o actualizar una competencia se puede enviar `areaCodigos`. Omitir la lista o enviarla vacía deja el recurso sin relaciones. Las respuestas incluyen los códigos relacionados y no anidan objetos completos.
+#### Áreas
 
-Ejemplo de área:
+`POST /api/v1/areas` recibe un área y devuelve `201` con el área creada y su encabezado `Location`. `GET /api/v1/areas/{codigo}` devuelve `200`. `PUT /api/v1/areas/{codigo}` reemplaza los datos y relaciones y devuelve `200`. `DELETE /api/v1/areas/{codigo}` elimina el área y devuelve `204` sin cuerpo.
+
+El cuerpo de creación y actualización tiene estos campos:
+
+| Campo | Tipo | Requisito |
+| --- | --- | --- |
+| `codigo` | string | Obligatorio, no vacío, máximo 50 caracteres; debe coincidir con `{codigo}` en `PUT` |
+| `nombre` | string | Obligatorio, no vacío, máximo 255 caracteres |
+| `descripcion` | string | Opcional, máximo 255 caracteres |
+| `competenciaCodigos` | arreglo de strings | Opcional; códigos de competencias existentes |
+
+Ejemplo:
 
 ```json
 {
@@ -50,6 +107,134 @@ Ejemplo de área:
   "competenciaCodigos": ["MAT-01", "MAT-02"]
 }
 ```
+
+La respuesta tiene la misma estructura. Si se omite `competenciaCodigos` o se envía vacío al crear/actualizar, el área queda sin competencias. Los códigos referenciados deben existir.
+
+#### Competencias
+
+`POST /api/v1/competencias` recibe una competencia y devuelve `201` con su encabezado `Location`. `GET /api/v1/competencias/{codigo}` devuelve `200`. `PUT /api/v1/competencias/{codigo}` actualiza los datos y relaciones y devuelve `200`. `DELETE /api/v1/competencias/{codigo}` elimina la competencia y devuelve `204` sin cuerpo.
+
+El cuerpo de creación y actualización es equivalente al de área, con `areaCodigos` en lugar de `competenciaCodigos`:
+
+```json
+{
+  "codigo": "MAT-01",
+  "nombre": "Resuelve problemas de cantidad",
+  "descripcion": "Descripción opcional",
+  "areaCodigos": ["MAT"]
+}
+```
+
+La respuesta incluye `codigo`, `nombre`, `descripcion` y `areaCodigos`. Omitir o enviar vacía la lista al actualizar quita todas las relaciones. En estas operaciones, un código duplicado genera `409`, un recurso solicitado que no existe genera `404`, un código relacionado inexistente genera `400`, y un código de ruta distinto al del cuerpo en `PUT` genera `400`.
+
+### Estudiantes
+
+#### `POST /api/v1/estudiantes`
+
+Crea una Persona, un perfil de estudiante y una cuenta nueva con rol `ALUMNO`. No se recibe el rol en el cuerpo; la contraseña se almacena con BCrypt. Devuelve `201` con:
+
+```json
+{
+  "estudianteId": 31,
+  "personaId": 45,
+  "username": "alumno01",
+  "rol": "ALUMNO",
+  "dni": "12345678",
+  "nombreCompleto": "Ana Pérez Rojas"
+}
+```
+
+Campos esperados:
+
+| Campo | Tipo | Requisito |
+| --- | --- | --- |
+| `username` | string | Obligatorio, no vacío, máximo 50 caracteres |
+| `password` | string | Obligatorio, de 8 a 72 caracteres |
+| `dni` | string | Obligatorio, no vacío, máximo 15 caracteres |
+| `nombre` | string | Obligatorio, no vacío, máximo 100 caracteres |
+| `apellidoPaterno` | string | Obligatorio, no vacío, máximo 100 caracteres |
+| `apellidoMaterno` | string | Obligatorio, no vacío, máximo 100 caracteres |
+| `fechaNacimiento` | fecha | Opcional, formato `YYYY-MM-DD` |
+| `telefono` | string | Opcional, máximo 20 caracteres |
+| `genero` | string | Opcional, máximo 20 caracteres |
+
+DNI o username ya registrados producen `409`.
+
+#### `POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar`
+
+`cuentaUsuarioId` es el ID entero de una cuenta existente. No recibe cuerpo. Asigna el rol `ALUMNO` y crea el perfil de estudiante asociado a la Persona de la cuenta; responde `200` con la misma estructura de `EstudianteResponse`. La cuenta debe existir y estar vinculada a una Persona. Si no existe, responde `404`; si no tiene Persona o ya tiene perfil de estudiante, responde `400` o `409`.
+
+### Periodos académicos y vacantes
+
+#### `POST /api/v1/periodos`
+
+Crea un periodo para un grado y sección existentes. Recibe:
+
+```json
+{
+  "gradoId": 1,
+  "seccionId": 2,
+  "fechaInicio": "2026-03-01",
+  "fechaFin": "2026-12-20"
+}
+```
+
+Los cuatro campos son obligatorios. `gradoId` y `seccionId` son enteros; las fechas son `YYYY-MM-DD` y `fechaInicio` debe ser anterior o igual a `fechaFin`. El grado y la sección deben existir y pertenecer entre sí. El estado se establece como `PLANIFICADO`; no se envía en la solicitud.
+
+Responde `201` con `{ "id", "gradoId", "seccionId", "fechaInicio", "fechaFin", "estado" }`. Un grado o sección inexistente responde `404`; fechas inconsistentes o sección de otro grado, `400`; periodo duplicado, `409`.
+
+#### `GET /api/v1/periodos/{periodoId}/vacantes`
+
+`periodoId` es un entero de ruta. No recibe query parameters ni cuerpo. Responde `200` con:
+
+```json
+{
+  "periodoId": 7,
+  "gradoId": 1,
+  "numeroGrado": 1,
+  "nivelEducativo": "PRIMARIA",
+  "seccionId": 2,
+  "seccion": "A",
+  "fechaInicio": "2026-03-01",
+  "fechaFin": "2026-12-20",
+  "vacantesTotales": 30,
+  "matriculasActivas": 24,
+  "vacantesDisponibles": 6,
+  "hayVacantes": true
+}
+```
+
+`matriculasActivas` cuenta las matrículas activas del periodo cuyo estado no sea `RETIRADA`; `vacantesDisponibles` es el total de la sección menos esas matrículas, con mínimo cero. `hayVacantes` indica si el resultado es mayor a cero. Periodo inexistente responde `404`; capacidad de sección ausente o no válida responde `400`.
+
+### Matrículas
+
+#### `POST /api/v1/periodos/{periodoId}/matriculas`
+
+Registra a un estudiante en el periodo indicado. `periodoId` es un entero de ruta. El cuerpo requiere `estudianteId` entero:
+
+```json
+{
+  "estudianteId": 31
+}
+```
+
+Si hay cupo y no existe una matrícula activa duplicada, crea la matrícula o reactiva el registro retirado/inactivo. Devuelve `201` con:
+
+```json
+{
+  "matriculaId": 55,
+  "estudianteId": 31,
+  "periodoId": 7,
+  "fechaMatricula": "2026-02-20",
+  "estado": "EN_REGISTRO"
+}
+```
+
+Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula activa duplicada responde `409`. Una capacidad no configurada o inválida en la sección responde `400`.
+
+#### `DELETE /api/v1/periodos/{periodoId}/matriculas/{estudianteId}`
+
+`periodoId` y `estudianteId` son enteros de ruta. No recibe cuerpo y responde `204` sin contenido al eliminar la matrícula. Si no existe el periodo o la relación de matrícula, responde `404`.
 
 ## Estructura
 
