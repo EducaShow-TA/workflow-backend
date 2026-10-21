@@ -1,0 +1,95 @@
+package pe.edu.pucp.colegio.common;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+import pe.edu.pucp.colegio.common.model.Estudiante;
+import pe.edu.pucp.colegio.common.model.Persona;
+import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@WithMockUser(username = "admin-test", roles = "ADMINISTRADOR")
+class EstudianteControllerIntegrationTest {
+
+  @Autowired MockMvc mvc;
+  @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired PersonaRepository personas;
+  @Autowired EstudianteRepository estudiantes;
+  @Autowired PasswordEncoder passwordEncoder;
+
+  @Test
+  void crearDaDeAltaCuentaConRolAlumnoYPerfilEstudiante() throws Exception {
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+    String username = "alumno-" + suffix;
+    String dni = "1" + suffix.replace("-", "");
+
+    mvc.perform(
+            post("/api/v1/estudiantes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"username\":\""
+                        + username
+                        + "\",\"password\":\"ClaveSegura123\",\"dni\":\""
+                        + dni
+                        + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Pérez\","
+                        + "\"apellidoMaterno\":\"Díaz\",\"fechaNacimiento\":\"2012-05-10\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.username").value(username))
+        .andExpect(jsonPath("$.rol").value("ALUMNO"))
+        .andExpect(jsonPath("$.dni").value(dni));
+
+    CuentaUsuario cuenta = cuentas.findByUsername(username).orElseThrow();
+    assertEquals(Rol.ALUMNO, cuenta.getRol());
+    assertNotEquals("ClaveSegura123", cuenta.getPassword());
+    assertTrue(passwordEncoder.matches("ClaveSegura123", cuenta.getPassword()));
+    assertTrue(estudiantes.existsByPersonaId(cuenta.getPersona().getId()));
+  }
+
+  @Test
+  void asignarCambiaARolAlumnoYVinculaPerfilConPersonaDeCuentaExistente() throws Exception {
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+    Persona persona = new Persona();
+    persona.setDni("2" + suffix.replace("-", ""));
+    persona.setNombre("Luis");
+    persona.setApellidoPaterno("Rojas");
+    persona.setApellidoMaterno("Luna");
+    persona = personas.save(persona);
+
+    CuentaUsuario cuenta = new CuentaUsuario();
+    cuenta.setUsername("existente-" + suffix);
+    cuenta.setPassword(passwordEncoder.encode("ClaveSegura123"));
+    cuenta.setRol(Rol.DOCENTE);
+    cuenta.setPersona(persona);
+    cuenta = cuentas.save(cuenta);
+    Integer cuentaId = cuenta.getId();
+    Integer personaId = persona.getId();
+
+    mvc.perform(post("/api/v1/estudiantes/{id}/asignar", cuentaId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rol").value("ALUMNO"))
+        .andExpect(jsonPath("$.personaId").value(personaId));
+
+    assertEquals(Rol.ALUMNO, cuentas.findById(cuentaId).orElseThrow().getRol());
+    Estudiante estudiante = estudiantes.findAll().stream()
+        .filter(item -> item.getPersona().getId().equals(personaId))
+        .findFirst()
+        .orElseThrow();
+    assertEquals(personaId, estudiante.getPersona().getId());
+  }
+}

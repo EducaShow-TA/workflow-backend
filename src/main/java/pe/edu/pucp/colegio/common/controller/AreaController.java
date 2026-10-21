@@ -2,7 +2,6 @@ package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.pucp.colegio.common.dto.AreaRequest;
@@ -17,11 +16,6 @@ public class AreaController {
 
   public AreaController(CatalogoService catalogo) {
     this.catalogo = catalogo;
-  }
-
-  @GetMapping
-  public ResponseEntity<List<AreaResponse>> listar() {
-    return ResponseEntity.ok(catalogo.listarAreas());
   }
 
   @GetMapping("/{codigo}")

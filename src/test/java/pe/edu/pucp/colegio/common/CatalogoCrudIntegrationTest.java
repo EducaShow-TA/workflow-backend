@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
 
@@ -22,11 +23,58 @@ class CatalogoCrudIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired AreaRepository areas;
   @Autowired CompetenciaRepository competencias;
+  @Autowired JdbcTemplate jdbc;
 
   @BeforeEach
   void limpiarCatalogo() {
-    areas.deleteAll();
+    jdbc.update("DELETE FROM areas_competencias");
     competencias.deleteAll();
+    areas.deleteAll();
+  }
+
+  @Test
+  void areaSeRelacionaConVariasCompetenciasActualizaVinculosYSeEliminaSinBorrarlas()
+      throws Exception {
+    crearCompetencia("MAT-01", "Resuelve problemas");
+    crearCompetencia("MAT-02", "Gestiona datos");
+
+    mvc.perform(
+            post("/api/v1/areas")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(areaJson("MAT", "Matemática", "Área curricular", "MAT-01", "MAT-02")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.competenciaCodigos.length()").value(2));
+
+    mvc.perform(get("/api/v1/areas/MAT"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.competenciaCodigos.length()").value(2));
+    mvc.perform(get("/api/v1/competencias/MAT-01"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.areaCodigos[0]").value("MAT"));
+    mvc.perform(get("/api/v1/competencias/MAT-02"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.areaCodigos[0]").value("MAT"));
+
+    mvc.perform(
+            put("/api/v1/areas/MAT")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(areaJson("MAT", "Matemática actualizada", null, "MAT-02")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nombre").value("Matemática actualizada"))
+        .andExpect(jsonPath("$.competenciaCodigos.length()").value(1))
+        .andExpect(jsonPath("$.competenciaCodigos[0]").value("MAT-02"));
+    mvc.perform(get("/api/v1/competencias/MAT-01"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.areaCodigos").isEmpty());
+    mvc.perform(get("/api/v1/competencias/MAT-02"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.areaCodigos[0]").value("MAT"));
+
+    mvc.perform(delete("/api/v1/areas/MAT")).andExpect(status().isNoContent());
+    mvc.perform(get("/api/v1/areas/MAT")).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/competencias/MAT-02"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.areaCodigos").isEmpty());
   }
 
   @Test
@@ -44,10 +92,6 @@ class CatalogoCrudIntegrationTest {
     mvc.perform(get("/api/v1/areas/MAT"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.nombre").value("Matemática"));
-
-    mvc.perform(get("/api/v1/areas"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].codigo").value("MAT"));
 
     mvc.perform(
             put("/api/v1/areas/MAT")
@@ -106,10 +150,6 @@ class CatalogoCrudIntegrationTest {
     mvc.perform(get("/api/v1/competencias/LEE"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.nombre").value("Lee"));
-    mvc.perform(get("/api/v1/competencias"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].codigo").value("LEE"));
-
     mvc.perform(
             put("/api/v1/competencias/LEE")
                 .contentType(MediaType.APPLICATION_JSON)

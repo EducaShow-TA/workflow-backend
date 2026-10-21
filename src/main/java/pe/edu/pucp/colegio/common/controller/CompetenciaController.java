@@ -2,7 +2,6 @@ package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.pucp.colegio.common.dto.CompetenciaRequest;
@@ -17,11 +16,6 @@ public class CompetenciaController {
 
   public CompetenciaController(CatalogoService catalogo) {
     this.catalogo = catalogo;
-  }
-
-  @GetMapping
-  public ResponseEntity<List<CompetenciaResponse>> listar() {
-    return ResponseEntity.ok(catalogo.listarCompetencias());
   }
 
   @GetMapping("/{codigo}")

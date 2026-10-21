@@ -28,9 +28,15 @@ Recibe `username` y `password`. Valida los campos, comprueba que la cuenta esté
 
 Requiere `Authorization: Bearer <token>`. Devuelve el perfil asociado al usuario autenticado. La aplicación es stateless; el login es público y las demás rutas requieren autenticación.
 
+### Alta de estudiantes
+
+`POST /api/v1/estudiantes` crea una Persona, su perfil de estudiante y una cuenta nueva con rol `ALUMNO`. La contraseña se guarda con BCrypt; el rol no se recibe desde el cliente.
+
+`POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar` asigna el rol `ALUMNO` a una cuenta existente y crea el perfil de estudiante asociado a la Persona de esa cuenta. La cuenta debe estar vinculada a una Persona y esta no debe tener ya un perfil de estudiante.
+
 ### Áreas y competencias
 
-Los endpoints CRUD de `/api/v1/areas` y `/api/v1/competencias` requieren autenticación. Ambos recursos admiten `GET` para listar, `GET /{codigo}` para consultar, `POST` para crear, `PUT /{codigo}` para actualizar y `DELETE /{codigo}` para eliminar. El `codigo` es la clave primaria de tipo texto.
+Los endpoints CRUD de `/api/v1/areas` y `/api/v1/competencias` requieren autenticación. Cada recurso admite cuatro operaciones: `POST` para crear, `GET /{codigo}` para consultar, `PUT /{codigo}` para actualizar y `DELETE /{codigo}` para eliminar. El `codigo` es la clave primaria de tipo texto.
 
 La relación es muchos a muchos. Al crear o actualizar un área se puede enviar `competenciaCodigos`; al crear o actualizar una competencia se puede enviar `areaCodigos`. Omitir la lista o enviarla vacía deja el recurso sin relaciones. Las respuestas incluyen los códigos relacionados y no anidan objetos completos.
 
@@ -53,7 +59,7 @@ src/main/java/pe/edu/pucp/colegio/
 ├── common/
 │   ├── audit/       # Entidades y repositorios de auditoría y errores
 │   ├── exception/   # Excepciones de negocio y manejo HTTP global
-│   └── model/       # Entidad base y Persona
+│   └── model/       # Personas, catálogo curricular y matrículas
 └── security/
     ├── config/      # Reglas de acceso y cadena de filtros
     ├── controller/  # Endpoints de autenticación
@@ -72,7 +78,7 @@ src/test/
 └── resources/application.yml
 ```
 
-Flyway crea las tablas `personas`, `cuentas_usuario`, `registros_auditoria` y `registros_error`. Hibernate valida el esquema al iniciar (`ddl-auto: validate`).
+Flyway crea las tablas de seguridad, catálogo curricular, matrículas y organización académica. Hibernate valida el esquema al iniciar (`ddl-auto: validate`). Un `Periodo` puede contener varias `Matricula`; cada matrícula enlaza un estudiante con un solo periodo y un estudiante puede matricularse en distintos periodos. Un `Grado` se identifica por número y nivel educativo (`INICIAL`, `PRIMARIA` o `SECUNDARIA`); así se pueden tener, por ejemplo, los grados 1 de Primaria y 1 de Secundaria. Cada grado requiere al menos una `Seccion`, identificada por un código como `A` o `B`, y cada sección pertenece a un solo grado.
 
 ## Requisitos
 
@@ -194,7 +200,7 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 
 ## Verificación manual
 
-Con la base de datos activa y las variables configuradas, inicia la aplicación con `mvn spring-boot:run`. Flyway aplica `V1__init_security.sql` y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
+Con la base de datos activa y las variables configuradas, inicia la aplicación con `mvn spring-boot:run`. Flyway aplica las migraciones disponibles y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
 
 La migración actual crea una cuenta semilla `admin@educore.edu.pe` y contiene un hash de contraseña conocido por el repositorio. **Úsala solo para pruebas locales y cambia o elimina esa cuenta antes de cualquier despliegue.** En una base donde V1 ya fue aplicada, modificar el archivo V1 no actualiza los datos existentes; la rotación debe hacerse mediante una actualización separada.
 

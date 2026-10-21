@@ -41,12 +41,24 @@ public class CuentaUsuario extends EntidadBase {
     return username;
   }
 
+  public void setUsername(String username) {
+    this.username = username;
+  }
+
   public String getPassword() {
     return password;
   }
 
+  public void setPassword(String password) {
+    this.password = password;
+  }
+
   public Rol getRol() {
     return rol;
+  }
+
+  public void setRol(Rol rol) {
+    this.rol = rol;
   }
 
   public Integer getIntentosFallidos() {
@@ -55,6 +67,10 @@ public class CuentaUsuario extends EntidadBase {
 
   public Persona getPersona() {
     return persona;
+  }
+
+  public void setPersona(Persona persona) {
+    this.persona = persona;
   }
 
   public boolean estaBloqueada() {

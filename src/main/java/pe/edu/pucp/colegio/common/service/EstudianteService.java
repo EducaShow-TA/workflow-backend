@@ -1,0 +1,113 @@
+package pe.edu.pucp.colegio.common.service;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
+import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
+import pe.edu.pucp.colegio.common.model.Estudiante;
+import pe.edu.pucp.colegio.common.model.Persona;
+import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+
+@Service
+public class EstudianteService {
+
+  private final PersonaRepository personas;
+  private final EstudianteRepository estudiantes;
+  private final CuentaUsuarioRepository cuentas;
+  private final PasswordEncoder passwordEncoder;
+
+  public EstudianteService(
+      PersonaRepository personas,
+      EstudianteRepository estudiantes,
+      CuentaUsuarioRepository cuentas,
+      PasswordEncoder passwordEncoder) {
+    this.personas = personas;
+    this.estudiantes = estudiantes;
+    this.cuentas = cuentas;
+    this.passwordEncoder = passwordEncoder;
+  }
+
+  @Transactional
+  public EstudianteResponse crear(EstudianteCreateRequest request) {
+    if (personas.existsByDni(request.dni())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una persona con ese DNI");
+    }
+    if (cuentas.existsByUsername(request.username())) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "Ya existe una cuenta con ese nombre de usuario");
+    }
+
+    Persona persona = new Persona();
+    persona.setDni(request.dni());
+    persona.setNombre(request.nombre());
+    persona.setApellidoPaterno(request.apellidoPaterno());
+    persona.setApellidoMaterno(request.apellidoMaterno());
+    persona.setFechaNacimiento(request.fechaNacimiento());
+    persona.setTelefono(request.telefono());
+    persona.setGenero(request.genero());
+    persona = personas.save(persona);
+
+    Estudiante estudiante = new Estudiante();
+    estudiante.setPersona(persona);
+    estudiante = estudiantes.save(estudiante);
+
+    CuentaUsuario cuenta = new CuentaUsuario();
+    cuenta.setUsername(request.username());
+    cuenta.setPassword(passwordEncoder.encode(request.password()));
+    cuenta.setRol(Rol.ALUMNO);
+    cuenta.setPersona(persona);
+    cuentas.save(cuenta);
+
+    return new EstudianteResponse(
+        estudiante.getId(),
+        persona.getId(),
+        cuenta.getUsername(),
+        cuenta.getRol().name(),
+        persona.getDni(),
+        persona.getNombreCompleto());
+  }
+
+  @Transactional
+  public EstudianteResponse asignarCuentaExistente(Integer cuentaUsuarioId) {
+    CuentaUsuario cuenta =
+        cuentas
+            .findById(cuentaUsuarioId)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No existe la cuenta de usuario indicada"));
+
+    Persona persona = cuenta.getPersona();
+    if (persona == null) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "La cuenta debe estar vinculada a una Persona para asignarle el perfil de estudiante");
+    }
+    if (estudiantes.existsByPersonaId(persona.getId())) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "La Persona ya tiene un perfil de estudiante");
+    }
+
+    Estudiante estudiante = new Estudiante();
+    estudiante.setPersona(persona);
+    estudiante = estudiantes.save(estudiante);
+
+    cuenta.setRol(Rol.ALUMNO);
+    cuentas.save(cuenta);
+
+    return new EstudianteResponse(
+        estudiante.getId(),
+        persona.getId(),
+        cuenta.getUsername(),
+        cuenta.getRol().name(),
+        persona.getDni(),
+        persona.getNombreCompleto());
+  }
+}

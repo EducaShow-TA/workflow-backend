@@ -27,11 +27,6 @@ public class CatalogoService {
   }
 
   @Transactional(readOnly = true)
-  public List<AreaResponse> listarAreas() {
-    return areas.findAll().stream().map(this::toResponse).toList();
-  }
-
-  @Transactional(readOnly = true)
   public AreaResponse obtenerArea(String codigo) {
     return toResponse(area(codigo));
   }
@@ -57,11 +52,6 @@ public class CatalogoService {
     Area area = area(codigo);
     desvincular(area);
     areas.delete(area);
-  }
-
-  @Transactional(readOnly = true)
-  public List<CompetenciaResponse> listarCompetencias() {
-    return competencias.findAll().stream().map(this::toResponse).toList();
   }
 
   @Transactional(readOnly = true)
