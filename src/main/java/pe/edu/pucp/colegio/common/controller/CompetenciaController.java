@@ -24,8 +24,7 @@ public class CompetenciaController {
   }
 
   @PostMapping
-  public ResponseEntity<CompetenciaResponse> crear(
-      @Valid @RequestBody CompetenciaRequest request) {
+  public ResponseEntity<CompetenciaResponse> crear(@Valid @RequestBody CompetenciaRequest request) {
     CompetenciaResponse creada = catalogo.crearCompetencia(request);
     return ResponseEntity.created(URI.create("/api/v1/competencias/" + creada.codigo()))
         .body(creada);

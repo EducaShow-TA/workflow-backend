@@ -9,7 +9,8 @@ import jakarta.validation.constraints.Size;
     name = "secciones",
     uniqueConstraints =
         @UniqueConstraint(
-            name = "uk_seccion_grado_codigo", columnNames = {"grado_id", "codigo"}))
+            name = "uk_seccion_grado_codigo",
+            columnNames = {"grado_id", "codigo"}))
 public class Seccion extends EntidadBase {
 
   @NotBlank(message = "El código de sección es obligatorio")

@@ -46,10 +46,9 @@ public class MatriculaService {
                         HttpStatus.NOT_FOUND, "No existe el estudiante indicado"));
 
     Matricula matricula =
-        matriculas
-            .findByPeriodoIdAndEstudianteId(periodoId, estudiante.getId())
-            .orElse(null);
-    if (matricula != null && Boolean.TRUE.equals(matricula.getActive())
+        matriculas.findByPeriodoIdAndEstudianteId(periodoId, estudiante.getId()).orElse(null);
+    if (matricula != null
+        && Boolean.TRUE.equals(matricula.getActive())
         && matricula.getEstado() != EstadoMatricula.RETIRADA) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "El estudiante ya está matriculado en este periodo");

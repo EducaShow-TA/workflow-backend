@@ -29,6 +29,13 @@
             <exec.executable>java</exec.executable>
             <Env.DB_PASSWORD>erizo12345</Env.DB_PASSWORD>
             <Env.JWT_SECRET>dGVzdC1qd3Qtc2VjcmV0LW11c3QtYmUtYXQtbGVhc3QtMzItYnl0ZXMtbG9uZy0xMjM0NTY=</Env.JWT_SECRET>
+            <Env.MAIL_HOST>smtp.gmail.com</Env.MAIL_HOST>
+            <Env.MAIL_PORT>587</Env.MAIL_PORT>
+            <Env.MAIL_USERNAME>11neleve11@gmail.com</Env.MAIL_USERNAME>
+            <Env.MAIL_PASSWORD>pqqy sptb ixce fruj</Env.MAIL_PASSWORD>
+            <Env.MAIL_FROM>11neleve11@gmail.com</Env.MAIL_FROM>
+            <Env.FRONTEND_PASSWORD_RESET_URL>http://localhost:3000/restablecer-contrasena</Env.FRONTEND_PASSWORD_RESET_URL>
+            <Env.PASSWORD_RESET_EXPIRATION_MINUTES>15</Env.PASSWORD_RESET_EXPIRATION_MINUTES>
 
 
         </properties>

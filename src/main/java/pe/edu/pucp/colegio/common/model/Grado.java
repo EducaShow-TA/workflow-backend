@@ -11,7 +11,8 @@ import java.util.Set;
     name = "grados",
     uniqueConstraints =
         @UniqueConstraint(
-            name = "uk_grado_nivel_numero", columnNames = {"nivel_educativo", "numero"}))
+            name = "uk_grado_nivel_numero",
+            columnNames = {"nivel_educativo", "numero"}))
 public class Grado extends EntidadBase {
 
   @Min(value = 1, message = "El número de grado debe ser mayor que cero")
@@ -23,7 +24,9 @@ public class Grado extends EntidadBase {
   private NivelEducativo nivelEducativo;
 
   @NotEmpty(message = "Un grado debe tener al menos una sección")
-  @OneToMany(mappedBy = "grado", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+  @OneToMany(
+      mappedBy = "grado",
+      cascade = {CascadeType.PERSIST, CascadeType.MERGE})
   private Set<Seccion> secciones = new LinkedHashSet<>();
 
   public Integer getNumero() {

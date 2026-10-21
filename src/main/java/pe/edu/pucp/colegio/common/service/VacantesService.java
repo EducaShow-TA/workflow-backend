@@ -33,8 +33,7 @@ public class VacantesService {
 
     int vacantesTotales = parsearVacantes(periodo.getSeccion().getVacantesTotales());
     long matriculasActivas =
-        matriculas.countByPeriodoIdAndActiveTrueAndEstadoNot(
-            periodoId, EstadoMatricula.RETIRADA);
+        matriculas.countByPeriodoIdAndActiveTrueAndEstadoNot(periodoId, EstadoMatricula.RETIRADA);
     int vacantesDisponibles = (int) Math.max(0, vacantesTotales - matriculasActivas);
 
     return new VacantesPeriodoResponse(

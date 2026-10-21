@@ -1,4 +1,3 @@
 package pe.edu.pucp.colegio.common.model;
 
-public class Curso {
-}
+public class Curso {}

@@ -6,8 +6,7 @@ import jakarta.persistence.*;
 @Table(
     name = "vinculos_familiares",
     uniqueConstraints =
-        @UniqueConstraint(
-            name = "uk_vinculo_familiar_estudiante", columnNames = "estudiante_id"))
+        @UniqueConstraint(name = "uk_vinculo_familiar_estudiante", columnNames = "estudiante_id"))
 public class VinculoFamiliar extends EntidadBase {
 
   @Enumerated(EnumType.STRING)

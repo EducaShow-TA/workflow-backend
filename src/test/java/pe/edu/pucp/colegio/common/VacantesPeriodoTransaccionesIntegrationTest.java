@@ -31,7 +31,8 @@ import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 
 @SpringBootTest(
-    properties = "spring.datasource.url=jdbc:h2:mem:vacantes-transacciones;MODE=MySQL;DB_CLOSE_DELAY=-1")
+    properties =
+        "spring.datasource.url=jdbc:h2:mem:vacantes-transacciones;MODE=MySQL;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc
 @WithMockUser(username = "vacantes-transacciones-test", roles = "ADMINISTRADOR")
 class VacantesPeriodoTransaccionesIntegrationTest {

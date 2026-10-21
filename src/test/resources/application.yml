@@ -9,6 +9,9 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  mail:
+    host: localhost
+    port: 1025
 app:
   jwt:
     secret: dGVzdC1qd3Qtc2VjcmV0LW11c3QtYmUtYXQtbGVhc3QtMzItYnl0ZXMtbG9uZy0xMjM0NTY=
@@ -16,3 +19,6 @@ app:
   security:
     max-login-attempts: 3
     lock-time-duration-minutes: 15
+  password-reset:
+    frontend-url: http://localhost:3000/restablecer-contrasena
+    expiration-minutes: 15

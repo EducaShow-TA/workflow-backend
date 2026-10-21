@@ -4,7 +4,7 @@ import pe.edu.pucp.colegio.security.dto.*;
 
 public interface AuthService {
 
-    AuthResponseDTO login(LoginRequestDTO request);
+  AuthResponseDTO login(LoginRequestDTO request);
 
-    UsuarioPerfilDTO currentUser(String username);
+  UsuarioPerfilDTO currentUser(String username);
 }

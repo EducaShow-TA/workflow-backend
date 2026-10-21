@@ -121,7 +121,8 @@ public class CatalogoService {
     if (codigos == null || codigos.isEmpty()) return new LinkedHashSet<>();
     List<Competencia> encontradas = competencias.findAllById(codigos);
     if (encontradas.size() != codigos.size()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o más códigos de competencia no existen");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Uno o más códigos de competencia no existen");
     }
     return new LinkedHashSet<>(encontradas);
   }
@@ -130,7 +131,8 @@ public class CatalogoService {
     if (codigos == null || codigos.isEmpty()) return new LinkedHashSet<>();
     List<Area> encontradas = areas.findAllById(codigos);
     if (encontradas.size() != codigos.size()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o más códigos de área no existen");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Uno o más códigos de área no existen");
     }
     return new LinkedHashSet<>(encontradas);
   }
