@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
@@ -18,8 +20,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 import pe.edu.pucp.colegio.common.model.Estudiante;
@@ -47,8 +47,7 @@ class VacantesPeriodoIntegrationTest {
   @Test
   void calculaVacantesConMatriculasActivasDelPeriodoSolicitado() throws Exception {
     Seccion seccion = crearSeccion("30");
-    Periodo periodo =
-        crearPeriodo(seccion, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 7, 31));
+    Periodo periodo = crearPeriodo(seccion, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 7, 31));
     agregarMatricula(periodo, EstadoMatricula.CONFIRMADA, true);
     agregarMatricula(periodo, EstadoMatricula.EN_REGISTRO, true);
     agregarMatricula(periodo, EstadoMatricula.FINALIZADA, true);
@@ -110,9 +109,7 @@ class VacantesPeriodoIntegrationTest {
 
     String response =
         mvc.perform(
-                post("/api/v1/periodos")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(request))
+                post("/api/v1/periodos").contentType(MediaType.APPLICATION_JSON).content(request))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.gradoId").value(seccion.getGrado().getId()))
             .andExpect(jsonPath("$.seccionId").value(seccion.getId()))

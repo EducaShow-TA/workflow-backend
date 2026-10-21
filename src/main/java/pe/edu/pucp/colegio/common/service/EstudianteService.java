@@ -46,10 +46,7 @@ public class EstudianteService {
 
     Persona persona =
         new Persona(
-            request.dni(),
-            request.nombre(),
-            request.apellidoPaterno(),
-            request.apellidoMaterno());
+            request.dni(), request.nombre(), request.apellidoPaterno(), request.apellidoMaterno());
     persona.setFechaNacimiento(request.fechaNacimiento());
     persona.setTelefono(request.telefono());
     persona.setGenero(request.genero());

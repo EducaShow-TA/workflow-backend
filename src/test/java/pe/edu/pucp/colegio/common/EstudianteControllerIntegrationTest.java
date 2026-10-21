@@ -64,16 +64,12 @@ class EstudianteControllerIntegrationTest {
   @Test
   void asignarCambiaARolAlumnoYVinculaPerfilConPersonaDeCuentaExistente() throws Exception {
     String suffix = UUID.randomUUID().toString().substring(0, 8);
-    Persona persona =
-        new Persona("2" + suffix.replace("-", ""), "Luis", "Rojas", "Luna");
+    Persona persona = new Persona("2" + suffix.replace("-", ""), "Luis", "Rojas", "Luna");
     persona = personas.save(persona);
 
     CuentaUsuario cuenta =
         new CuentaUsuario(
-            "existente-" + suffix,
-            passwordEncoder.encode("ClaveSegura123"),
-            Rol.DOCENTE,
-            persona);
+            "existente-" + suffix, passwordEncoder.encode("ClaveSegura123"), Rol.DOCENTE, persona);
     cuenta = cuentas.save(cuenta);
     Integer cuentaId = cuenta.getId();
     Integer personaId = persona.getId();
@@ -84,10 +80,11 @@ class EstudianteControllerIntegrationTest {
         .andExpect(jsonPath("$.personaId").value(personaId));
 
     assertEquals(Rol.ALUMNO, cuentas.findById(cuentaId).orElseThrow().getRol());
-    Estudiante estudiante = estudiantes.findAll().stream()
-        .filter(item -> item.getPersona().getId().equals(personaId))
-        .findFirst()
-        .orElseThrow();
+    Estudiante estudiante =
+        estudiantes.findAll().stream()
+            .filter(item -> item.getPersona().getId().equals(personaId))
+            .findFirst()
+            .orElseThrow();
     assertEquals(personaId, estudiante.getPersona().getId());
   }
 }
