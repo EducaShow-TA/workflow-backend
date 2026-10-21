@@ -2,6 +2,10 @@
 
 Backend Spring Boot 3 para el prototipo de arquitectura del módulo de seguridad. Implementa el contrato `POST /api/v1/auth/login`, JWT Bearer, bloqueo temporal después de intentos fallidos y migración inicial Flyway para MySQL.
 
+> **Despliegue local:** para instalar los requisitos y levantar MySQL + backend + frontend en tu máquina, sigue
+> [`docs/despliegue-local.md`](docs/despliegue-local.md). Flujo de ramas y Pull Requests:
+> [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
+
 ## Configuración
 
 El servicio requiere JDK 25 (ver `pom.xml`) y una base MySQL. No se versionan secretos: defina estas variables antes de iniciar la aplicación:

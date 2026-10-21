@@ -28,8 +28,7 @@ public class RegistroErrorService {
       NivelLog nivel, String codigo, String metodo, String endpoint, int estado, String mensaje) {
     try {
       errores.save(
-          new RegistroError(
-              nivel, codigo, metodo, recortar(endpoint), estado, recortar(mensaje)));
+          new RegistroError(nivel, codigo, metodo, recortar(endpoint), estado, recortar(mensaje)));
     } catch (RuntimeException e) {
       log.error("event=registro_error_fallido codigo={} causa={}", codigo, e.toString());
     }

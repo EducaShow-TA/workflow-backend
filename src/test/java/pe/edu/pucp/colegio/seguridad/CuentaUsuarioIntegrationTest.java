@@ -36,9 +36,15 @@ class CuentaUsuarioIntegrationTest {
   }
 
   private String cuenta(String sufijo, String dni, String rol) {
-    return "{\"dni\":\"" + dni + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Perez\","
-        + "\"apellidoMaterno\":\"Diaz\",\"username\":\"u" + sufijo + "@colegio.edu.pe\","
-        + "\"password\":\"Clave2026!\",\"rol\":\"" + rol + "\"}";
+    return "{\"dni\":\""
+        + dni
+        + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Perez\","
+        + "\"apellidoMaterno\":\"Diaz\",\"username\":\"u"
+        + sufijo
+        + "@colegio.edu.pe\","
+        + "\"password\":\"Clave2026!\",\"rol\":\""
+        + rol
+        + "\"}";
   }
 
   @Test
