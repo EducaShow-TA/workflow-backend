@@ -23,6 +23,9 @@ public class Persona extends EntidadBase {
   private String telefono;
   private String genero;
 
+  @Column(length = 254)
+  private String correo;
+
   protected Persona() {}
 
   public Persona(String dni, String nombre, String apellidoPaterno, String apellidoMaterno) {
@@ -83,6 +86,14 @@ public class Persona extends EntidadBase {
 
   public String getGenero() {
     return genero;
+  }
+
+  public String getCorreo() {
+    return correo;
+  }
+
+  public void setCorreo(String correo) {
+    this.correo = correo;
   }
 
   public void setGenero(String genero) {

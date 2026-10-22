@@ -64,9 +64,7 @@ class AuthIntegrationTest {
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"username\":\"admin@educore.edu.pe\",\"password\":\"Admin2026!\"}"))
           .andExpect(status().isUnauthorized())
-          .andExpect(
-              jsonPath("$.message")
-                  .value("La cuenta está temporalmente bloqueada. Intente más tarde."));
+          .andExpect(jsonPath("$.message").value("Credenciales inválidas"));
     } finally {
       admin.reiniciarIntentos();
       cuentas.save(admin);

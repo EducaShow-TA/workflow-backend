@@ -52,6 +52,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `PATCH` | `/api/v1/competencias/{id}/estado` | Activar/desactivar competencia |
 | `DELETE` | `/api/v1/competencias/{idOrCodigo}` | Desactivar una competencia |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
+| `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
 | `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/secciones` | Crear sección (solo ADMINISTRADOR) |
@@ -65,6 +66,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
+| `PATCH` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar` | Confirmar una matrícula en registro |
 | `DELETE` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}` | Eliminar una matrícula |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
@@ -143,7 +145,7 @@ Respuesta `200`:
 {
   "token": "<jwt>",
   "tokenType": "Bearer",
-  "expiresIn": 3600,
+  "expiresIn": 86400,
   "usuario": {
     "id": 12,
     "username": "usuario@ejemplo.edu.pe",
@@ -262,6 +264,10 @@ Campos esperados:
 
 DNI o username ya registrados producen `409`.
 
+#### `GET /api/v1/estudiantes`
+
+Lista estudiantes activos y sus matrículas en una página. Acepta filtros opcionales `nombre` (búsqueda parcial en nombres y apellidos), `dni` (búsqueda parcial), `gradoId` y `seccionId`; también acepta `page` (desde 0, predeterminado 0) y `size` (predeterminado 20, máximo 100). Las matrículas se consultan aparte de la página de estudiantes para evitar paginar una colección cargada en memoria.
+
 #### `POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar`
 
 `cuentaUsuarioId` es el ID entero de una cuenta existente. No recibe cuerpo. Asigna el rol `ALUMNO` y crea el perfil de estudiante asociado a la Persona de la cuenta; responde `200` con la misma estructura de `EstudianteResponse`. La cuenta debe existir y estar vinculada a una Persona. Si no existe, responde `404`; si no tiene Persona o ya tiene perfil de estudiante, responde `400` o `409`.
@@ -306,7 +312,7 @@ Responde `201` con `{ "id", "gradoId", "seccionId", "fechaInicio", "fechaFin", "
 }
 ```
 
-`matriculasActivas` cuenta las matrículas activas del periodo cuyo estado no sea `RETIRADA`; `vacantesDisponibles` es el total de la sección menos esas matrículas, con mínimo cero. `hayVacantes` indica si el resultado es mayor a cero. Periodo inexistente responde `404`; capacidad de sección ausente o no válida responde `400`.
+`matriculasActivas` cuenta estudiantes distintos con matrícula activa en la sección y estado `EN_REGISTRO` o `CONFIRMADA` (pueden pertenecer a distintos periodos de esa sección). La vacante se reserva al crear la matrícula en `EN_REGISTRO`; confirmar no consume otra. `vacantesDisponibles` es el total de la sección menos ese conteo, con mínimo cero. `hayVacantes` indica si el resultado es mayor a cero. Periodo inexistente responde `404`; capacidad de sección ausente o no válida responde `400`.
 
 ### Matrículas
 
@@ -332,7 +338,11 @@ Si hay cupo y no existe una matrícula activa duplicada, crea la matrícula o re
 }
 ```
 
-Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula activa duplicada responde `409`. Una capacidad no configurada o inválida en la sección responde `400`.
+Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula activa duplicada responde `409`. Una capacidad no configurada o inválida en la sección responde `400`. El cupo queda reservado desde el estado `EN_REGISTRO`.
+
+#### `PATCH /api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar`
+
+Confirma la matrícula activa del estudiante en el periodo. No recibe cuerpo y devuelve `200` con la matrícula en estado `CONFIRMADA`. Solo se puede confirmar desde `EN_REGISTRO`; una segunda confirmación o un estado distinto responde `409`. Si no existe la matrícula activa, responde `404`.
 
 #### `DELETE /api/v1/periodos/{periodoId}/matriculas/{estudianteId}`
 
@@ -383,11 +393,7 @@ Flyway crea las tablas de seguridad, catálogo curricular, matrículas y organiz
 
 Este checkout todavía no contiene Maven Wrapper ni los workflows de CI descritos en el diseño técnico del repositorio; por ahora se requiere una instalación local de Maven y ejecutar las verificaciones manualmente.
 
-En Fedora, instala Maven con:
-
-> **Despliegue local:** para instalar los requisitos y levantar MySQL + backend + frontend en tu máquina, sigue
-> [`docs/despliegue-local.md`](docs/despliegue-local.md). Flujo de ramas y Pull Requests:
-> [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
+Para instalar los requisitos y levantar MySQL, backend y frontend en tu máquina, sigue [`docs/despliegue-local.md`](docs/despliegue-local.md). El flujo de ramas y Pull Requests está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
 ### Instalar Maven
 ```bash
@@ -538,7 +544,7 @@ mvn test
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
 | US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |
 
-El estado actual de las historias se describe en la tabla anterior. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
+El estado actual de las historias se describe en la tabla anterior. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 
 La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
 

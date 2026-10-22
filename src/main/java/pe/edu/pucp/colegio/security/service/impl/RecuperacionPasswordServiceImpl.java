@@ -102,7 +102,13 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
         frontendUrl + separador + "token=" + URLEncoder.encode(tokenClaro, StandardCharsets.UTF_8);
 
     try {
-      correo.enviarCorreoRecuperacion(cuenta.getUsername(), enlace, expirationMinutes);
+      String destinatario = cuenta.getUsername();
+      if (cuenta.getPersona() != null
+          && cuenta.getPersona().getCorreo() != null
+          && !cuenta.getPersona().getCorreo().isBlank()) {
+        destinatario = cuenta.getPersona().getCorreo();
+      }
+      correo.enviarCorreoRecuperacion(destinatario, enlace, expirationMinutes);
     } catch (MailException e) {
       // No dejar un token activo que el usuario no ha recibido.
       token.setActive(false);

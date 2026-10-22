@@ -13,4 +13,28 @@ public record EstudianteCreateRequest(
     @NotBlank @Size(max = 100) String apellidoMaterno,
     LocalDate fechaNacimiento,
     @Size(max = 20) String telefono,
-    @Size(max = 20) String genero) {}
+    @Size(max = 20) String genero,
+    @jakarta.validation.constraints.Email @Size(max = 254) String correo) {
+  public EstudianteCreateRequest(
+      String username,
+      String password,
+      String dni,
+      String nombre,
+      String apellidoPaterno,
+      String apellidoMaterno,
+      LocalDate fechaNacimiento,
+      String telefono,
+      String genero) {
+    this(
+        username,
+        password,
+        dni,
+        nombre,
+        apellidoPaterno,
+        apellidoMaterno,
+        fechaNacimiento,
+        telefono,
+        genero,
+        null);
+  }
+}

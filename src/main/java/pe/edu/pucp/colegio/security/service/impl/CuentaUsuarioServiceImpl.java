@@ -52,12 +52,10 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
       throw new ConflictException("Ya existe una persona con ese DNI");
     }
     Persona persona =
-        personas.save(
-            new Persona(
-                request.dni(),
-                request.nombre(),
-                request.apellidoPaterno(),
-                request.apellidoMaterno()));
+        new Persona(
+            request.dni(), request.nombre(), request.apellidoPaterno(), request.apellidoMaterno());
+    persona.setCorreo(request.username().trim());
+    persona = personas.save(persona);
     CuentaUsuario cuenta =
         cuentas.save(
             new CuentaUsuario(
@@ -103,6 +101,7 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
       cuenta.getPersona().setNombre(request.nombre().trim());
       cuenta.getPersona().setApellidoPaterno(request.apellidoPaterno().trim());
       cuenta.getPersona().setApellidoMaterno(request.apellidoMaterno().trim());
+      cuenta.getPersona().setCorreo(username);
     }
     auditorias.save(
         new RegistroAuditoria(

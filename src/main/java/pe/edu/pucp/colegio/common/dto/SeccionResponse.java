@@ -5,4 +5,5 @@ public record SeccionResponse(
     Integer gradoNumero,
     String nombre,
     int vacantesTotales,
-    long cantidadMatriculados) {}
+    long cantidadMatriculados,
+    long vacantesDisponibles) {}

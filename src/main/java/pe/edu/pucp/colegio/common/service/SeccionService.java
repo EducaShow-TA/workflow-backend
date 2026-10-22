@@ -72,14 +72,6 @@ public class SeccionService {
     return respuesta(seccion);
   }
 
-  private Seccion buscarSeccion(Integer id) {
-    return secciones
-        .findById(id)
-        .filter(seccion -> Boolean.TRUE.equals(seccion.getActive()))
-        .orElseThrow(
-            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "La sección no existe"));
-  }
-
   private Seccion bloquearSeccion(Integer id) {
     return secciones
         .findByIdForUpdate(id)
@@ -100,6 +92,7 @@ public class SeccionService {
         seccion.getGrado().getNumero(),
         seccion.getCodigo(),
         capacidad,
-        matriculados);
+        matriculados,
+        Math.max(0, capacidad - matriculados));
   }
 }
