@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.common.service;
 import java.time.LocalDate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
@@ -38,7 +39,7 @@ public class MatriculaService {
     this.secciones = secciones;
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public MatriculaResponse crear(Integer periodoId, MatriculaCreateRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
     secciones
@@ -106,12 +107,13 @@ public class MatriculaService {
     Matricula matricula =
         matriculas
             .findByPeriodoIdAndEstudianteId(periodoId, estudianteId)
+            .filter(m -> m.getEstado() != EstadoMatricula.RETIRADA)
             .orElseThrow(
                 () ->
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "El estudiante no tiene matrícula en el periodo indicado"));
-    matriculas.delete(matricula);
+    matricula.setEstado(EstadoMatricula.RETIRADA);
   }
 
   private Periodo buscarPeriodo(Integer periodoId) {

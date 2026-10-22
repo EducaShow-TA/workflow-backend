@@ -43,10 +43,13 @@ public class AuthServiceImpl implements AuthService {
             .findByUsername(request.getUsername())
             .orElseThrow(() -> new UnauthorizedException("Credenciales inválidas"));
     if (!user.getActive()) {
-      throw new UnauthorizedException("La cuenta de usuario se encuentra inactiva");
+      throw new UnauthorizedException("Credenciales inválidas");
     }
     if (user.estaBloqueada()) {
-      throw new UnauthorizedException("La cuenta está temporalmente bloqueada. Intente más tarde.");
+      throw new UnauthorizedException("Credenciales inválidas");
+    }
+    if (user.bloqueoVencido()) {
+      user.reiniciarIntentos();
     }
     if (!encoder.matches(request.getPassword(), user.getPassword())) {
       user.registrarIntentoFallido(maxAttempts, lockMinutes);

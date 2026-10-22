@@ -81,6 +81,10 @@ public class CuentaUsuario extends EntidadBase {
     return bloqueadaHasta != null && LocalDateTime.now().isBefore(bloqueadaHasta);
   }
 
+  public boolean bloqueoVencido() {
+    return bloqueadaHasta != null && !estaBloqueada();
+  }
+
   public void registrarIntentoFallido(int max, int minutes) {
     intentosFallidos = (intentosFallidos == null ? 0 : intentosFallidos) + 1;
     if (intentosFallidos >= max) {

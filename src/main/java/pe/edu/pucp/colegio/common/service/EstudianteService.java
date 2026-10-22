@@ -49,7 +49,9 @@ public class EstudianteService {
             request.dni(), request.nombre(), request.apellidoPaterno(), request.apellidoMaterno());
     persona.setFechaNacimiento(request.fechaNacimiento());
     persona.setTelefono(request.telefono());
-    persona.setGenero(request.genero());
+    if (request.genero() != null && !request.genero().isBlank()) {
+      persona.setGenero(request.genero());
+    }
     persona = personas.save(persona);
 
     Estudiante estudiante = new Estudiante();
