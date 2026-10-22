@@ -1,13 +1,19 @@
 package pe.edu.pucp.colegio.common.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
+import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
+import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
 import pe.edu.pucp.colegio.common.model.Estudiante;
+import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
@@ -22,16 +28,63 @@ public class EstudianteService {
   private final EstudianteRepository estudiantes;
   private final CuentaUsuarioRepository cuentas;
   private final PasswordEncoder passwordEncoder;
+  private final pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas;
 
   public EstudianteService(
       PersonaRepository personas,
       EstudianteRepository estudiantes,
       CuentaUsuarioRepository cuentas,
-      PasswordEncoder passwordEncoder) {
+      PasswordEncoder passwordEncoder,
+      pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas) {
     this.personas = personas;
     this.estudiantes = estudiantes;
     this.cuentas = cuentas;
     this.passwordEncoder = passwordEncoder;
+    this.matriculas = matriculas;
+  }
+
+  @Transactional(readOnly = true)
+  public Page<EstudianteListadoResponse> listar(
+      String nombre, String dni, Integer gradoId, Integer seccionId, int page, int size) {
+    if (page < 0 || size < 1 || size > 100) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Paginación inválida");
+    }
+    Page<Estudiante> pagina =
+        estudiantes.buscar(
+            nombre == null || nombre.isBlank() ? null : nombre.trim(),
+            dni == null || dni.isBlank() ? null : dni.trim(),
+            gradoId,
+            seccionId,
+            PageRequest.of(page, size, Sort.by("id").ascending()));
+    var ids = pagina.getContent().stream().map(Estudiante::getId).toList();
+    var porEstudiante = new java.util.HashMap<Integer, java.util.List<MatriculaResponse>>();
+    if (!ids.isEmpty()) {
+      for (Matricula matricula : matriculas.findAllByEstudianteIdIn(ids)) {
+        porEstudiante
+            .computeIfAbsent(
+                matricula.getEstudiante().getId(), ignored -> new java.util.ArrayList<>())
+            .add(
+                new MatriculaResponse(
+                    matricula.getId(),
+                    matricula.getEstudiante().getId(),
+                    matricula.getPeriodo().getId(),
+                    matricula.getFechaMatricula(),
+                    matricula.getEstado()));
+      }
+    }
+    return pagina.map(
+        estudiante -> {
+          Persona persona = estudiante.getPersona();
+          return new EstudianteListadoResponse(
+              estudiante.getId(),
+              persona.getId(),
+              persona.getDni(),
+              persona.getNombre(),
+              persona.getApellidoPaterno(),
+              persona.getApellidoMaterno(),
+              persona.getCorreo(),
+              porEstudiante.getOrDefault(estudiante.getId(), java.util.List.of()));
+        });
   }
 
   @Transactional
@@ -49,6 +102,7 @@ public class EstudianteService {
             request.dni(), request.nombre(), request.apellidoPaterno(), request.apellidoMaterno());
     persona.setFechaNacimiento(request.fechaNacimiento());
     persona.setTelefono(request.telefono());
+    persona.setCorreo(request.correo());
     if (request.genero() != null && !request.genero().isBlank()) {
       persona.setGenero(request.genero());
     }

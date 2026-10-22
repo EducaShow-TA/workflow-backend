@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,7 +49,9 @@ class EstudianteControllerIntegrationTest {
                         + "\",\"password\":\"ClaveSegura123\",\"dni\":\""
                         + dni
                         + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Pérez\","
-                        + "\"apellidoMaterno\":\"Díaz\",\"fechaNacimiento\":\"2012-05-10\"}"))
+                        + "\"apellidoMaterno\":\"Díaz\",\"correo\":\"ana-"
+                        + suffix
+                        + "@ejemplo.edu.pe\",\"fechaNacimiento\":\"2012-05-10\"}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.username").value(username))
         .andExpect(jsonPath("$.rol").value("ALUMNO"))
@@ -59,6 +62,16 @@ class EstudianteControllerIntegrationTest {
     assertNotEquals("ClaveSegura123", cuenta.getPassword());
     assertTrue(passwordEncoder.matches("ClaveSegura123", cuenta.getPassword()));
     assertTrue(estudiantes.existsByPersonaId(cuenta.getPersona().getId()));
+    assertEquals(
+        "ana-" + suffix + "@ejemplo.edu.pe",
+        personas.findById(cuenta.getPersona().getId()).orElseThrow().getCorreo());
+
+    mvc.perform(
+            get("/api/v1/estudiantes").param("nombre", "Ana").param("page", "0").param("size", "1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].dni").value(dni))
+        .andExpect(jsonPath("$.content[0].correo").value("ana-" + suffix + "@ejemplo.edu.pe"))
+        .andExpect(jsonPath("$.size").value(1));
   }
 
   @Test

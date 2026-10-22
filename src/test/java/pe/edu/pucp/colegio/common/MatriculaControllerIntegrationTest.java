@@ -125,6 +125,39 @@ class MatriculaControllerIntegrationTest {
     matricular(crearPeriodo(1), Integer.MAX_VALUE).andExpect(status().isNotFound());
   }
 
+  @Test
+  void confirmaMatriculaEnRegistroYRechazaDobleConfirmacion() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    EstudianteResponse estudiante = crearEstudiante();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
+
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                periodoId,
+                estudiante.estudianteId()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("CONFIRMADA"));
+
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                periodoId,
+                estudiante.estudianteId()))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void confirmarDevuelveNotFoundSiNoExisteLaMatricula() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                periodoId,
+                Integer.MAX_VALUE))
+        .andExpect(status().isNotFound());
+  }
+
   private org.springframework.test.web.servlet.ResultActions matricular(
       Integer periodoId, Integer estudianteId) throws Exception {
     return mvc.perform(
