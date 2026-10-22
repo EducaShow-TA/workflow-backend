@@ -1,6 +1,10 @@
-# EducaShow — backend de autenticación
+# EducaShow — backend del sistema de gestión escolar
 
-Backend REST en Spring Boot para el módulo de seguridad de un sistema escolar. Implementa inicio de sesión, autenticación JWT, consulta del perfil autenticado, bloqueo temporal por intentos fallidos y auditoría del inicio de sesión.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+
+## Guía de trabajo
+
+El equipo integra cambios en `Development` mediante Pull Requests desde ramas personales permanentes; al cierre del sprint, integra `Development` en `main`. Antes de subir cambios, ejecuta `mvn spotless:apply`, `mvn spotless:check` y `mvn verify`. El flujo detallado está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
 ## Tecnologías
 
@@ -13,14 +17,15 @@ Backend REST en Spring Boot para el módulo de seguridad de un sistema escolar. 
 
 ## Funcionalidades y endpoints
 
-Esta sección documenta las rutas REST implementadas, sus parámetros y los cuerpos JSON esperados. Hay 16 endpoints. Excepto `POST /api/v1/auth/login`, todos requieren autenticación Bearer.
+Esta sección documenta las rutas REST implementadas. Hay 22 operaciones. `POST /api/v1/auth/login`, `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/reset-password` son públicas; las demás requieren autenticación Bearer.
 
 ### Convenciones generales
 
 - Para las solicitudes con cuerpo, enviar `Content-Type: application/json`.
 - Para las rutas protegidas, enviar `Authorization: Bearer <token>`.
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
-- Los errores tienen el formato `{"message":"..."}`. Se usan `400` para datos inválidos o reglas de negocio, `401` para autenticación ausente o inválida, `404` para recursos inexistentes, `409` para conflictos y `500` para errores internos.
+- Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
+- Todas las rutas protegidas requieren autenticación. La gestión de cuentas de usuario y la consulta de logs de errores están restringidas al rol `ADMINISTRADOR`. La autorización por rol para el resto de las funcionalidades aún debe completarse según US-5.2.
 - No se exponen endpoints para consultar o gestionar directamente `Grado` y `Seccion`; sus identificadores se usan al crear un periodo.
 
 #### Resumen de rutas
@@ -29,6 +34,10 @@ Esta sección documenta las rutas REST implementadas, sus parámetros y los cuer
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/login` | Iniciar sesión y obtener JWT |
 | `GET` | `/api/v1/auth/me` | Consultar el perfil autenticado |
+| `POST` | `/api/v1/auth/forgot-password` | Solicitar recuperación de contraseña |
+| `POST` | `/api/v1/auth/reset-password` | Restablecer contraseña mediante token |
+| `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/areas` | Crear un área |
 | `GET` | `/api/v1/areas/{codigo}` | Consultar un área |
 | `PUT` | `/api/v1/areas/{codigo}` | Actualizar un área y sus competencias |
@@ -43,6 +52,8 @@ Esta sección documenta las rutas REST implementadas, sus parámetros y los cuer
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
 | `DELETE` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}` | Eliminar una matrícula |
+| `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 
 ### Autenticación
 
@@ -67,7 +78,7 @@ Respuesta `200`:
   "usuario": {
     "id": 12,
     "username": "usuario@ejemplo.edu.pe",
-    "rol": "ADMIN",
+    "rol": "ADMINISTRADOR",
     "nombreCompleto": "Nombre Apellido",
     "dni": "12345678"
   }
@@ -79,6 +90,16 @@ Credenciales inválidas, cuenta inactiva, bloqueada o datos de login vacíos pro
 #### `GET /api/v1/auth/me`
 
 No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `usuario` mostrado arriba (`id`, `username`, `rol`, `nombreCompleto`, `dni`).
+
+#### Recuperación de contraseña
+
+`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto).
+
+`POST /api/v1/auth/reset-password` es público y recibe `{ "token": "<token-recibido-por-correo>", "password": "nueva-clave-segura" }`. El token es de un solo uso y la contraseña se almacena con BCrypt.
+
+### Cuentas de usuario
+
+`POST /api/v1/cuentas-usuario` y `GET /api/v1/cuentas-usuario` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve la lista de cuentas existente; todavía no hay operaciones de edición ni una carga CSV de usuarios.
 
 ### Áreas y competencias
 
@@ -236,30 +257,38 @@ Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula 
 
 `periodoId` y `estudianteId` son enteros de ruta. No recibe cuerpo y responde `204` sin contenido al eliminar la matrícula. Si no existe el periodo o la relación de matrícula, responde `404`.
 
+### Logs de errores
+
+`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza técnica; el detalle la incluye. Las trazas se truncan a 4000 caracteres.
+
 ## Estructura
 
 ```text
 src/main/java/pe/edu/pucp/colegio/
 ├── ColegioBackendApplication.java
 ├── common/
-│   ├── audit/       # Entidades y repositorios de auditoría y errores
+│   ├── audit/       # Auditoría y persistencia de errores
+│   ├── controller/  # Catálogos, estudiantes, periodos, matrículas y logs
+│   ├── dto/         # Solicitudes y respuestas
 │   ├── exception/   # Excepciones de negocio y manejo HTTP global
-│   └── model/       # Personas, catálogo curricular y matrículas
+│   ├── model/       # Personas, catálogo curricular, organización y matrículas
+│   ├── repository/  # Persistencia de los módulos comunes
+│   └── service/     # Lógica de negocio de los módulos comunes
 └── security/
     ├── config/      # Reglas de acceso y cadena de filtros
-    ├── controller/  # Endpoints de autenticación
+    ├── controller/  # Autenticación y gestión de cuentas
     ├── dto/         # Solicitudes y respuestas
     ├── jwt/         # Emisión, validación y filtro JWT
     ├── model/       # CuentaUsuario y Rol
     ├── repository/  # Acceso a cuentas
-    └── service/     # Lógica de autenticación
+    └── service/     # Autenticación, cuentas y recuperación de contraseña
 
 src/main/resources/
 ├── application.yml
-└── db/migration/V1__init_security.sql
+└── db/migration/V*__*.sql
 
 src/test/
-├── java/.../AuthIntegrationTest.java
+├── java/.../*IntegrationTest.java
 └── resources/application.yml
 ```
 
@@ -270,6 +299,8 @@ Flyway crea las tablas de seguridad, catálogo curricular, matrículas y organiz
 - JDK 25, requerido para compilar y ejecutar el proyecto.
 - Maven.
 - Un servidor MySQL accesible en `localhost:3306`.
+
+Este checkout todavía no contiene Maven Wrapper ni los workflows de CI descritos en el diseño técnico del repositorio; por ahora se requiere una instalación local de Maven y ejecutar las verificaciones manualmente.
 
 En Fedora, instala Maven con:
 
@@ -387,14 +418,14 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 
 Con la base de datos activa y las variables configuradas, inicia la aplicación con `mvn spring-boot:run`. Flyway aplica las migraciones disponibles y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
 
-La migración actual crea una cuenta semilla `admin@educore.edu.pe` y contiene un hash de contraseña conocido por el repositorio. **Úsala solo para pruebas locales y cambia o elimina esa cuenta antes de cualquier despliegue.** En una base donde V1 ya fue aplicada, modificar el archivo V1 no actualiza los datos existentes; la rotación debe hacerse mediante una actualización separada.
+La migración inicial crea una cuenta administradora semilla para desarrollo local. No uses esa cuenta en entornos compartidos o desplegados; debe rotarse o deshabilitarse antes de cualquier despliegue. En una base donde V1 ya fue aplicada, modificar el archivo V1 no actualiza los datos existentes; la rotación debe hacerse mediante una actualización separada.
 
 Para probar el login en un entorno local recién inicializado:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin@educore.edu.pe","password":"Admin2026!"}'
+  -d '{"username":"admin@educore.edu.pe","password":"<contrasenia-local>"}'
 ```
 
 Usa el valor `token` de la respuesta:
@@ -406,21 +437,17 @@ curl http://localhost:8080/api/v1/auth/me \
 
 ## Pruebas
 
-La prueba de integración visible usa Spring Boot, MockMvc y H2. Cubre login exitoso del administrador, credenciales incorrectas y rechazo de una ruta protegida sin token. No sustituye una verificación contra el servidor MySQL local.
+El proyecto cuenta con pruebas unitarias y de integración para autenticación, cuentas, catálogo, estudiantes, matrícula, vacantes, autorización y registro de errores. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
 
 ```bash
 mvn test
 ```
 
-## Observaciones técnicas
+## Alcance y pendientes
 
-- La duración JWT predeterminada es de 24 horas; conviene ajustarla a los requisitos de seguridad.
-- El manejador de errores responde con `message`; el punto de entrada de Spring Security construye otra respuesta JSON manual. El contrato puede unificarse.
-- Existen entidades y repositorio para `registros_error`, pero el manejador global no persiste allí los errores.
-- Las pruebas visibles no cubren bloqueo de cuenta, expiración o firma inválida de token, cuenta inactiva ni validaciones de entrada.
-- El POM configura Spotless, pero no liga `spotless:check` a `verify`.
-- El proyecto usa el controlador JDBC de MySQL y debe conectarse a MySQL Server.
-- El alcance del código disponible se limita al prototipo de seguridad; no se observan módulos escolares de matrícula, pagos u horarios.
+El backend aún no cubre todo el Product Backlog. Entre las funcionalidades pendientes de las historias iniciales se encuentran la configuración general del periodo de matrícula según el contrato funcional, la gestión API de grados/secciones y capacidad, las franjas horarias, la autorización completa por rol, la desactivación curricular con protección por notas y la carga masiva CSV de usuarios. La matrícula existente opera con periodos asociados a grado y sección; cualquier integración que espere un periodo único por año escolar debe acordar primero el contrato y el modelo de dominio. Además, la duración JWT predeterminada es de 24 horas y debe revisarse para ajustarse a la decisión de arquitectura de usar tokens de corta duración.
+
+La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
 
 ## Referencias
 
