@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package pe.edu.pucp.colegio.common.controller;
 
 import java.time.LocalDate;
@@ -20,10 +16,6 @@ import pe.edu.pucp.colegio.common.audit.NivelLog;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
 import pe.edu.pucp.colegio.common.dto.RegistroErrorResponseDTO;
 
-/**
- *
- * @author oliver
- */
 /** Consulta de registros de error para soporte técnico (US-5.5). Solo ADMINISTRADOR. */
 @RestController
 @RequestMapping("/api/v1/logs/errores")
@@ -40,12 +32,15 @@ public class RegistroErrorController {
   public PagedModel<RegistroErrorResponseDTO> listar(
       @RequestParam(required = false) NivelLog nivel,
       @RequestParam(required = false) String modulo,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate desde,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate hasta,
       @PageableDefault(size = 20, sort = "fechaHora", direction = Sort.Direction.DESC)
           Pageable pageable) {
     return new PagedModel<>(
-        servicio.consultar(nivel, modulo, desde, hasta, pageable)
+        servicio
+            .consultar(nivel, modulo, desde, hasta, pageable)
             .map(RegistroErrorResponseDTO::resumen));
   }
 

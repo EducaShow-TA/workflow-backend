@@ -37,8 +37,7 @@ class RegistroErrorIntegrationTest {
   void metodoNoPermitido_retorna405YQuedaRegistrado() throws Exception {
     long antes = errores.count();
 
-    mvc.perform(delete("/api/v1/auth/login"))
-        .andExpect(status().isMethodNotAllowed());
+    mvc.perform(delete("/api/v1/auth/login")).andExpect(status().isMethodNotAllowed());
 
     assertTrue(errores.count() > antes);
   }
