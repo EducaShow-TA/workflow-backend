@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.security.jwt;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -8,10 +9,20 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
+import pe.edu.pucp.colegio.common.audit.NivelLog;
+import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
 import pe.edu.pucp.colegio.common.exception.ErrorRespuestaDTO;
 
 @Component
 public class JwtEntryPoint implements AuthenticationEntryPoint {
+
+  private final RegistroErrorService registroError;
+  private final ObjectMapper json;
+
+  public JwtEntryPoint(RegistroErrorService registroError, ObjectMapper json) {
+    this.registroError = registroError;
+    this.json = json;
+  }
 
   @Override
   public void commence(
@@ -19,17 +30,11 @@ public class JwtEntryPoint implements AuthenticationEntryPoint {
       throws IOException {
     var cuerpo =
         ErrorRespuestaDTO.de(HttpStatus.UNAUTHORIZED, "No autenticado", request.getRequestURI());
+    registroError.registrar(
+        NivelLog.ADVERTENCIA, "AUTH_401", request.getMethod(),
+        request.getRequestURI(), 401, cuerpo.message(), null);
     response.setStatus(HttpStatus.UNAUTHORIZED.value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-    response
-        .getWriter()
-        .write(
-            String.format(
-                "{\"timestamp\":\"%s\",\"status\":%d,\"error\":\"%s\",\"message\":\"%s\",\"path\":\"%s\"}",
-                cuerpo.timestamp(),
-                cuerpo.status(),
-                cuerpo.error(),
-                cuerpo.message(),
-                cuerpo.path()));
+    json.writeValue(response.getWriter(), cuerpo);
   }
 }
