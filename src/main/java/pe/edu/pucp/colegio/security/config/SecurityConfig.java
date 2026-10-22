@@ -21,11 +21,15 @@ public class SecurityConfig {
 
   @Bean
   SecurityFilterChain securityFilterChain(
-      HttpSecurity http, JwtAuthenticationFilter filter, JwtEntryPoint entryPoint)
+      HttpSecurity http,
+      JwtAuthenticationFilter filter,
+      JwtEntryPoint entryPoint,
+      JwtAccessDeniedHandler accessDeniedHandler)
       throws Exception {
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
+        .exceptionHandling(
+            e -> e.authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDeniedHandler))
         .authorizeHttpRequests(
             a ->
                 a.requestMatchers(
@@ -33,6 +37,10 @@ public class SecurityConfig {
                         "/api/v1/auth/forgot-password",
                         "/api/v1/auth/reset-password")
                     .permitAll()
+                    .requestMatchers("/api/v1/auth/**")
+                    .authenticated()
+                    .requestMatchers("/api/v1/**")
+                    .hasRole("ADMINISTRADOR")
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
