@@ -80,6 +80,12 @@ public class EstudianteService {
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "No existe la cuenta de usuario indicada"));
 
+    if (cuenta.getRol() == Rol.ADMINISTRADOR) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "No se puede asignar el perfil de estudiante a una cuenta de administrador");
+    }
+
     Persona persona = cuenta.getPersona();
     if (persona == null) {
       throw new ResponseStatusException(
