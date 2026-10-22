@@ -46,9 +46,9 @@ class GradoSeccionIntegrationTest {
 
   @Test
   void numeroDeGradoSePuedeRepetirEnNivelesEducativosDistintos() {
-    Grado primaria = nuevoGrado(1, NivelEducativo.PRIMARIA);
+    Grado primaria = nuevoGrado(99, NivelEducativo.PRIMARIA);
     primaria.agregarSeccion(nuevaSeccion("A"));
-    Grado secundaria = nuevoGrado(1, NivelEducativo.SECUNDARIA);
+    Grado secundaria = nuevoGrado(99, NivelEducativo.SECUNDARIA);
     secundaria.agregarSeccion(nuevaSeccion("A"));
 
     entityManager.persist(primaria);
