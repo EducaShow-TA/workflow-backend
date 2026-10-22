@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -55,6 +55,12 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/secciones` | Crear sección (solo ADMINISTRADOR) |
 | `PATCH` | `/api/v1/secciones/{id}` | Actualizar capacidad de sección (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/horarios/plantillas` | Listar plantillas horarias (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/horarios/plantillas` | Crear plantilla de bloques (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/horarios/plantillas/{id}` | Consultar plantilla (solo ADMINISTRADOR) |
+| `PUT` | `/api/v1/horarios/plantillas/{id}` | Actualizar plantilla (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/horarios/plantillas/{id}/estado` | Activar/desactivar plantilla (solo ADMINISTRADOR) |
+| `DELETE` | `/api/v1/horarios/plantillas/{id}` | Desactivar plantilla (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
@@ -93,6 +99,29 @@ Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/seccione
 Devuelve `201` con la sección creada. Si ya existe una sección con ese nombre en el grado, devuelve `409`.
 
 `PATCH /api/v1/secciones/{id}` actualiza solo la capacidad y recibe `{ "vacantesTotales": 32 }`. Devuelve `200` con el resumen actualizado. Si el valor no es positivo, devuelve `400`; si es menor que la cantidad de alumnos matriculados, devuelve `422`; si la sección no existe o está inactiva, devuelve `404`.
+
+### Plantillas horarias (US-4.3)
+
+Las rutas `/api/v1/horarios/plantillas` requieren rol `ADMINISTRADOR`. Una plantilla define turno (`MANANA` o `TARDE`), hora de inicio y fin, duración de hora pedagógica y cantidad de bloques pedagógicos. El backend genera los bloques en secuencia e inserta recreos configurados después de un bloque determinado. La hora final calculada no puede exceder el fin del turno; se permite un margen libre al final.
+
+`POST /api/v1/horarios/plantillas` recibe, por ejemplo:
+
+```json
+{
+  "nombre": "Turno mañana",
+  "turno": "MANANA",
+  "horaInicio": "07:30:00",
+  "horaFin": "13:00:00",
+  "duracionHoraPedagogicaMinutos": 45,
+  "cantidadBloquesPedagogicos": 6,
+  "recreos": [
+    { "despuesDeBloque": 2, "duracionMinutos": 15 },
+    { "despuesDeBloque": 4, "duracionMinutos": 20 }
+  ]
+}
+```
+
+`recreos` puede ser un arreglo vacío. No se permiten dos recreos tras el mismo bloque ni ubicaciones fuera de la cantidad configurada. La respuesta contiene la configuración y los bloques con orden, tipo (`PEDAGOGICO`/`RECREO`), hora de inicio y fin. `GET` lista plantillas activas e inactivas; `PUT` reemplaza su configuración y regenera los bloques; `PATCH /{id}/estado` cambia su disponibilidad; `DELETE` la desactiva sin borrarla físicamente. Los nombres deben ser únicos dentro de cada turno.
 
 ### Autenticación
 
@@ -491,7 +520,7 @@ mvn test
 | US-1.2 Registrar alumnos y asignar grado/sección | Parcial: existen operaciones de estudiante y matrícula, falta completar el flujo integrado según la historia. |
 | US-1.7 Vacantes por grado/sección | Implementada: capacidad, resumen y control de vacantes; no permite reducir capacidad por debajo de matrículas activas (`422`). |
 | US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
-| US-4.3 Bloques y franjas horarias | Pendiente: sin API para turnos, duración pedagógica, recreos ni plantillas. |
+| US-4.3 Bloques y franjas horarias | Implementada en backend: plantillas por turno con bloques pedagógicos y recreos calculados, validación del rango horario y administración de estado. La integración con interfaz de usuario queda pendiente. |
 | US-5.2 Roles y permisos | Parcial: roles definidos y rutas administrativas protegidas; falta completar permisos para todos los módulos. |
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
