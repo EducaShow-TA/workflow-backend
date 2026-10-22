@@ -14,6 +14,7 @@ import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
+import pe.edu.pucp.colegio.common.repository.SeccionRepository;
 
 @Service
 public class MatriculaService {
@@ -22,21 +23,28 @@ public class MatriculaService {
   private final EstudianteRepository estudiantes;
   private final PeriodoRepository periodos;
   private final VacantesService vacantes;
+  private final SeccionRepository secciones;
 
   public MatriculaService(
       MatriculaRepository matriculas,
       EstudianteRepository estudiantes,
       PeriodoRepository periodos,
-      VacantesService vacantes) {
+      VacantesService vacantes,
+      SeccionRepository secciones) {
     this.matriculas = matriculas;
     this.estudiantes = estudiantes;
     this.periodos = periodos;
     this.vacantes = vacantes;
+    this.secciones = secciones;
   }
 
   @Transactional
   public MatriculaResponse crear(Integer periodoId, MatriculaCreateRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
+    secciones
+        .findByIdForUpdate(periodo.getSeccion().getId())
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sección"));
     Estudiante estudiante =
         estudiantes
             .findById(request.estudianteId())
@@ -69,6 +77,27 @@ public class MatriculaService {
     matricula = matriculas.save(matricula);
 
     return respuesta(matricula);
+  }
+
+  @Transactional
+  public MatriculaResponse confirmar(Integer periodoId, Integer estudianteId) {
+    Periodo periodo = buscarPeriodo(periodoId);
+    secciones
+        .findByIdForUpdate(periodo.getSeccion().getId())
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sección"));
+    Matricula matricula =
+        matriculas
+            .findByPeriodoIdAndEstudianteId(periodoId, estudianteId)
+            .filter(m -> Boolean.TRUE.equals(m.getActive()))
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la matrícula"));
+    if (matricula.getEstado() != EstadoMatricula.EN_REGISTRO) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "Solo se puede confirmar una matrícula en registro");
+    }
+    matricula.setEstado(EstadoMatricula.CONFIRMADA);
+    return respuesta(matriculas.save(matricula));
   }
 
   @Transactional

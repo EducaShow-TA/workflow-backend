@@ -24,6 +24,9 @@ public class CuentaUsuario extends EntidadBase {
   @Column(name = "bloqueada_hasta")
   private LocalDateTime bloqueadaHasta;
 
+  @Column(name = "fecha_ultimo_cambio_password")
+  private LocalDateTime fechaUltimoCambioPassword;
+
   @OneToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "persona_id", unique = true)
   private Persona persona;
@@ -51,6 +54,7 @@ public class CuentaUsuario extends EntidadBase {
 
   public void setPassword(String password) {
     this.password = password;
+    this.fechaUltimoCambioPassword = LocalDateTime.now();
   }
 
   public Rol getRol() {

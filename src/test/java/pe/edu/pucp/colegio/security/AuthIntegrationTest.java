@@ -9,12 +9,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthIntegrationTest {
 
   @Autowired MockMvc mvc;
+  @Autowired CuentaUsuarioRepository cuentas;
 
   @Test
   void loginDelAdministradorRetornaJwtYPerfil() throws Exception {
@@ -41,5 +44,32 @@ class AuthIntegrationTest {
   @Test
   void rutaProtegidaRechazaSolicitudSinToken() throws Exception {
     mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void tercerIntentoFallidoPersisteBloqueoYRechazaClaveCorrecta() throws Exception {
+    CuentaUsuario admin = cuentas.findByUsername("admin@educore.edu.pe").orElseThrow();
+    admin.reiniciarIntentos();
+    cuentas.save(admin);
+    try {
+      for (int intento = 0; intento < 3; intento++) {
+        mvc.perform(
+                post("/api/v1/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"username\":\"admin@educore.edu.pe\",\"password\":\"incorrecta\"}"))
+            .andExpect(status().isUnauthorized());
+      }
+      mvc.perform(
+              post("/api/v1/auth/login")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"username\":\"admin@educore.edu.pe\",\"password\":\"Admin2026!\"}"))
+          .andExpect(status().isUnauthorized())
+          .andExpect(
+              jsonPath("$.message")
+                  .value("La cuenta está temporalmente bloqueada. Intente más tarde."));
+    } finally {
+      admin.reiniciarIntentos();
+      cuentas.save(admin);
+    }
   }
 }

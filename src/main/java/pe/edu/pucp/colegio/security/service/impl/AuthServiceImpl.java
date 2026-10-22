@@ -36,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
     this.lockMinutes = lockMinutes;
   }
 
-  @Transactional
+  @Transactional(noRollbackFor = UnauthorizedException.class)
   public AuthResponseDTO login(LoginRequestDTO request) {
     CuentaUsuario user =
         users

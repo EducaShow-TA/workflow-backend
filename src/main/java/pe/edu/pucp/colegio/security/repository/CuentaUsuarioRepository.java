@@ -9,4 +9,6 @@ public interface CuentaUsuarioRepository extends JpaRepository<CuentaUsuario, In
   Optional<CuentaUsuario> findByUsername(String username);
 
   boolean existsByUsername(String username);
+
+  boolean existsByUsernameAndIdNot(String username, Integer id);
 }

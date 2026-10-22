@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -25,7 +25,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 - Para las rutas protegidas, enviar `Authorization: Bearer <token>`.
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
 - Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
-- Todas las rutas protegidas requieren autenticación. La gestión de cuentas de usuario y la consulta de logs de errores están restringidas al rol `ADMINISTRADOR`. La autorización por rol para el resto de las funcionalidades aún debe completarse según US-5.2.
+- Todas las rutas protegidas requieren autenticación. Las operaciones de cuentas, matrícula, estudiantes, períodos, vacantes, catálogo curricular, secciones, plantillas horarias y logs están restringidas al rol `ADMINISTRADOR` mediante autorización a nivel de controlador. `GET /api/v1/auth/me` está disponible para cualquier usuario autenticado; login y recuperación son públicos.
 - La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; el catálogo de grados se inicializa con los grados 1.º a 5.º de secundaria mediante Flyway.
 
 #### Resumen de rutas
@@ -38,6 +38,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/auth/reset-password` | Restablecer contraseña mediante token |
 | `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
+| `PUT` | `/api/v1/cuentas-usuario/{id}` | Editar correo y datos personales de una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/areas` | Listar áreas con competencias |
 | `POST` | `/api/v1/areas` | Crear área con competencias iniciales |
 | `GET` | `/api/v1/areas/{idOrCodigo}` | Consultar un área |
@@ -55,6 +56,12 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/secciones` | Crear sección (solo ADMINISTRADOR) |
 | `PATCH` | `/api/v1/secciones/{id}` | Actualizar capacidad de sección (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/horarios/plantillas` | Listar plantillas horarias (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/horarios/plantillas` | Crear plantilla de bloques (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/horarios/plantillas/{id}` | Consultar plantilla (solo ADMINISTRADOR) |
+| `PUT` | `/api/v1/horarios/plantillas/{id}` | Actualizar plantilla (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/horarios/plantillas/{id}/estado` | Activar/desactivar plantilla (solo ADMINISTRADOR) |
+| `DELETE` | `/api/v1/horarios/plantillas/{id}` | Desactivar plantilla (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
@@ -93,6 +100,29 @@ Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/seccione
 Devuelve `201` con la sección creada. Si ya existe una sección con ese nombre en el grado, devuelve `409`.
 
 `PATCH /api/v1/secciones/{id}` actualiza solo la capacidad y recibe `{ "vacantesTotales": 32 }`. Devuelve `200` con el resumen actualizado. Si el valor no es positivo, devuelve `400`; si es menor que la cantidad de alumnos matriculados, devuelve `422`; si la sección no existe o está inactiva, devuelve `404`.
+
+### Plantillas horarias (US-4.3)
+
+Las rutas `/api/v1/horarios/plantillas` requieren rol `ADMINISTRADOR`. Una plantilla define turno (`MANANA` o `TARDE`), hora de inicio y fin, duración de hora pedagógica y cantidad de bloques pedagógicos. El backend genera los bloques en secuencia e inserta recreos configurados después de un bloque determinado. La hora final calculada no puede exceder el fin del turno; se permite un margen libre al final.
+
+`POST /api/v1/horarios/plantillas` recibe, por ejemplo:
+
+```json
+{
+  "nombre": "Turno mañana",
+  "turno": "MANANA",
+  "horaInicio": "07:30:00",
+  "horaFin": "13:00:00",
+  "duracionHoraPedagogicaMinutos": 45,
+  "cantidadBloquesPedagogicos": 6,
+  "recreos": [
+    { "despuesDeBloque": 2, "duracionMinutos": 15 },
+    { "despuesDeBloque": 4, "duracionMinutos": 20 }
+  ]
+}
+```
+
+`recreos` puede ser un arreglo vacío. No se permiten dos recreos tras el mismo bloque ni ubicaciones fuera de la cantidad configurada. La respuesta contiene la configuración y los bloques con orden, tipo (`PEDAGOGICO`/`RECREO`), hora de inicio y fin. `GET` lista plantillas activas e inactivas; `PUT` reemplaza su configuración y regenera los bloques; `PATCH /{id}/estado` cambia su disponibilidad; `DELETE` la desactiva sin borrarla físicamente. Los nombres deben ser únicos dentro de cada turno.
 
 ### Autenticación
 
@@ -138,7 +168,18 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 ### Cuentas de usuario
 
-`POST /api/v1/cuentas-usuario` y `GET /api/v1/cuentas-usuario` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve la lista de cuentas existente; todavía no hay operaciones de edición ni una carga CSV de usuarios.
+`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario` y `PUT /api/v1/cuentas-usuario/{id}` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9 y sigue pendiente.
+
+Ejemplo de `PUT /api/v1/cuentas-usuario/12`:
+
+```json
+{
+  "nombre": "Ana",
+  "apellidoPaterno": "Pérez",
+  "apellidoMaterno": "Díaz",
+  "username": "ana.perez@colegio.edu.pe"
+}
+```
 
 ### Áreas y competencias (US-3.5)
 
@@ -153,7 +194,7 @@ El cuerpo de creación y actualización tiene estos campos:
 | Campo | Tipo | Requisito |
 | --- | --- | --- |
 | `codigo` | string | Obligatorio, no vacío, máximo 50 caracteres; debe coincidir con `{codigo}` en `PUT` |
-| `nombre` | string | Obligatorio, no vacío, máximo 255 caracteres |
+| `nombre` | string | Obligatorio, no vacío, máximo 150 caracteres |
 | `descripcion` | string | Opcional, máximo 500 caracteres |
 | `competenciaCodigos` | arreglo de strings | Opcional; en actualización reemplaza relaciones si se incluye |
 | `competencias` | arreglo de objetos | Opcional en creación; competencias anidadas con nombre y descripción |
@@ -348,7 +389,7 @@ En Fedora, instala Maven con:
 > [`docs/despliegue-local.md`](docs/despliegue-local.md). Flujo de ramas y Pull Requests:
 > [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
-## Configuración
+### Instalar Maven
 ```bash
 sudo dnf install maven
 mvn -version
@@ -491,13 +532,13 @@ mvn test
 | US-1.2 Registrar alumnos y asignar grado/sección | Parcial: existen operaciones de estudiante y matrícula, falta completar el flujo integrado según la historia. |
 | US-1.7 Vacantes por grado/sección | Implementada: capacidad, resumen y control de vacantes; no permite reducir capacidad por debajo de matrículas activas (`422`). |
 | US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
-| US-4.3 Bloques y franjas horarias | Pendiente: sin API para turnos, duración pedagógica, recreos ni plantillas. |
-| US-5.2 Roles y permisos | Parcial: roles definidos y rutas administrativas protegidas; falta completar permisos para todos los módulos. |
+| US-4.3 Bloques y franjas horarias | Implementada en backend: plantillas por turno con bloques pedagógicos y recreos calculados, validación del rango horario y administración de estado. La integración con interfaz de usuario queda pendiente. |
+| US-5.2 Roles y permisos | Implementada para las rutas existentes: roles estrictos `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` y `APODERADO`; las funciones administrativas de los módulos están protegidas para `ADMINISTRADOR`. Cuentas permiten alta, consulta y edición acotada de correo y datos personales. |
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
 | US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |
 
-La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
+El estado actual de las historias se describe en la tabla anterior. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 
 La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
 

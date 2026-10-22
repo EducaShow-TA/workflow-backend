@@ -119,16 +119,6 @@ public class GlobalExceptionHandler {
         e);
   }
 
-  /*
-  private ResponseEntity<ErrorRespuestaDTO> responder(
-          HttpStatus estado, NivelLog nivel, String codigo, String mensaje, HttpServletRequest r) {
-      registroError.registrar(
-              nivel, codigo, r.getMethod(), r.getRequestURI(), estado.value(), mensaje);
-      return ResponseEntity.status(estado)
-              .body(ErrorRespuestaDTO.de(estado, mensaje, r.getRequestURI()));
-  }
-  */
-
   private ResponseEntity<ErrorRespuestaDTO> responder(
       HttpStatus estado, NivelLog nivel, String codigo, String mensaje, HttpServletRequest r) {
     return responder(estado, nivel, codigo, mensaje, r, null);

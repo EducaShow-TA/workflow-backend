@@ -91,6 +91,77 @@ class CuentaUsuarioIntegrationTest {
     String docente = login("u" + sufijo + "@colegio.edu.pe", "Clave2026!");
     mvc.perform(get("/api/v1/cuentas-usuario").header("Authorization", "Bearer " + docente))
         .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/periodos/1/vacantes").header("Authorization", "Bearer " + docente))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/areas").header("Authorization", "Bearer " + docente))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/secciones").header("Authorization", "Bearer " + docente))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/horarios/plantillas").header("Authorization", "Bearer " + docente))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void administradorActualizaDatosPersonalesYCorreoSinCambiarRolNiDni() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String sufijo = UUID.randomUUID().toString().substring(0, 8);
+    String dni = sufijo;
+    String body =
+        mvc.perform(
+                post("/api/v1/cuentas-usuario")
+                    .header("Authorization", "Bearer " + admin)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(cuenta(sufijo, dni, "DOCENTE")))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    int id = json.readTree(body).get("id").asInt();
+
+    mvc.perform(
+            put("/api/v1/cuentas-usuario/{id}", id)
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"nombre\":\"Andrea\",\"apellidoPaterno\":\"Lopez\","
+                        + "\"apellidoMaterno\":\"Rojas\",\"username\":\"actualizada"
+                        + sufijo
+                        + "@colegio.edu.pe\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.username").value("actualizada" + sufijo + "@colegio.edu.pe"))
+        .andExpect(jsonPath("$.rol").value("DOCENTE"))
+        .andExpect(jsonPath("$.dni").value(dni))
+        .andExpect(jsonPath("$.nombre").value("Andrea"))
+        .andExpect(jsonPath("$.apellidoPaterno").value("Lopez"))
+        .andExpect(jsonPath("$.apellidoMaterno").value("Rojas"));
+  }
+
+  @Test
+  void docenteNoPuedeActualizarCuenta() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String sufijo = UUID.randomUUID().toString().substring(0, 8);
+    String body =
+        mvc.perform(
+                post("/api/v1/cuentas-usuario")
+                    .header("Authorization", "Bearer " + admin)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(cuenta(sufijo, sufijo, "DOCENTE")))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    int id = json.readTree(body).get("id").asInt();
+    String docente = login("u" + sufijo + "@colegio.edu.pe", "Clave2026!");
+
+    mvc.perform(
+            put("/api/v1/cuentas-usuario/{id}", id)
+                .header("Authorization", "Bearer " + docente)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"nombre\":\"Andrea\",\"apellidoPaterno\":\"Lopez\","
+                        + "\"apellidoMaterno\":\"Rojas\",\"username\":\"otro"
+                        + sufijo
+                        + "@colegio.edu.pe\"}"))
+        .andExpect(status().isForbidden());
   }
 
   @Test

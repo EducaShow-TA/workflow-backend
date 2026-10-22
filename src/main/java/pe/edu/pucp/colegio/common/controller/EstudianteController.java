@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +14,7 @@ import pe.edu.pucp.colegio.common.service.EstudianteService;
 
 @RestController
 @RequestMapping("/api/v1/estudiantes")
+@PreAuthorize("hasRole('ADMINISTRADOR')")
 public class EstudianteController {
 
   private final EstudianteService estudiantes;

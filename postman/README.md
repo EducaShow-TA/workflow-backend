@@ -35,16 +35,19 @@ Las carpetas se deben ejecutar en el orden presentado:
 1. **Autenticación**: inicia sesión como administrador y guarda el Bearer token; solicita recuperación de contraseña. El restablecimiento queda omitido sin token real.
 2. **Catálogo curricular**: crea un área con competencias, edita el área, añade/edita una competencia y consulta/desactiva recursos según el flujo.
 3. **Vacantes por sección**: crea una sección de prueba en el grado configurado, crea un periodo académico, registra dos estudiantes y los matricula. Comprueba que reducir la capacidad por debajo de las dos matrículas resulte en `422`; luego elimina las matrículas de prueba.
-4. **Cuentas y roles**: prueba operaciones de cuentas protegidas con usuario administrador.
+4. **Cuentas y roles (US-5.2)**: crea una cuenta de prueba, edita nombre/apellidos/correo, lista cuentas y comprueba el rechazo de acceso anónimo y de un usuario DOCENTE.
 5. **Registro de errores**: provoca/consulta los errores previstos y verifica el listado y el detalle de logs.
+6. **Franjas horarias y plantillas**: crea una plantilla de turno mañana, valida bloques y recreos calculados, consulta y actualiza la plantilla, cambia su estado y finalmente la desactiva. La colección guarda el ID para encadenar las solicitudes; valida también que una configuración que excede el turno reciba `422`.
 
-La colección crea datos de prueba. Aunque elimina las matrículas creadas en el caso de capacidad, conserva las cuentas, estudiantes, áreas, competencias, secciones y periodos generados. Cada ejecución puede añadir nuevos registros. Para resultados previsibles y evitar acumular datos, vuelve a una base aislada limpia antes de repetirla. La creación de secciones busca nombres libres; una base con muchas secciones puede agotar las combinaciones disponibles.
+La colección crea datos de prueba. Aunque elimina las matrículas creadas en el caso de capacidad, conserva las cuentas, estudiantes, áreas, competencias, secciones, periodos y plantillas horarias generados (la plantilla creada por US-4.3 queda desactivada al final). Cada ejecución puede añadir nuevos registros. Para resultados previsibles y evitar acumular datos, vuelve a una base aislada limpia antes de repetirla. La creación de secciones busca nombres libres; una base con muchas secciones puede agotar las combinaciones disponibles.
 
 ## Resultados y límites conocidos
 
 - Un error de Postman como `Detalle de log (incluye stackTrace)` puede depender del tipo de registro: la traza técnica solo está presente cuando el backend capturó una excepción, especialmente para errores internos `500`; no todos los errores `4xx` tienen `stackTrace`. Para verificar el criterio de que un `500` se guarda con traza sin exponerla al cliente, consulta la prueba de integración `RegistroError500IntegrationTest`.
 - La recuperación por correo no es una prueba de extremo a extremo hasta configurar un SMTP y un destinatario real/de prueba accesible.
-- Esta colección cubre los endpoints actuales. No implica que US-1.1 (ventana independiente de matrícula), US-4.3 (plantillas horarias) o US-5.9 (importación CSV) estén implementadas.
+- Esta colección cubre los endpoints actuales. No implica que US-1.1 (ventana independiente de matrícula) o US-5.9 (importación CSV) estén implementadas. US-4.3 está cubierta mediante el grupo de franjas horarias y plantillas.
+- La edición de cuenta se hace con `PUT /api/v1/cuentas-usuario/{id}` y modifica solo nombre, apellidos y `username` (correo). La colección captura el ID y correo de la cuenta recién creada. La actualización conserva DNI, rol y contraseña.
+- Las rutas de cuentas, estudiantes, períodos/matrículas, áreas/competencias, secciones, plantillas horarias y logs requieren el rol `ADMINISTRADOR`. La colección comprueba los casos anónimo y DOCENTE sobre cuentas; las pruebas de integración cubren también el rechazo de DOCENTE en períodos, áreas, secciones y plantillas horarias.
 - US-1.7 utiliza secciones, periodos académicos y matrículas existentes. El modelo de periodo académico ligado a grado/sección no equivale por sí mismo a la ventana de matrícula descrita en US-1.1.
 
 Para el estado del backend por historia y el contrato de las rutas, consulta [`../README.md`](../README.md).

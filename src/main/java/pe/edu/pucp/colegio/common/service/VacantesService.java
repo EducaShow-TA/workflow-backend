@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.VacantesPeriodoResponse;
-import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
@@ -31,9 +30,12 @@ public class VacantesService {
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "No existe el periodo indicado"));
 
-    int vacantesTotales = parsearVacantes(periodo.getSeccion().getVacantesTotales());
-    long matriculasActivas =
-        matriculas.countByPeriodoIdAndActiveTrueAndEstadoNot(periodoId, EstadoMatricula.RETIRADA);
+    Integer vacantesTotales = periodo.getSeccion().getVacantesTotales();
+    if (vacantesTotales == null || vacantesTotales < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El total de vacantes de la sección no es válido");
+    }
+    long matriculasActivas = matriculas.countAlumnosActivosPorSeccion(periodo.getSeccion().getId());
     int vacantesDisponibles = (int) Math.max(0, vacantesTotales - matriculasActivas);
 
     return new VacantesPeriodoResponse(
@@ -49,22 +51,5 @@ public class VacantesService {
         matriculasActivas,
         vacantesDisponibles,
         vacantesDisponibles > 0);
-  }
-
-  private int parsearVacantes(String valor) {
-    if (valor == null || valor.isBlank()) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "La sección no tiene configurado el total de vacantes");
-    }
-    try {
-      int vacantes = Integer.parseInt(valor.trim());
-      if (vacantes < 0) {
-        throw new NumberFormatException();
-      }
-      return vacantes;
-    } catch (NumberFormatException e) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "El total de vacantes de la sección no es válido");
-    }
   }
 }

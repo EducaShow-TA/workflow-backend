@@ -8,5 +8,8 @@ public interface CuentaUsuarioService {
 
   CuentaResponseDTO crear(CrearCuentaRequestDTO request, String usernameResponsable);
 
+  CuentaResponseDTO actualizar(
+      Integer id, ActualizarCuentaRequestDTO request, String usernameResponsable);
+
   List<CuentaResponseDTO> listar();
 }

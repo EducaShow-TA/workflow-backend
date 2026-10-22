@@ -2,7 +2,9 @@ package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +16,7 @@ import pe.edu.pucp.colegio.common.service.MatriculaService;
 
 @RestController
 @RequestMapping("/api/v1/periodos/{periodoId}/matriculas")
+@PreAuthorize("hasRole('ADMINISTRADOR')")
 public class MatriculaController {
 
   private final MatriculaService matriculas;
@@ -26,6 +29,12 @@ public class MatriculaController {
   public ResponseEntity<MatriculaResponse> crear(
       @PathVariable Integer periodoId, @Valid @RequestBody MatriculaCreateRequest request) {
     return ResponseEntity.status(201).body(matriculas.crear(periodoId, request));
+  }
+
+  @PatchMapping("/{estudianteId}/confirmar")
+  public ResponseEntity<MatriculaResponse> confirmar(
+      @PathVariable Integer periodoId, @PathVariable Integer estudianteId) {
+    return ResponseEntity.ok(matriculas.confirmar(periodoId, estudianteId));
   }
 
   @DeleteMapping("/{estudianteId}")
