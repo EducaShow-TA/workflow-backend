@@ -17,7 +17,7 @@ El equipo integra cambios en `Development` mediante Pull Requests desde ramas pe
 
 ## Funcionalidades y endpoints
 
-Esta sección documenta las rutas REST implementadas. Hay 22 operaciones. `POST /api/v1/auth/login`, `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/reset-password` son públicas; las demás requieren autenticación Bearer.
+Esta sección documenta las rutas REST implementadas. Hay 25 operaciones. `POST /api/v1/auth/login`, `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/reset-password` son públicas; las demás requieren autenticación Bearer.
 
 ### Convenciones generales
 
@@ -26,7 +26,7 @@ Esta sección documenta las rutas REST implementadas. Hay 22 operaciones. `POST 
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
 - Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
 - Todas las rutas protegidas requieren autenticación. La gestión de cuentas de usuario y la consulta de logs de errores están restringidas al rol `ADMINISTRADOR`. La autorización por rol para el resto de las funcionalidades aún debe completarse según US-5.2.
-- No se exponen endpoints para consultar o gestionar directamente `Grado` y `Seccion`; sus identificadores se usan al crear un periodo.
+- La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; el catálogo de grados se inicializa con los grados 1.º a 5.º de secundaria mediante Flyway.
 
 #### Resumen de rutas
 
@@ -48,12 +48,47 @@ Esta sección documenta las rutas REST implementadas. Hay 22 operaciones. `POST 
 | `DELETE` | `/api/v1/competencias/{codigo}` | Eliminar una competencia |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
+| `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/secciones` | Crear sección (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/secciones/{id}` | Actualizar capacidad de sección (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
 | `DELETE` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}` | Eliminar una matrícula |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
+
+### Secciones y vacantes (US-1.7)
+
+Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/secciones` devuelve una lista ordenada por grado y nombre de sección:
+
+```json
+[
+  {
+    "id": 12,
+    "gradoNumero": 1,
+    "nombre": "A",
+    "vacantesTotales": 30,
+    "cantidadMatriculados": 2
+  }
+]
+```
+
+`cantidadMatriculados` se calcula desde las matrículas: cuenta estudiantes distintos con matrícula activa en estado `EN_REGISTRO` o `CONFIRMADA` asociados a la sección. Las matrículas retiradas, inactivas o finalizadas no cuentan.
+
+`POST /api/v1/secciones` crea una sección para un grado de secundaria entre 1 y 5. El nombre debe contener una o dos letras mayúsculas; la capacidad debe ser un entero positivo.
+
+```json
+{
+  "gradoNumero": 1,
+  "nombre": "A",
+  "vacantesTotales": 30
+}
+```
+
+Devuelve `201` con la sección creada. Si ya existe una sección con ese nombre en el grado, devuelve `409`.
+
+`PATCH /api/v1/secciones/{id}` actualiza solo la capacidad y recibe `{ "vacantesTotales": 32 }`. Devuelve `200` con el resumen actualizado. Si el valor no es positivo, devuelve `400`; si es menor que la cantidad de alumnos matriculados, devuelve `422`; si la sección no existe o está inactiva, devuelve `404`.
 
 ### Autenticación
 
