@@ -159,7 +159,12 @@ class CatalogoCrudIntegrationTest {
 
     mvc.perform(delete("/api/v1/competencias/LEE")).andExpect(status().isNoContent());
     mvc.perform(get("/api/v1/competencias/LEE")).andExpect(status().isNotFound());
-    mvc.perform(get("/api/v1/areas/COM")).andExpect(status().isOk());
+    mvc.perform(get("/api/v1/areas/COM"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.competenciaCodigos[0]").value("LEE"));
+    mvc.perform(get("/api/v1/areas"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].competencias[0].activo").value(false));
   }
 
   @Test
@@ -180,10 +185,80 @@ class CatalogoCrudIntegrationTest {
             put("/api/v1/areas/MAT")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(areaJson("OTRO", "Matemática", null)))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isNotFound());
 
     mvc.perform(get("/api/v1/areas/NO-EXISTE")).andExpect(status().isNotFound());
     mvc.perform(get("/api/v1/competencias/NO-EXISTE")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void contratoDelFrontendCreaListaActualizaYDesactivaCatalogo() throws Exception {
+    String body =
+        "{\"nombre\":\"Matemática\",\"descripcion\":\"Área\","
+            + "\"competencias\":[{\"nombre\":\"Resuelve problemas\","
+            + "\"descripcion\":\"Descripción\"}]}";
+
+    String response =
+        mvc.perform(post("/api/v1/areas").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").isNumber())
+            .andExpect(jsonPath("$.activo").value(true))
+            .andExpect(jsonPath("$.competencias.length()").value(1))
+            .andExpect(jsonPath("$.competencias[0].id").isNumber())
+            .andExpect(
+                jsonPath("$.competencias[0].areaId").value(org.hamcrest.Matchers.notNullValue()))
+            .andExpect(jsonPath("$.competencias[0].tieneNotasRegistradas").value(false))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    int areaId = com.jayway.jsonpath.JsonPath.read(response, "$.id");
+    int competenciaId = com.jayway.jsonpath.JsonPath.read(response, "$.competencias[0].id");
+
+    mvc.perform(get("/api/v1/areas"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(areaId));
+    mvc.perform(
+            put("/api/v1/areas/{id}", areaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nombre\":\"Matemática I\",\"descripcion\":\"Actualizada\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nombre").value("Matemática I"))
+        .andExpect(jsonPath("$.competencias.length()").value(1));
+    mvc.perform(
+            patch("/api/v1/areas/{id}/estado", areaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"activo\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.activo").value(false));
+    mvc.perform(get("/api/v1/areas"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].activo").value(false));
+    mvc.perform(
+            patch("/api/v1/competencias/{id}/estado", competenciaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"activo\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.activo").value(false));
+  }
+
+  @Test
+  void permiteCrearCompetenciaEnAreaYValidaNombresDuplicados() throws Exception {
+    crearArea("MAT", "Matemática");
+    int areaId = areas.findById("MAT").orElseThrow().getIdCatalogo();
+    String body = "{\"nombre\":\"Resuelve problemas\",\"descripcion\":\"\"}";
+
+    mvc.perform(
+            post("/api/v1/areas/{areaId}/competencias", areaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.areaId").value(areaId))
+        .andExpect(jsonPath("$.activo").value(true));
+    mvc.perform(
+            post("/api/v1/areas/{areaId}/competencias", areaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nombre\":\" RESUELVE PROBLEMAS \",\"descripcion\":\"\"}"))
+        .andExpect(status().isConflict());
   }
 
   private void crearArea(String codigo, String nombre) throws Exception {

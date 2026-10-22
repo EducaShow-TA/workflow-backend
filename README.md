@@ -17,7 +17,7 @@ El equipo integra cambios en `Development` mediante Pull Requests desde ramas pe
 
 ## Funcionalidades y endpoints
 
-Esta sección documenta las rutas REST implementadas. Hay 25 operaciones. `POST /api/v1/auth/login`, `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/reset-password` son públicas; las demás requieren autenticación Bearer.
+Esta sección documenta las rutas REST implementadas. Para probarlas en Postman, consulta [`postman/README.md`](postman/README.md). `POST /api/v1/auth/login`, `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/reset-password` son públicas; las demás requieren autenticación Bearer.
 
 ### Convenciones generales
 
@@ -38,14 +38,18 @@ Esta sección documenta las rutas REST implementadas. Hay 25 operaciones. `POST 
 | `POST` | `/api/v1/auth/reset-password` | Restablecer contraseña mediante token |
 | `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
-| `POST` | `/api/v1/areas` | Crear un área |
-| `GET` | `/api/v1/areas/{codigo}` | Consultar un área |
-| `PUT` | `/api/v1/areas/{codigo}` | Actualizar un área y sus competencias |
-| `DELETE` | `/api/v1/areas/{codigo}` | Eliminar un área |
+| `GET` | `/api/v1/areas` | Listar áreas con competencias |
+| `POST` | `/api/v1/areas` | Crear área con competencias iniciales |
+| `GET` | `/api/v1/areas/{idOrCodigo}` | Consultar un área |
+| `PUT` | `/api/v1/areas/{idOrCodigo}` | Actualizar un área |
+| `PATCH` | `/api/v1/areas/{id}/estado` | Activar/desactivar un área |
+| `POST` | `/api/v1/areas/{areaId}/competencias` | Agregar competencia al área |
+| `DELETE` | `/api/v1/areas/{idOrCodigo}` | Desactivar un área |
 | `POST` | `/api/v1/competencias` | Crear una competencia |
-| `GET` | `/api/v1/competencias/{codigo}` | Consultar una competencia |
-| `PUT` | `/api/v1/competencias/{codigo}` | Actualizar una competencia y sus áreas |
-| `DELETE` | `/api/v1/competencias/{codigo}` | Eliminar una competencia |
+| `GET` | `/api/v1/competencias/{idOrCodigo}` | Consultar una competencia |
+| `PUT` | `/api/v1/competencias/{idOrCodigo}` | Actualizar una competencia |
+| `PATCH` | `/api/v1/competencias/{id}/estado` | Activar/desactivar competencia |
+| `DELETE` | `/api/v1/competencias/{idOrCodigo}` | Desactivar una competencia |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
 | `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
@@ -128,7 +132,7 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 #### Recuperación de contraseña
 
-`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto).
+`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). El administrador semilla local usa un correo de prueba no supervisado; para completar la recuperación se necesita configurar un destinatario accesible.
 
 `POST /api/v1/auth/reset-password` es público y recibe `{ "token": "<token-recibido-por-correo>", "password": "nueva-clave-segura" }`. El token es de un solo uso y la contraseña se almacena con BCrypt.
 
@@ -136,13 +140,13 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 `POST /api/v1/cuentas-usuario` y `GET /api/v1/cuentas-usuario` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve la lista de cuentas existente; todavía no hay operaciones de edición ni una carga CSV de usuarios.
 
-### Áreas y competencias
+### Áreas y competencias (US-3.5)
 
-Ambos recursos tienen exactamente cuatro operaciones. El `codigo` es una clave de texto de hasta 50 caracteres. La relación entre áreas y competencias es muchos a muchos. Las respuestas exponen los códigos relacionados, no objetos anidados.
+El catálogo permite crear, editar y desactivar áreas y competencias. El listado expone competencias anidadas con su estado. Las rutas aceptan IDs numéricos y códigos legados donde corresponde. Las escrituras están restringidas a `ADMINISTRADOR`.
 
 #### Áreas
 
-`POST /api/v1/areas` recibe un área y devuelve `201` con el área creada y su encabezado `Location`. `GET /api/v1/areas/{codigo}` devuelve `200`. `PUT /api/v1/areas/{codigo}` reemplaza los datos y relaciones y devuelve `200`. `DELETE /api/v1/areas/{codigo}` elimina el área y devuelve `204` sin cuerpo.
+`GET /api/v1/areas` lista el catálogo. `POST /api/v1/areas` crea un área (puede incluir competencias anidadas). `GET` consulta por ID o código, `PUT` actualiza datos y relaciones, `PATCH /estado` cambia el estado y `DELETE` desactiva lógicamente (`204`), sin borrar físicamente.
 
 El cuerpo de creación y actualización tiene estos campos:
 
@@ -150,8 +154,9 @@ El cuerpo de creación y actualización tiene estos campos:
 | --- | --- | --- |
 | `codigo` | string | Obligatorio, no vacío, máximo 50 caracteres; debe coincidir con `{codigo}` en `PUT` |
 | `nombre` | string | Obligatorio, no vacío, máximo 255 caracteres |
-| `descripcion` | string | Opcional, máximo 255 caracteres |
-| `competenciaCodigos` | arreglo de strings | Opcional; códigos de competencias existentes |
+| `descripcion` | string | Opcional, máximo 500 caracteres |
+| `competenciaCodigos` | arreglo de strings | Opcional; en actualización reemplaza relaciones si se incluye |
+| `competencias` | arreglo de objetos | Opcional en creación; competencias anidadas con nombre y descripción |
 
 Ejemplo:
 
@@ -164,11 +169,11 @@ Ejemplo:
 }
 ```
 
-La respuesta tiene la misma estructura. Si se omite `competenciaCodigos` o se envía vacío al crear/actualizar, el área queda sin competencias. Los códigos referenciados deben existir.
+Al actualizar, omitir `competenciaCodigos` conserva las relaciones; enviarlo vacío las quita. El alta admite competencias anidadas. La desactivación lógica conserva las relaciones.
 
 #### Competencias
 
-`POST /api/v1/competencias` recibe una competencia y devuelve `201` con su encabezado `Location`. `GET /api/v1/competencias/{codigo}` devuelve `200`. `PUT /api/v1/competencias/{codigo}` actualiza los datos y relaciones y devuelve `200`. `DELETE /api/v1/competencias/{codigo}` elimina la competencia y devuelve `204` sin cuerpo.
+`POST` crea una competencia; `GET` consulta por ID o código; `PUT` actualiza datos y relaciones; `PATCH /estado` cambia estado; `DELETE` desactiva lógicamente (`204`).
 
 El cuerpo de creación y actualización es equivalente al de área, con `areaCodigos` en lugar de `competenciaCodigos`:
 
@@ -181,7 +186,7 @@ El cuerpo de creación y actualización es equivalente al de área, con `areaCod
 }
 ```
 
-La respuesta incluye `codigo`, `nombre`, `descripcion` y `areaCodigos`. Omitir o enviar vacía la lista al actualizar quita todas las relaciones. En estas operaciones, un código duplicado genera `409`, un recurso solicitado que no existe genera `404`, un código relacionado inexistente genera `400`, y un código de ruta distinto al del cuerpo en `PUT` genera `400`.
+Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las quita. Las competencias se desactivan de forma lógica. La validación de notas registradas queda pendiente hasta que exista el módulo de notas.
 
 ### Estudiantes
 
@@ -294,7 +299,7 @@ Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula 
 
 ### Logs de errores
 
-`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza técnica; el detalle la incluye. Las trazas se truncan a 4000 caracteres.
+`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
 
 ## Estructura
 
@@ -478,9 +483,21 @@ El proyecto cuenta con pruebas unitarias y de integración para autenticación, 
 mvn test
 ```
 
-## Alcance y pendientes
+## Avance del Sprint 1 y pendientes
 
-El backend aún no cubre todo el Product Backlog. Entre las funcionalidades pendientes de las historias iniciales se encuentran la configuración general del periodo de matrícula según el contrato funcional, la gestión API de grados/secciones y capacidad, las franjas horarias, la autorización completa por rol, la desactivación curricular con protección por notas y la carga masiva CSV de usuarios. La matrícula existente opera con periodos asociados a grado y sección; cualquier integración que espere un periodo único por año escolar debe acordar primero el contrato y el modelo de dominio. Además, la duración JWT predeterminada es de 24 horas y debe revisarse para ajustarse a la decisión de arquitectura de usar tokens de corta duración.
+| Historia | Avance del backend |
+| --- | --- |
+| US-1.1 Periodo de matrícula | Pendiente como ventana independiente con fecha de inicio/límite y estados pendiente, vigente y vencido. El periodo académico actual está asociado a grado y sección y no reemplaza ese contrato. |
+| US-1.2 Registrar alumnos y asignar grado/sección | Parcial: existen operaciones de estudiante y matrícula, falta completar el flujo integrado según la historia. |
+| US-1.7 Vacantes por grado/sección | Implementada: capacidad, resumen y control de vacantes; no permite reducir capacidad por debajo de matrículas activas (`422`). |
+| US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
+| US-4.3 Bloques y franjas horarias | Pendiente: sin API para turnos, duración pedagógica, recreos ni plantillas. |
+| US-5.2 Roles y permisos | Parcial: roles definidos y rutas administrativas protegidas; falta completar permisos para todos los módulos. |
+| US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
+| US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
+| US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |
+
+La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 
 La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
 

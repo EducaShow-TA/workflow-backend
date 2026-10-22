@@ -195,6 +195,8 @@ npx nuxi typecheck
 
 ## 5. Prueba de punta a punta
 
+Para recorrer las APIs del backend con Postman, importar la colección y el environment, y conocer sus precondiciones y datos de prueba, sigue [`../postman/README.md`](../postman/README.md). La colección debe apuntar a una base local de pruebas aislada; no la ejecutes contra una base con datos que quieras conservar.
+
 1. Abre <http://localhost:3000/login>.
 2. Ingresa con el administrador inicial → debes llegar a `/panel`.
 3. El menú de perfil (arriba a la derecha) muestra el nombre del usuario.
