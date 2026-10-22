@@ -45,7 +45,7 @@ class VacantesPeriodoIntegrationTest {
   @PersistenceContext EntityManager entityManager;
 
   @Test
-  void calculaVacantesConMatriculasActivasDelPeriodoSolicitado() throws Exception {
+  void calculaVacantesSoloConMatriculasActivasNoFinalizadasDeLaSeccion() throws Exception {
     Seccion seccion = crearSeccion(30);
     Periodo periodo = crearPeriodo(seccion, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 7, 31));
     agregarMatricula(periodo, EstadoMatricula.CONFIRMADA, true);
@@ -64,13 +64,13 @@ class VacantesPeriodoIntegrationTest {
         .andExpect(jsonPath("$.fechaInicio").value("2026-03-01"))
         .andExpect(jsonPath("$.fechaFin").value("2026-07-31"))
         .andExpect(jsonPath("$.vacantesTotales").value(30))
-        .andExpect(jsonPath("$.matriculasActivas").value(3))
-        .andExpect(jsonPath("$.vacantesDisponibles").value(27))
+        .andExpect(jsonPath("$.matriculasActivas").value(2))
+        .andExpect(jsonPath("$.vacantesDisponibles").value(28))
         .andExpect(jsonPath("$.hayVacantes").value(true));
   }
 
   @Test
-  void conteoDeMatriculasQuedaLimitadoAlPeriodoYDevuelveSinVacantesCuandoSeCompleta()
+  void conteoDeMatriculasIncluyeOtrosPeriodosDeLaSeccionYDevuelveSinVacantes()
       throws Exception {
     Seccion seccion = crearSeccion(2);
     Periodo primerPeriodo =
@@ -84,7 +84,7 @@ class VacantesPeriodoIntegrationTest {
 
     mvc.perform(get("/api/v1/periodos/{periodoId}/vacantes", segundoPeriodo.getId()))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.matriculasActivas").value(2))
+        .andExpect(jsonPath("$.matriculasActivas").value(3))
         .andExpect(jsonPath("$.vacantesDisponibles").value(0))
         .andExpect(jsonPath("$.hayVacantes").value(false));
   }
