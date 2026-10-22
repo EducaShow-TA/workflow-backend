@@ -1,7 +1,9 @@
 package pe.edu.pucp.colegio.common.audit;
 
 import java.time.LocalDate;
-import org.hibernate.query.Page;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import org.springframework.data.domain.Page;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -10,7 +12,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 /**
  * Persiste en {@code registros_error} las fallas técnicas del sistema (US-5.5).
