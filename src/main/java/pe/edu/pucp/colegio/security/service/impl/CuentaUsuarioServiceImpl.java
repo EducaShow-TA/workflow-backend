@@ -3,15 +3,18 @@ package pe.edu.pucp.colegio.security.service.impl;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.exception.ConflictException;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
@@ -80,6 +83,37 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
     return cuentas.findAll().stream().map(this::aDto).toList();
   }
 
+  @Override
+  @Transactional
+  public CuentaResponseDTO actualizar(
+      Integer id, ActualizarCuentaRequestDTO request, String usernameResponsable) {
+    CuentaUsuario cuenta =
+        cuentas
+            .findById(id)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta no encontrada"));
+    String username = request.username().trim();
+    if (cuentas.existsByUsernameAndIdNot(username, id)) {
+      throw new ConflictException("Ya existe una cuenta con ese correo");
+    }
+
+    var responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
+    cuenta.setUsername(username);
+    if (cuenta.getPersona() != null) {
+      cuenta.getPersona().setNombre(request.nombre().trim());
+      cuenta.getPersona().setApellidoPaterno(request.apellidoPaterno().trim());
+      cuenta.getPersona().setApellidoMaterno(request.apellidoMaterno().trim());
+    }
+    auditorias.save(
+        new RegistroAuditoria(
+            responsable == null ? null : responsable.getId(),
+            responsable == null ? null : responsable.getRol().name(),
+            AccionAuditoria.ACTUALIZAR,
+            "Actualización de cuenta " + cuenta.getUsername()));
+    log.info("event=cuenta_actualizada id={} por={}", id, usernameResponsable);
+    return aDto(cuenta);
+  }
+
   private CuentaResponseDTO aDto(CuentaUsuario c) {
     var p = c.getPersona();
     return new CuentaResponseDTO(
@@ -87,6 +121,10 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
         c.getUsername(),
         c.getRol().name(),
         p == null ? c.getUsername() : p.getNombreCompleto(),
-        p == null ? "" : p.getDni());
+        p == null ? "" : p.getDni(),
+        p == null ? c.getUsername() : p.getNombre(),
+        p == null ? "" : p.getApellidoPaterno(),
+        p == null ? "" : p.getApellidoMaterno(),
+        c.getActive());
   }
 }

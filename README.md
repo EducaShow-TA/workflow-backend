@@ -25,7 +25,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 - Para las rutas protegidas, enviar `Authorization: Bearer <token>`.
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
 - Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
-- Todas las rutas protegidas requieren autenticación. La gestión de cuentas de usuario y la consulta de logs de errores están restringidas al rol `ADMINISTRADOR`. La autorización por rol para el resto de las funcionalidades aún debe completarse según US-5.2.
+- Todas las rutas protegidas requieren autenticación. Las operaciones de cuentas, matrícula, estudiantes, períodos, vacantes, catálogo curricular, secciones, plantillas horarias y logs están restringidas al rol `ADMINISTRADOR` mediante autorización a nivel de controlador. `GET /api/v1/auth/me` está disponible para cualquier usuario autenticado; login y recuperación son públicos.
 - La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; el catálogo de grados se inicializa con los grados 1.º a 5.º de secundaria mediante Flyway.
 
 #### Resumen de rutas
@@ -38,6 +38,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/auth/reset-password` | Restablecer contraseña mediante token |
 | `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
+| `PUT` | `/api/v1/cuentas-usuario/{id}` | Editar correo y datos personales de una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/areas` | Listar áreas con competencias |
 | `POST` | `/api/v1/areas` | Crear área con competencias iniciales |
 | `GET` | `/api/v1/areas/{idOrCodigo}` | Consultar un área |
@@ -167,7 +168,18 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 ### Cuentas de usuario
 
-`POST /api/v1/cuentas-usuario` y `GET /api/v1/cuentas-usuario` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve la lista de cuentas existente; todavía no hay operaciones de edición ni una carga CSV de usuarios.
+`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario` y `PUT /api/v1/cuentas-usuario/{id}` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9 y sigue pendiente.
+
+Ejemplo de `PUT /api/v1/cuentas-usuario/12`:
+
+```json
+{
+  "nombre": "Ana",
+  "apellidoPaterno": "Pérez",
+  "apellidoMaterno": "Díaz",
+  "username": "ana.perez@colegio.edu.pe"
+}
+```
 
 ### Áreas y competencias (US-3.5)
 
@@ -521,7 +533,7 @@ mvn test
 | US-1.7 Vacantes por grado/sección | Implementada: capacidad, resumen y control de vacantes; no permite reducir capacidad por debajo de matrículas activas (`422`). |
 | US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
 | US-4.3 Bloques y franjas horarias | Implementada en backend: plantillas por turno con bloques pedagógicos y recreos calculados, validación del rango horario y administración de estado. La integración con interfaz de usuario queda pendiente. |
-| US-5.2 Roles y permisos | Parcial: roles definidos y rutas administrativas protegidas; falta completar permisos para todos los módulos. |
+| US-5.2 Roles y permisos | Implementada para las rutas existentes: roles estrictos `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` y `APODERADO`; las funciones administrativas de los módulos están protegidas para `ADMINISTRADOR`. Cuentas permiten alta, consulta y edición acotada de correo y datos personales. |
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
 | US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |

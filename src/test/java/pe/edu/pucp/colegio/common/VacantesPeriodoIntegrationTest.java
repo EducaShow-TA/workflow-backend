@@ -70,8 +70,7 @@ class VacantesPeriodoIntegrationTest {
   }
 
   @Test
-  void conteoDeMatriculasIncluyeOtrosPeriodosDeLaSeccionYDevuelveSinVacantes()
-      throws Exception {
+  void conteoDeMatriculasIncluyeOtrosPeriodosDeLaSeccionYDevuelveSinVacantes() throws Exception {
     Seccion seccion = crearSeccion(2);
     Periodo primerPeriodo =
         crearPeriodo(seccion, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 7, 31));

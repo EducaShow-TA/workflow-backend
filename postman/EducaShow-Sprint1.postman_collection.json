@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "41c99ff6-f2b9-450b-b43b-4bab3c084801",
     "name": "EducaShow - Sprint 1 Backend",
-    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Usuario semilla local: admin@educore.edu.pe / Admin2026! (cámbialo solo si la clave de tu base fue rotada).\n\nCobertura: US-3.5 Catálogo curricular, US-1.7 Vacantes por sección, US-5.5 Logs, US-5.6 login/solicitud de recuperación y operaciones actuales de US-5.2. Incluye matrícula académica actual, que no implementa por sí sola la US-1.1 independiente. US-4.3 incluye pruebas de plantillas horarias. US-5.9 CSV sigue pendiente.\n\nEl environment configura gradoId=1, que corresponde a 1.º de secundaria en una base local nueva con V12 aplicada. La API actual lista secciones pero no expone consulta de grados. Si tu base tiene IDs distintos, cambia gradoId. El flujo crea una sección libre automáticamente y matricula dos estudiantes para probar el rechazo 422 de capacidad.",
+    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Usuario semilla local: admin@educore.edu.pe / Admin2026! (cámbialo solo si la clave de tu base fue rotada).\n\nCobertura: US-3.5 Catálogo curricular, US-1.7 Vacantes por sección, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.2 cuentas, actualización de datos y autorización por rol en rutas administrativas. Incluye matrícula académica actual, que no implementa por sí sola la US-1.1 independiente. US-4.3 incluye pruebas de plantillas horarias. US-5.9 CSV sigue pendiente.\n\nEl environment configura gradoId=1, que corresponde a 1.º de secundaria en una base local nueva con V12 aplicada. La API actual lista secciones pero no expone consulta de grados. Si tu base tiene IDs distintos, cambia gradoId. El flujo crea una sección libre automáticamente y matricula dos estudiantes para probar el rechazo 422 de capacidad.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1166,8 +1166,8 @@
       ]
     },
     {
-      "name": "04 - Cuentas y roles (operaciones actuales de US-5.2)",
-      "description": "La API permite crear y listar cuentas, y el catálogo/cuentas/logs/secciones están protegidos para ADMINISTRADOR. La autorización detallada para todos los módulos sigue pendiente.",
+      "name": "04 - Cuentas y roles (US-5.2)",
+      "description": "Cuentas: crear, editar nombre/apellidos/correo y listar como ADMINISTRADOR. PUT conserva DNI, rol y contraseña. La colección prueba que DOCENTE no puede listar cuentas (403) y que una petición anónima recibe 401. Las demás rutas operativas también están limitadas a ADMINISTRADOR y se verifican en pruebas de integración.",
       "item": [
         {
           "name": "Crear cuenta docente de prueba",
@@ -1206,7 +1206,149 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Cuenta creada', () => pm.response.to.have.status(201));"
+                  "pm.test('Cuenta creada', () => pm.response.to.have.status(201));",
+                  "const cuenta = pm.response.json();",
+                  "pm.environment.set('cuentaUsuarioId', cuenta.id);",
+                  "pm.environment.set('cuentaUsuarioUsername', cuenta.username);",
+                  "pm.environment.set('cuentaUsuarioUsernameEditado', cuenta.username.replace('postman.docente.', 'postman.editado.'));",
+                  "pm.environment.set('cuentaUsuarioDni', cuenta.dni);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar cuenta (solo administrador)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Docente Editado\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"{{cuentaUsuarioUsernameEditado}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas-usuario/{{cuentaUsuarioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cuentas-usuario",
+                "{{cuentaUsuarioId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cuenta actualizada', () => pm.response.to.have.status(200));",
+                  "const cuenta = pm.response.json();",
+                  "pm.test('Actualiza datos y conserva DNI/rol', () => {",
+                  "  pm.expect(cuenta.nombre).to.eql('Docente Editado');",
+                  "  pm.expect(cuenta.username).to.eql(pm.environment.get('cuentaUsuarioUsernameEditado'));",
+                  "  pm.expect(cuenta.dni).to.eql(pm.environment.get('cuentaUsuarioDni'));",
+                  "  pm.expect(cuenta.rol).to.eql('DOCENTE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login docente para validar autorización",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{cuentaUsuarioUsernameEditado}}\",\n  \"password\": \"Temporal123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login docente de prueba', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('docenteToken', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Docente no puede listar cuentas (403)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{docenteToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas-usuario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cuentas-usuario"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El rol DOCENTE recibe 403 en gestión de cuentas', () => pm.response.to.have.status(403));"
                 ]
               }
             }
