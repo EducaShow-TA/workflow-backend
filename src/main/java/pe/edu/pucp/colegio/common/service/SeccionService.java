@@ -53,7 +53,7 @@ public class SeccionService {
 
     Seccion seccion = new Seccion();
     seccion.setCodigo(request.nombre());
-    seccion.setVacantesTotales(request.vacantesTotales().toString());
+    seccion.setVacantesTotales(request.vacantesTotales());
     grado.agregarSeccion(seccion);
     seccion = secciones.save(seccion);
     return respuesta(seccion);
@@ -61,14 +61,14 @@ public class SeccionService {
 
   @Transactional
   public SeccionResponse actualizarVacantes(Integer id, SeccionVacantesRequest request) {
-    Seccion seccion = buscarSeccion(id);
+    Seccion seccion = bloquearSeccion(id);
     long matriculados = matriculas.countAlumnosActivosPorSeccion(id);
     if (request.vacantesTotales() < matriculados) {
       throw new ResponseStatusException(
           HttpStatus.UNPROCESSABLE_ENTITY,
           "La capacidad no puede ser menor que los " + matriculados + " alumnos ya matriculados");
     }
-    seccion.setVacantesTotales(request.vacantesTotales().toString());
+    seccion.setVacantesTotales(request.vacantesTotales());
     return respuesta(seccion);
   }
 
@@ -80,15 +80,18 @@ public class SeccionService {
             () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "La sección no existe"));
   }
 
+  private Seccion bloquearSeccion(Integer id) {
+    return secciones
+        .findByIdForUpdate(id)
+        .filter(seccion -> Boolean.TRUE.equals(seccion.getActive()))
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "La sección no existe"));
+  }
+
   private SeccionResponse respuesta(Seccion seccion) {
     long matriculados = matriculas.countAlumnosActivosPorSeccion(seccion.getId());
-    int capacidad;
-    try {
-      capacidad = Integer.parseInt(seccion.getVacantesTotales());
-      if (capacidad <= 0) {
-        throw new NumberFormatException();
-      }
-    } catch (NumberFormatException | NullPointerException e) {
+    Integer capacidad = seccion.getVacantesTotales();
+    if (capacidad == null || capacidad <= 0) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "La sección no tiene una capacidad válida configurada");
     }

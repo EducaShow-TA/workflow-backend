@@ -66,7 +66,7 @@ class GradoSeccionIntegrationTest {
   private Seccion nuevaSeccion(String codigo) {
     Seccion seccion = new Seccion();
     seccion.setCodigo(codigo);
-    seccion.setVacantesTotales("30");
+    seccion.setVacantesTotales(30);
     return seccion;
   }
 }

@@ -111,6 +111,14 @@ public class PlantillaHorarioService {
     if (!request.horaInicio().isBefore(request.horaFin())) {
       throw new BusinessException("La hora de inicio debe ser anterior a la hora de fin");
     }
+    if (request.turno() == pe.edu.pucp.colegio.common.model.TurnoEscolar.MANANA
+        && !request.horaInicio().isBefore(LocalTime.NOON)) {
+      throw new BusinessException("El turno mañana debe iniciar antes de las 12:00");
+    }
+    if (request.turno() == pe.edu.pucp.colegio.common.model.TurnoEscolar.TARDE
+        && request.horaInicio().isBefore(LocalTime.NOON)) {
+      throw new BusinessException("El turno tarde debe iniciar desde las 12:00");
+    }
 
     Map<Integer, Integer> recreosPorBloque = new TreeMap<>();
     long duracionTotal =

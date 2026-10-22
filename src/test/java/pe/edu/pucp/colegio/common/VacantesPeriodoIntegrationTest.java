@@ -46,7 +46,7 @@ class VacantesPeriodoIntegrationTest {
 
   @Test
   void calculaVacantesConMatriculasActivasDelPeriodoSolicitado() throws Exception {
-    Seccion seccion = crearSeccion("30");
+    Seccion seccion = crearSeccion(30);
     Periodo periodo = crearPeriodo(seccion, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 7, 31));
     agregarMatricula(periodo, EstadoMatricula.CONFIRMADA, true);
     agregarMatricula(periodo, EstadoMatricula.EN_REGISTRO, true);
@@ -72,7 +72,7 @@ class VacantesPeriodoIntegrationTest {
   @Test
   void conteoDeMatriculasQuedaLimitadoAlPeriodoYDevuelveSinVacantesCuandoSeCompleta()
       throws Exception {
-    Seccion seccion = crearSeccion("2");
+    Seccion seccion = crearSeccion(2);
     Periodo primerPeriodo =
         crearPeriodo(seccion, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 7, 31));
     Periodo segundoPeriodo =
@@ -97,7 +97,7 @@ class VacantesPeriodoIntegrationTest {
 
   @Test
   void creaPeriodoPorApiYConsultaSusVacantesLibres() throws Exception {
-    Seccion seccion = crearSeccion("6");
+    Seccion seccion = crearSeccion(6);
     entityManager.flush();
 
     String request =
@@ -127,7 +127,7 @@ class VacantesPeriodoIntegrationTest {
         .andExpect(jsonPath("$.hayVacantes").value(true));
   }
 
-  private Seccion crearSeccion(String vacantes) {
+  private Seccion crearSeccion(Integer vacantes) {
     Grado grado = new Grado();
     grado.setNumero(NUMERO_GRADO.getAndIncrement());
     grado.setNivelEducativo(NivelEducativo.PRIMARIA);

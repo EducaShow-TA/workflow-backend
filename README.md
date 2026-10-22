@@ -182,7 +182,7 @@ El cuerpo de creación y actualización tiene estos campos:
 | Campo | Tipo | Requisito |
 | --- | --- | --- |
 | `codigo` | string | Obligatorio, no vacío, máximo 50 caracteres; debe coincidir con `{codigo}` en `PUT` |
-| `nombre` | string | Obligatorio, no vacío, máximo 255 caracteres |
+| `nombre` | string | Obligatorio, no vacío, máximo 150 caracteres |
 | `descripcion` | string | Opcional, máximo 500 caracteres |
 | `competenciaCodigos` | arreglo de strings | Opcional; en actualización reemplaza relaciones si se incluye |
 | `competencias` | arreglo de objetos | Opcional en creación; competencias anidadas con nombre y descripción |
@@ -377,7 +377,7 @@ En Fedora, instala Maven con:
 > [`docs/despliegue-local.md`](docs/despliegue-local.md). Flujo de ramas y Pull Requests:
 > [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
-## Configuración
+### Instalar Maven
 ```bash
 sudo dnf install maven
 mvn -version
@@ -526,7 +526,7 @@ mvn test
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
 | US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |
 
-La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
+El estado actual de las historias se describe en la tabla anterior. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 
 La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
 

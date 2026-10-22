@@ -99,7 +99,7 @@ class VacantesPeriodoTransaccionesIntegrationTest {
 
     Seccion seccion = new Seccion();
     seccion.setCodigo("A");
-    seccion.setVacantesTotales("3");
+    seccion.setVacantesTotales(3);
     grado.agregarSeccion(seccion);
     entityManager.persist(grado);
     entityManager.persist(seccion);

@@ -18,8 +18,8 @@ public class Seccion extends EntidadBase {
   @Column(nullable = false, length = 50)
   private String codigo;
 
-  @Column(name = "vacantes_totales", length = 20)
-  private String vacantesTotales;
+  @Column(name = "vacantes_totales")
+  private Integer vacantesTotales;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "grado_id", nullable = false)
@@ -33,11 +33,11 @@ public class Seccion extends EntidadBase {
     this.codigo = codigo;
   }
 
-  public String getVacantesTotales() {
+  public Integer getVacantesTotales() {
     return vacantesTotales;
   }
 
-  public void setVacantesTotales(String vacantesTotales) {
+  public void setVacantesTotales(Integer vacantesTotales) {
     this.vacantesTotales = vacantesTotales;
   }
 

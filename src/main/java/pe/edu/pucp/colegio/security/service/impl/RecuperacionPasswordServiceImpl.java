@@ -18,6 +18,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
+import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
+import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.service.CorreoService;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.TokenRecuperacionPassword;
@@ -36,6 +39,7 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
   private final TokenRecuperacionPasswordRepository tokens;
   private final PasswordEncoder passwordEncoder;
   private final CorreoService correo;
+  private final RegistroAuditoriaRepository auditoria;
 
   private final String frontendUrl;
   private final long expirationMinutes;
@@ -45,6 +49,7 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
       TokenRecuperacionPasswordRepository tokens,
       PasswordEncoder passwordEncoder,
       CorreoService correo,
+      RegistroAuditoriaRepository auditoria,
       @Value("${app.password-reset.frontend-url}") String frontendUrl,
       @Value("${app.password-reset.expiration-minutes:15}") long expirationMinutes) {
 
@@ -52,6 +57,7 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
     this.tokens = tokens;
     this.passwordEncoder = passwordEncoder;
     this.correo = correo;
+    this.auditoria = auditoria;
     this.frontendUrl = frontendUrl;
     this.expirationMinutes = expirationMinutes;
   }
@@ -132,7 +138,14 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
 
     // Mantener el mismo algoritmo utilizado por el login.
     cuenta.setPassword(passwordEncoder.encode(nuevaPassword));
+    cuenta.reiniciarIntentos();
     cuentas.save(cuenta);
+    auditoria.save(
+        new RegistroAuditoria(
+            cuenta.getId(),
+            cuenta.getRol().name(),
+            AccionAuditoria.ACTUALIZAR,
+            "Contraseña restablecida"));
 
     // Invalidar todos los enlaces activos de esta cuenta.
     List<TokenRecuperacionPassword> activos = tokens.findByCuentaUsuarioAndActiveTrue(cuenta);

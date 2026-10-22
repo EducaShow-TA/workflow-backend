@@ -45,7 +45,7 @@ class MatriculaControllerIntegrationTest {
 
   @Test
   void registraEstudianteLoMatriculaLoRetiraYPuedeMatricularloOtraVez() throws Exception {
-    Integer periodoId = crearPeriodo("2");
+    Integer periodoId = crearPeriodo(2);
     EstudianteResponse estudiante = crearEstudiante();
 
     consultarVacantes(periodoId, 2, 0);
@@ -88,7 +88,7 @@ class MatriculaControllerIntegrationTest {
 
   @Test
   void evitaMatricularDosVecesAlMismoEstudianteEnElPeriodo() throws Exception {
-    Integer periodoId = crearPeriodo("2");
+    Integer periodoId = crearPeriodo(2);
     EstudianteResponse estudiante = crearEstudiante();
     String request =
         objectMapper.writeValueAsString(new MatriculaCreateRequest(estudiante.estudianteId()));
@@ -109,7 +109,7 @@ class MatriculaControllerIntegrationTest {
 
   @Test
   void impideMatricularCuandoElPeriodoYaNoTieneVacantes() throws Exception {
-    Integer periodoId = crearPeriodo("1");
+    Integer periodoId = crearPeriodo(1);
     EstudianteResponse primerEstudiante = crearEstudiante();
     EstudianteResponse segundoEstudiante = crearEstudiante();
 
@@ -122,7 +122,7 @@ class MatriculaControllerIntegrationTest {
   void devuelveNotFoundParaPeriodoOEstudianteInexistentes() throws Exception {
     EstudianteResponse estudiante = crearEstudiante();
     matricular(Integer.MAX_VALUE, estudiante.estudianteId()).andExpect(status().isNotFound());
-    matricular(crearPeriodo("1"), Integer.MAX_VALUE).andExpect(status().isNotFound());
+    matricular(crearPeriodo(1), Integer.MAX_VALUE).andExpect(status().isNotFound());
   }
 
   private org.springframework.test.web.servlet.ResultActions matricular(
@@ -168,7 +168,7 @@ class MatriculaControllerIntegrationTest {
     return objectMapper.readValue(response, EstudianteResponse.class);
   }
 
-  private Integer crearPeriodo(String vacantes) {
+  private Integer crearPeriodo(Integer vacantes) {
     Grado grado = new Grado();
     grado.setNumero(NUMERO_GRADO.getAndIncrement());
     grado.setNivelEducativo(NivelEducativo.SECUNDARIA);
