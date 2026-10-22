@@ -146,8 +146,9 @@ variables*). En NetBeans quedan en `nbactions.xml`, que **no se versiona**.
 Verificar y arrancar:
 
 ```bash
-mvn verify             # formato (Spotless) + pruebas; no necesita MySQL (las pruebas usan H2)
-mvn spring-boot:run    # arranca en http://localhost:8080
+mvn test              # ejecuta las pruebas; usan H2 y no requieren MySQL
+mvn spotless:check    # comprueba el formato Java
+mvn spring-boot:run   # arranca en http://localhost:8080
 ```
 
 Debe aparecer `Successfully applied N migration(s)` (solo la primera vez) y `Started ColegioBackendApplication`.
@@ -174,8 +175,15 @@ npm ci             # instala exactamente lo de package-lock.json
 npm run dev        # http://localhost:3000
 ```
 
-No hace falta archivo `.env`: con `NUXT_PUBLIC_API_BASE` vacío, el frontend usa el mismo origen y el `devProxy`
-(`nuxt.config.ts`) reenvía `/api` a `http://localhost:8080`.
+El frontend de este checkout activa datos de demostración cuando `NUXT_PUBLIC_API_BASE` está vacío. Para probar el
+backend local mediante el `devProxy` configurado en `nuxt.config.ts`, crea un archivo `.env` en el frontend con:
+
+```dotenv
+NUXT_PUBLIC_API_BASE=http://localhost:3000
+```
+
+Así las solicitudes van al mismo origen del frontend y Nuxt reenvía `/api` a `http://localhost:8080`. Si se omite
+esta variable, las pantallas que usan `useDatosPrueba()` muestran datos simulados y no prueban la integración.
 
 Verificaciones antes de abrir un Pull Request:
 
@@ -186,6 +194,8 @@ npx nuxi typecheck
 ```
 
 ## 5. Prueba de punta a punta
+
+Para recorrer las APIs del backend con Postman, importar la colección y el environment, y conocer sus precondiciones y datos de prueba, sigue [`../postman/README.md`](../postman/README.md). La colección debe apuntar a una base local de pruebas aislada; no la ejecutes contra una base con datos que quieras conservar.
 
 1. Abre <http://localhost:3000/login>.
 2. Ingresa con el administrador inicial → debes llegar a `/panel`.

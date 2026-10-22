@@ -1,6 +1,10 @@
-# EducaShow — backend de autenticación
+# EducaShow — backend del sistema de gestión escolar
 
-Backend REST en Spring Boot para el módulo de seguridad de un sistema escolar. Implementa inicio de sesión, autenticación JWT, consulta del perfil autenticado, bloqueo temporal por intentos fallidos y auditoría del inicio de sesión.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+
+## Guía de trabajo
+
+El equipo integra cambios en `Development` mediante Pull Requests desde ramas personales permanentes; al cierre del sprint, integra `Development` en `main`. Antes de subir cambios, ejecuta `mvn spotless:apply`, `mvn spotless:check` y `mvn verify`. El flujo detallado está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
 ## Tecnologías
 
@@ -13,15 +17,16 @@ Backend REST en Spring Boot para el módulo de seguridad de un sistema escolar. 
 
 ## Funcionalidades y endpoints
 
-Esta sección documenta las rutas REST implementadas, sus parámetros y los cuerpos JSON esperados. Hay 16 endpoints. Excepto `POST /api/v1/auth/login`, todos requieren autenticación Bearer.
+Esta sección documenta las rutas REST implementadas. Para probarlas en Postman, consulta [`postman/README.md`](postman/README.md). `POST /api/v1/auth/login`, `POST /api/v1/auth/forgot-password` y `POST /api/v1/auth/reset-password` son públicas; las demás requieren autenticación Bearer.
 
 ### Convenciones generales
 
 - Para las solicitudes con cuerpo, enviar `Content-Type: application/json`.
 - Para las rutas protegidas, enviar `Authorization: Bearer <token>`.
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
-- Los errores tienen el formato `{"message":"..."}`. Se usan `400` para datos inválidos o reglas de negocio, `401` para autenticación ausente o inválida, `404` para recursos inexistentes, `409` para conflictos y `500` para errores internos.
-- No se exponen endpoints para consultar o gestionar directamente `Grado` y `Seccion`; sus identificadores se usan al crear un periodo.
+- Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
+- Todas las rutas protegidas requieren autenticación. La gestión de cuentas de usuario y la consulta de logs de errores están restringidas al rol `ADMINISTRADOR`. La autorización por rol para el resto de las funcionalidades aún debe completarse según US-5.2.
+- La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; el catálogo de grados se inicializa con los grados 1.º a 5.º de secundaria mediante Flyway.
 
 #### Resumen de rutas
 
@@ -29,20 +34,65 @@ Esta sección documenta las rutas REST implementadas, sus parámetros y los cuer
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/login` | Iniciar sesión y obtener JWT |
 | `GET` | `/api/v1/auth/me` | Consultar el perfil autenticado |
-| `POST` | `/api/v1/areas` | Crear un área |
-| `GET` | `/api/v1/areas/{codigo}` | Consultar un área |
-| `PUT` | `/api/v1/areas/{codigo}` | Actualizar un área y sus competencias |
-| `DELETE` | `/api/v1/areas/{codigo}` | Eliminar un área |
+| `POST` | `/api/v1/auth/forgot-password` | Solicitar recuperación de contraseña |
+| `POST` | `/api/v1/auth/reset-password` | Restablecer contraseña mediante token |
+| `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/areas` | Listar áreas con competencias |
+| `POST` | `/api/v1/areas` | Crear área con competencias iniciales |
+| `GET` | `/api/v1/areas/{idOrCodigo}` | Consultar un área |
+| `PUT` | `/api/v1/areas/{idOrCodigo}` | Actualizar un área |
+| `PATCH` | `/api/v1/areas/{id}/estado` | Activar/desactivar un área |
+| `POST` | `/api/v1/areas/{areaId}/competencias` | Agregar competencia al área |
+| `DELETE` | `/api/v1/areas/{idOrCodigo}` | Desactivar un área |
 | `POST` | `/api/v1/competencias` | Crear una competencia |
-| `GET` | `/api/v1/competencias/{codigo}` | Consultar una competencia |
-| `PUT` | `/api/v1/competencias/{codigo}` | Actualizar una competencia y sus áreas |
-| `DELETE` | `/api/v1/competencias/{codigo}` | Eliminar una competencia |
+| `GET` | `/api/v1/competencias/{idOrCodigo}` | Consultar una competencia |
+| `PUT` | `/api/v1/competencias/{idOrCodigo}` | Actualizar una competencia |
+| `PATCH` | `/api/v1/competencias/{id}/estado` | Activar/desactivar competencia |
+| `DELETE` | `/api/v1/competencias/{idOrCodigo}` | Desactivar una competencia |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
+| `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/secciones` | Crear sección (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/secciones/{id}` | Actualizar capacidad de sección (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
 | `DELETE` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}` | Eliminar una matrícula |
+| `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
+
+### Secciones y vacantes (US-1.7)
+
+Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/secciones` devuelve una lista ordenada por grado y nombre de sección:
+
+```json
+[
+  {
+    "id": 12,
+    "gradoNumero": 1,
+    "nombre": "A",
+    "vacantesTotales": 30,
+    "cantidadMatriculados": 2
+  }
+]
+```
+
+`cantidadMatriculados` se calcula desde las matrículas: cuenta estudiantes distintos con matrícula activa en estado `EN_REGISTRO` o `CONFIRMADA` asociados a la sección. Las matrículas retiradas, inactivas o finalizadas no cuentan.
+
+`POST /api/v1/secciones` crea una sección para un grado de secundaria entre 1 y 5. El nombre debe contener una o dos letras mayúsculas; la capacidad debe ser un entero positivo.
+
+```json
+{
+  "gradoNumero": 1,
+  "nombre": "A",
+  "vacantesTotales": 30
+}
+```
+
+Devuelve `201` con la sección creada. Si ya existe una sección con ese nombre en el grado, devuelve `409`.
+
+`PATCH /api/v1/secciones/{id}` actualiza solo la capacidad y recibe `{ "vacantesTotales": 32 }`. Devuelve `200` con el resumen actualizado. Si el valor no es positivo, devuelve `400`; si es menor que la cantidad de alumnos matriculados, devuelve `422`; si la sección no existe o está inactiva, devuelve `404`.
 
 ### Autenticación
 
@@ -67,7 +117,7 @@ Respuesta `200`:
   "usuario": {
     "id": 12,
     "username": "usuario@ejemplo.edu.pe",
-    "rol": "ADMIN",
+    "rol": "ADMINISTRADOR",
     "nombreCompleto": "Nombre Apellido",
     "dni": "12345678"
   }
@@ -80,13 +130,23 @@ Credenciales inválidas, cuenta inactiva, bloqueada o datos de login vacíos pro
 
 No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `usuario` mostrado arriba (`id`, `username`, `rol`, `nombreCompleto`, `dni`).
 
-### Áreas y competencias
+#### Recuperación de contraseña
 
-Ambos recursos tienen exactamente cuatro operaciones. El `codigo` es una clave de texto de hasta 50 caracteres. La relación entre áreas y competencias es muchos a muchos. Las respuestas exponen los códigos relacionados, no objetos anidados.
+`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). El administrador semilla local usa un correo de prueba no supervisado; para completar la recuperación se necesita configurar un destinatario accesible.
+
+`POST /api/v1/auth/reset-password` es público y recibe `{ "token": "<token-recibido-por-correo>", "password": "nueva-clave-segura" }`. El token es de un solo uso y la contraseña se almacena con BCrypt.
+
+### Cuentas de usuario
+
+`POST /api/v1/cuentas-usuario` y `GET /api/v1/cuentas-usuario` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve la lista de cuentas existente; todavía no hay operaciones de edición ni una carga CSV de usuarios.
+
+### Áreas y competencias (US-3.5)
+
+El catálogo permite crear, editar y desactivar áreas y competencias. El listado expone competencias anidadas con su estado. Las rutas aceptan IDs numéricos y códigos legados donde corresponde. Las escrituras están restringidas a `ADMINISTRADOR`.
 
 #### Áreas
 
-`POST /api/v1/areas` recibe un área y devuelve `201` con el área creada y su encabezado `Location`. `GET /api/v1/areas/{codigo}` devuelve `200`. `PUT /api/v1/areas/{codigo}` reemplaza los datos y relaciones y devuelve `200`. `DELETE /api/v1/areas/{codigo}` elimina el área y devuelve `204` sin cuerpo.
+`GET /api/v1/areas` lista el catálogo. `POST /api/v1/areas` crea un área (puede incluir competencias anidadas). `GET` consulta por ID o código, `PUT` actualiza datos y relaciones, `PATCH /estado` cambia el estado y `DELETE` desactiva lógicamente (`204`), sin borrar físicamente.
 
 El cuerpo de creación y actualización tiene estos campos:
 
@@ -94,8 +154,9 @@ El cuerpo de creación y actualización tiene estos campos:
 | --- | --- | --- |
 | `codigo` | string | Obligatorio, no vacío, máximo 50 caracteres; debe coincidir con `{codigo}` en `PUT` |
 | `nombre` | string | Obligatorio, no vacío, máximo 255 caracteres |
-| `descripcion` | string | Opcional, máximo 255 caracteres |
-| `competenciaCodigos` | arreglo de strings | Opcional; códigos de competencias existentes |
+| `descripcion` | string | Opcional, máximo 500 caracteres |
+| `competenciaCodigos` | arreglo de strings | Opcional; en actualización reemplaza relaciones si se incluye |
+| `competencias` | arreglo de objetos | Opcional en creación; competencias anidadas con nombre y descripción |
 
 Ejemplo:
 
@@ -108,11 +169,11 @@ Ejemplo:
 }
 ```
 
-La respuesta tiene la misma estructura. Si se omite `competenciaCodigos` o se envía vacío al crear/actualizar, el área queda sin competencias. Los códigos referenciados deben existir.
+Al actualizar, omitir `competenciaCodigos` conserva las relaciones; enviarlo vacío las quita. El alta admite competencias anidadas. La desactivación lógica conserva las relaciones.
 
 #### Competencias
 
-`POST /api/v1/competencias` recibe una competencia y devuelve `201` con su encabezado `Location`. `GET /api/v1/competencias/{codigo}` devuelve `200`. `PUT /api/v1/competencias/{codigo}` actualiza los datos y relaciones y devuelve `200`. `DELETE /api/v1/competencias/{codigo}` elimina la competencia y devuelve `204` sin cuerpo.
+`POST` crea una competencia; `GET` consulta por ID o código; `PUT` actualiza datos y relaciones; `PATCH /estado` cambia estado; `DELETE` desactiva lógicamente (`204`).
 
 El cuerpo de creación y actualización es equivalente al de área, con `areaCodigos` en lugar de `competenciaCodigos`:
 
@@ -125,7 +186,7 @@ El cuerpo de creación y actualización es equivalente al de área, con `areaCod
 }
 ```
 
-La respuesta incluye `codigo`, `nombre`, `descripcion` y `areaCodigos`. Omitir o enviar vacía la lista al actualizar quita todas las relaciones. En estas operaciones, un código duplicado genera `409`, un recurso solicitado que no existe genera `404`, un código relacionado inexistente genera `400`, y un código de ruta distinto al del cuerpo en `PUT` genera `400`.
+Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las quita. Las competencias se desactivan de forma lógica. La validación de notas registradas queda pendiente hasta que exista el módulo de notas.
 
 ### Estudiantes
 
@@ -236,30 +297,38 @@ Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula 
 
 `periodoId` y `estudianteId` son enteros de ruta. No recibe cuerpo y responde `204` sin contenido al eliminar la matrícula. Si no existe el periodo o la relación de matrícula, responde `404`.
 
+### Logs de errores
+
+`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
+
 ## Estructura
 
 ```text
 src/main/java/pe/edu/pucp/colegio/
 ├── ColegioBackendApplication.java
 ├── common/
-│   ├── audit/       # Entidades y repositorios de auditoría y errores
+│   ├── audit/       # Auditoría y persistencia de errores
+│   ├── controller/  # Catálogos, estudiantes, periodos, matrículas y logs
+│   ├── dto/         # Solicitudes y respuestas
 │   ├── exception/   # Excepciones de negocio y manejo HTTP global
-│   └── model/       # Personas, catálogo curricular y matrículas
+│   ├── model/       # Personas, catálogo curricular, organización y matrículas
+│   ├── repository/  # Persistencia de los módulos comunes
+│   └── service/     # Lógica de negocio de los módulos comunes
 └── security/
     ├── config/      # Reglas de acceso y cadena de filtros
-    ├── controller/  # Endpoints de autenticación
+    ├── controller/  # Autenticación y gestión de cuentas
     ├── dto/         # Solicitudes y respuestas
     ├── jwt/         # Emisión, validación y filtro JWT
     ├── model/       # CuentaUsuario y Rol
     ├── repository/  # Acceso a cuentas
-    └── service/     # Lógica de autenticación
+    └── service/     # Autenticación, cuentas y recuperación de contraseña
 
 src/main/resources/
 ├── application.yml
-└── db/migration/V1__init_security.sql
+└── db/migration/V*__*.sql
 
 src/test/
-├── java/.../AuthIntegrationTest.java
+├── java/.../*IntegrationTest.java
 └── resources/application.yml
 ```
 
@@ -270,6 +339,8 @@ Flyway crea las tablas de seguridad, catálogo curricular, matrículas y organiz
 - JDK 25, requerido para compilar y ejecutar el proyecto.
 - Maven.
 - Un servidor MySQL accesible en `localhost:3306`.
+
+Este checkout todavía no contiene Maven Wrapper ni los workflows de CI descritos en el diseño técnico del repositorio; por ahora se requiere una instalación local de Maven y ejecutar las verificaciones manualmente.
 
 En Fedora, instala Maven con:
 
@@ -387,14 +458,14 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 
 Con la base de datos activa y las variables configuradas, inicia la aplicación con `mvn spring-boot:run`. Flyway aplica las migraciones disponibles y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
 
-La migración actual crea una cuenta semilla `admin@educore.edu.pe` y contiene un hash de contraseña conocido por el repositorio. **Úsala solo para pruebas locales y cambia o elimina esa cuenta antes de cualquier despliegue.** En una base donde V1 ya fue aplicada, modificar el archivo V1 no actualiza los datos existentes; la rotación debe hacerse mediante una actualización separada.
+La migración inicial crea una cuenta administradora semilla para desarrollo local. No uses esa cuenta en entornos compartidos o desplegados; debe rotarse o deshabilitarse antes de cualquier despliegue. En una base donde V1 ya fue aplicada, modificar el archivo V1 no actualiza los datos existentes; la rotación debe hacerse mediante una actualización separada.
 
 Para probar el login en un entorno local recién inicializado:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin@educore.edu.pe","password":"Admin2026!"}'
+  -d '{"username":"admin@educore.edu.pe","password":"<contrasenia-local>"}'
 ```
 
 Usa el valor `token` de la respuesta:
@@ -406,21 +477,29 @@ curl http://localhost:8080/api/v1/auth/me \
 
 ## Pruebas
 
-La prueba de integración visible usa Spring Boot, MockMvc y H2. Cubre login exitoso del administrador, credenciales incorrectas y rechazo de una ruta protegida sin token. No sustituye una verificación contra el servidor MySQL local.
+El proyecto cuenta con pruebas unitarias y de integración para autenticación, cuentas, catálogo, estudiantes, matrícula, vacantes, autorización y registro de errores. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
 
 ```bash
 mvn test
 ```
 
-## Observaciones técnicas
+## Avance del Sprint 1 y pendientes
 
-- La duración JWT predeterminada es de 24 horas; conviene ajustarla a los requisitos de seguridad.
-- El manejador de errores responde con `message`; el punto de entrada de Spring Security construye otra respuesta JSON manual. El contrato puede unificarse.
-- Existen entidades y repositorio para `registros_error`, pero el manejador global no persiste allí los errores.
-- Las pruebas visibles no cubren bloqueo de cuenta, expiración o firma inválida de token, cuenta inactiva ni validaciones de entrada.
-- El POM configura Spotless, pero no liga `spotless:check` a `verify`.
-- El proyecto usa el controlador JDBC de MySQL y debe conectarse a MySQL Server.
-- El alcance del código disponible se limita al prototipo de seguridad; no se observan módulos escolares de matrícula, pagos u horarios.
+| Historia | Avance del backend |
+| --- | --- |
+| US-1.1 Periodo de matrícula | Pendiente como ventana independiente con fecha de inicio/límite y estados pendiente, vigente y vencido. El periodo académico actual está asociado a grado y sección y no reemplaza ese contrato. |
+| US-1.2 Registrar alumnos y asignar grado/sección | Parcial: existen operaciones de estudiante y matrícula, falta completar el flujo integrado según la historia. |
+| US-1.7 Vacantes por grado/sección | Implementada: capacidad, resumen y control de vacantes; no permite reducir capacidad por debajo de matrículas activas (`422`). |
+| US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
+| US-4.3 Bloques y franjas horarias | Pendiente: sin API para turnos, duración pedagógica, recreos ni plantillas. |
+| US-5.2 Roles y permisos | Parcial: roles definidos y rutas administrativas protegidas; falta completar permisos para todos los módulos. |
+| US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
+| US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
+| US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |
+
+La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto. El despliegue en AWS no está configurado en este repositorio. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
+
+La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
 
 ## Referencias
 

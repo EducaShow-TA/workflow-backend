@@ -1,6 +1,6 @@
 # Flujo de trabajo con Git
 
-Guía práctica para trabajar en este repositorio. El documento oficial es la **sección 8 del Estándar de Programación** (`Estandar_de_Programacion_Grupo2.docx`); esta guía la resume con los comandos que se usan en el día a día.
+Guía práctica para trabajar en este repositorio, conforme a la decisión de equipo documentada en [`docs/superpowers/specs/2026-10-02-sistema-ramas-ci-design.md`](superpowers/specs/2026-10-02-sistema-ramas-ci-design.md). Hay una discrepancia pendiente con la copia del Estándar de Programación actualmente disponible en `Proyecto`: esa versión indica crear ramas desde `main` y abrir Pull Requests hacia `main`, mientras que este repositorio usa ramas personales permanentes, `Development` como rama de integración y Pull Requests a `Development`. El equipo debe sincronizar el Estándar oficial con la decisión adoptada.
 
 ## 1. Ramas del repositorio
 
@@ -183,7 +183,8 @@ git commit --amend -m "fix(pagos): corregir redondeo de mora"
 
 ```bash
 mvn spotless:apply              # aplica el formato del proyecto
-mvn verify                      # compila, revisa formato y ejecuta las pruebas
+mvn spotless:check              # comprueba el formato Java
+mvn verify                      # compila y ejecuta las pruebas
 git fetch origin
 git rebase origin/Development   # vuelve a actualizarte justo antes de subir
 git push --force-with-lease origin <tu-rama>
@@ -247,6 +248,7 @@ CONFLICT (content): Merge conflict in src/main/java/.../AuthServiceImpl.java
    Si hay más commits con conflictos, repite los pasos.
 4. Al terminar, verifica que todo funciona antes de subir:
    ```bash
+   mvn spotless:check
    mvn verify
    git push --force-with-lease origin <tu-rama>
    ```
@@ -342,6 +344,7 @@ git commit -m "tipo(alcance): descripción"
 
 # Antes de subir
 mvn spotless:apply
+mvn spotless:check
 mvn verify
 git fetch origin
 git rebase origin/Development

@@ -16,9 +16,16 @@ public class Competencia {
   @Column(name = "codigo", nullable = false, length = 50)
   private String codigo;
 
+  @Column(name = "id", insertable = false, updatable = false)
+  private Integer idCatalogo;
+
+  @Column(name = "active", nullable = false)
+  private Boolean activo = true;
+
   @Column(nullable = false)
   private String nombre;
 
+  @Column(length = 500)
   private String descripcion;
 
   @ManyToMany(mappedBy = "competencias")
@@ -26,6 +33,18 @@ public class Competencia {
 
   public String getCodigo() {
     return codigo;
+  }
+
+  public Integer getIdCatalogo() {
+    return idCatalogo;
+  }
+
+  public Boolean getActivo() {
+    return activo;
+  }
+
+  public void setActivo(Boolean activo) {
+    this.activo = activo;
   }
 
   public void setCodigo(String codigo) {

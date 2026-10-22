@@ -5,7 +5,7 @@
   - v3 (2026-10-04): ramas permanentes por integrante (indicación de la jefa de práctica) y JDK 25.
 - **Repositorio:** `EducaShow-TA/workflow-backend` (público)
 - **Alcance:** sub-proyecto 1 de 2. El sub-proyecto 2 (corrección de incumplimientos del Estándar) tendrá su propia spec.
-- **Fuente oficial del flujo de trabajo:** sección 8 del *Estándar de Programación* (`Estandar_de_Programacion_Grupo2.docx`). Esta spec no repite ese flujo; solo define lo necesario para implementarlo y hacerlo cumplir.
+- **Base y decisiones específicas del repositorio:** sección 8 del *Estándar de Programación* (`Estandar_de_Programacion_Grupo2.docx`) y acuerdos del equipo registrados aquí. Esta spec define el flujo elegido para este repositorio, incluidas sus diferencias con el estándar base.
 
 ## 1. Objetivo
 
@@ -136,7 +136,7 @@ En PRs hacia `Development`, `origen-development` queda omitido; en PRs hacia `ma
 - **`README.md`**: se antepone una sección **"Guía de trabajo"** que resume la sección 8 del Estándar: ramas (`main`, `Development`, tabla de ramas personales) → diagrama → flujo diario con comandos (rebase sobre `Development`, `./mvnw spotless:apply && ./mvnw verify`, push con `--force-with-lease`, PR) → entregas (tag) → reglas y CI (qué checks existen, cómo leer el reporte de cobertura) → requisitos (JDK 25; con JDK 27 Spotless falla con `NoSuchFieldError ... endPositions`, usar `JAVA_HOME` apuntando a JDK 25) → ajustes del repositorio para admins. Remite al Estándar como documento oficial. El contenido actual del README (configuración y verificación manual) se conserva debajo, con comandos actualizados a `./mvnw`.
 - **Diagrama** en Mermaid (`gitGraph`), renderizado por GitHub: `main`, `Development` y dos ramas personales con commits, rebase sobre `Development`, PRs con merge commit, y merge a `main` con tag de sprint.
 - **`.github/pull_request_template.md`** (español): Qué se hizo · Historia(s) de usuario (US-x.x) · Cómo probar · Checklist: rebase sobre `Development` hecho, tests agregados/actualizados, Javadoc en `*Service`/`*Controller`, `./mvnw spotless:apply` ejecutado, sin secretos ni credenciales.
-- **Estándar de Programación:** ya actualizado el 2026-10-04 (sección 8 reescrita para ramas por integrante; secciones 3.3 y 4.2 extienden las reglas de protección a `Development`). Pendiente que el equipo agregue a la sección 7.1: *"La cobertura se mide con JaCoCo en `./mvnw verify`; el build falla si la capa de servicio (`*.service.impl`) de algún módulo baja de 70% de líneas cubiertas."*
+- **Estándar de Programación:** en la copia actualmente disponible en `Proyecto`, la sección 8 todavía indica ramas de trabajo desde `main` y Pull Requests hacia `main`. Esto difiere de la decisión específica de este repositorio (ramas personales permanentes y PR hacia `Development`) y está pendiente de sincronizar con el equipo. También queda pendiente que el equipo agregue a la sección 7.1: *"La cobertura se mide con JaCoCo en `./mvnw verify`; el build falla si la capa de servicio (`*.service.impl`) de algún módulo baja de 70% de líneas cubiertas."*
 
 ## 6. Orden de implementación
 

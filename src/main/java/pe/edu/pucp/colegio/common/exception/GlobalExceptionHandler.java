@@ -7,10 +7,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pe.edu.pucp.colegio.common.audit.NivelLog;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
 
@@ -106,14 +111,75 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorRespuestaDTO> inesperado(Exception e, HttpServletRequest r) {
     log.error("event=unhandled_exception path={}", r.getRequestURI(), e);
     return responder(
-        HttpStatus.INTERNAL_SERVER_ERROR, NivelLog.ERROR, "SIS_500", "Ocurrió un error interno", r);
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        NivelLog.ERROR,
+        "SIS_500",
+        "Ocurrió un error interno",
+        r,
+        e);
   }
+
+  /*
+  private ResponseEntity<ErrorRespuestaDTO> responder(
+          HttpStatus estado, NivelLog nivel, String codigo, String mensaje, HttpServletRequest r) {
+      registroError.registrar(
+              nivel, codigo, r.getMethod(), r.getRequestURI(), estado.value(), mensaje);
+      return ResponseEntity.status(estado)
+              .body(ErrorRespuestaDTO.de(estado, mensaje, r.getRequestURI()));
+  }
+  */
 
   private ResponseEntity<ErrorRespuestaDTO> responder(
       HttpStatus estado, NivelLog nivel, String codigo, String mensaje, HttpServletRequest r) {
-    registroError.registrar(
-        nivel, codigo, r.getMethod(), r.getRequestURI(), estado.value(), mensaje);
+    return responder(estado, nivel, codigo, mensaje, r, null);
+  }
+
+  private ResponseEntity<ErrorRespuestaDTO> responder(
+      HttpStatus estado,
+      NivelLog nivel,
+      String codigo,
+      String mensaje,
+      HttpServletRequest r,
+      Throwable causa) {
+    try {
+      registroError.registrar(
+          nivel, codigo, r.getMethod(), r.getRequestURI(), estado.value(), mensaje, causa);
+    } catch (RuntimeException ex) {
+      log.error("event=registro_error_no_persistido codigo={}", codigo, ex);
+    }
     return ResponseEntity.status(estado)
         .body(ErrorRespuestaDTO.de(estado, mensaje, r.getRequestURI()));
+  }
+
+  @ExceptionHandler(NoResourceFoundException.class)
+  ResponseEntity<ErrorRespuestaDTO> noEncontrado(NoResourceFoundException e, HttpServletRequest r) {
+    return responder(HttpStatus.NOT_FOUND, NivelLog.INFO, "RES_404", "Recurso no encontrado", r);
+  }
+
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  ResponseEntity<ErrorRespuestaDTO> metodoNoPermitido(
+      HttpRequestMethodNotSupportedException e, HttpServletRequest r) {
+    return responder(
+        HttpStatus.METHOD_NOT_ALLOWED, NivelLog.INFO, "REQ_405", "Método no permitido", r);
+  }
+
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  ResponseEntity<ErrorRespuestaDTO> tipoNoSoportado(
+      HttpMediaTypeNotSupportedException e, HttpServletRequest r) {
+    return responder(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        NivelLog.INFO,
+        "REQ_415",
+        "Tipo de contenido no soportado",
+        r);
+  }
+
+  @ExceptionHandler({
+    MethodArgumentTypeMismatchException.class,
+    MissingServletRequestParameterException.class
+  })
+  ResponseEntity<ErrorRespuestaDTO> parametroInvalido(Exception e, HttpServletRequest r) {
+    return responder(
+        HttpStatus.BAD_REQUEST, NivelLog.INFO, "REQ_400", "Parámetro de la solicitud inválido", r);
   }
 }
