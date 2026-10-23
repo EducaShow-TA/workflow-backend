@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, periodos académicos, matrículas, vacantes, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, ventanas de matrícula, periodos académicos, matrículas, vacantes, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -67,6 +67,10 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `PATCH` | `/api/v1/horarios/plantillas/{id}/estado` | Activar/desactivar plantilla (solo ADMINISTRADOR) |
 | `DELETE` | `/api/v1/horarios/plantillas/{id}` | Desactivar plantilla (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
+| `POST` | `/api/v1/periodos-matricula` | Configurar ventana de matrícula |
+| `GET` | `/api/v1/periodos-matricula` | Listar ventanas y estado calculado |
+| `GET` | `/api/v1/periodos-matricula/{id}` | Consultar ventana y estado calculado |
+| `PUT` | `/api/v1/periodos-matricula/{id}` | Actualizar ventana de matrícula |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
 | `PATCH` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar` | Confirmar una matrícula en registro |
@@ -85,12 +89,15 @@ Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/seccione
     "gradoNumero": 1,
     "nombre": "A",
     "vacantesTotales": 30,
-    "cantidadMatriculados": 2
+    "cantidadMatriculados": 2,
+    "vacantesDisponibles": 28
   }
 ]
 ```
 
 `cantidadMatriculados` se calcula desde las matrículas: cuenta estudiantes distintos con matrícula activa en estado `EN_REGISTRO` o `CONFIRMADA` asociados a la sección. Las matrículas retiradas, inactivas o finalizadas no cuentan.
+
+`vacantesDisponibles` es la capacidad total menos `cantidadMatriculados`, con mínimo cero. Si una sección antigua tiene capacidad nula o no positiva, el listado la representa como `0` y `0` vacantes disponibles para que una fila inválida no interrumpa el resto del listado.
 
 `POST /api/v1/secciones` crea una sección para un grado de secundaria entre 1 y 5. El nombre debe contener una o dos letras mayúsculas; la capacidad debe ser un entero positivo.
 
@@ -167,13 +174,13 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 #### Recuperación de contraseña
 
-`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). El administrador semilla local usa un correo de prueba no supervisado; para completar la recuperación se necesita configurar un destinatario accesible.
+`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. `username` puede ser un nombre de usuario que no tenga formato de correo; el mensaje se envía al correo registrado en `Persona` cuando está disponible. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). El administrador semilla local usa un correo de prueba no supervisado; para completar la recuperación se necesita configurar un destinatario accesible.
 
 `POST /api/v1/auth/reset-password` es público y recibe `{ "token": "<token-recibido-por-correo>", "password": "nueva-clave-segura" }`. El token es de un solo uso y la contraseña se almacena con BCrypt.
 
 ### Cuentas de usuario
 
-`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9.
+`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. El username debe tener formato de correo y hasta 50 caracteres; la contraseña debe tener entre 8 y 72 caracteres. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9.
 
 El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactivación surte efecto también para tokens emitidos previamente.
 
@@ -181,7 +188,7 @@ El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactiva
 
 `GET /api/v1/cuentas-usuario/carga-masiva/plantilla` descarga un ejemplo. `POST /api/v1/cuentas-usuario/carga-masiva` recibe una parte `multipart/form-data` llamada `archivo` con extensión `.csv`. Ambas rutas requieren rol `ADMINISTRADOR`. La cabecera requiere `rol`, `dni`, `nombres`, `apellido_paterno`, `apellido_materno` y `correo`; admite `telefono`, `fecha_nacimiento`, `dni_apoderado` y `parentesco`. El archivo admite comas o punto y coma y hasta 500 filas. Los roles permitidos son `DOCENTE`, `ALUMNO` y `APODERADO`; los alumnos requieren DNI de apoderado y parentesco.
 
-La carga acepta CSV UTF-8 y Windows-1252 (formato común al exportar desde Excel en Windows). Antes de guardar en Excel, importa la columna `dni` como texto para evitar que se eliminen ceros iniciales; una vez eliminados al exportar, el backend no puede reconstruirlos. La respuesta de carga usa `Cache-Control: no-store` porque incluye contraseñas temporales de cuentas nuevas. Los archivos que superan el límite configurado se responden con `413` y mensaje estándar.
+La carga acepta CSV UTF-8 y Windows-1252 (formato común al exportar desde Excel en Windows), de hasta 10 MB por archivo. Antes de guardar en Excel, importa la columna `dni` como texto para evitar que se eliminen ceros iniciales; una vez eliminados al exportar, el backend no puede reconstruirlos. El DNI se conserva como texto y admite letras para documentos alternativos. La respuesta de carga usa `Cache-Control: no-store` porque incluye contraseñas temporales de cuentas nuevas. Los archivos que superan el límite se responden con `413` y mensaje estándar.
 
 Cada fila se valida y procesa de forma independiente. Las filas válidas se guardan aunque otras sean rechazadas. Un DNI existente actualiza los datos personales permitidos sin reemplazar la cuenta, la contraseña, el rol ni las matrículas; un correo duplicado de otra cuenta o un cambio de rol se rechaza. La carga sincroniza el correo con `Persona`, y para alumnos crea o actualiza el vínculo familiar existente. Los campos opcionales vacíos conservan el valor previo de una persona existente. Las personas sin cuenta reciben una nueva cuenta activa y una contraseña temporal que solo se devuelve en el resultado de esa carga.
 
@@ -276,6 +283,7 @@ Campos esperados:
 | `fechaNacimiento` | fecha | Opcional, formato `YYYY-MM-DD` |
 | `telefono` | string | Opcional, máximo 20 caracteres |
 | `genero` | string | Opcional, máximo 20 caracteres |
+| `correo` | string | Opcional, debe tener formato de correo, máximo 254 caracteres |
 
 DNI o username ya registrados producen `409`.
 
@@ -286,6 +294,14 @@ Lista estudiantes activos y sus matrículas en una página. Acepta filtros opcio
 #### `POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar`
 
 `cuentaUsuarioId` es el ID entero de una cuenta existente. No recibe cuerpo. Asigna el rol `ALUMNO` y crea el perfil de estudiante asociado a la Persona de la cuenta; responde `200` con la misma estructura de `EstudianteResponse`. La cuenta debe existir y estar vinculada a una Persona. Si no existe, responde `404`; si no tiene Persona o ya tiene perfil de estudiante, responde `400` o `409`.
+
+### Ventana de matrícula (US-1.1)
+
+La ventana de matrícula es global y separada del periodo académico asociado a grado y sección. Todas las rutas requieren rol `ADMINISTRADOR`. El sistema considera ambas fechas inclusivas: antes de `fechaInicio` el estado es `PENDIENTE`, entre ambas fechas es `VIGENTE` y después de `fechaLimite` es `VENCIDO`. La fecha límite debe ser posterior a la fecha de inicio.
+
+`POST /api/v1/periodos-matricula` recibe `{ "fechaInicio": "2026-10-20", "fechaLimite": "2026-10-31" }` y responde `201` con `id`, las fechas y `estado`. `GET` lista las ventanas activas con su estado actual y `GET /{id}` consulta una. `PUT /{id}` actualiza ambas fechas. Las fechas inválidas responden `400`; una ventana inexistente responde `404`.
+
+El endpoint de registro `POST /api/v1/periodos/{periodoId}/matriculas` solo acepta altas mientras exista una ventana global en estado `VIGENTE`; fuera de ella responde `409`. Esta validación no afecta la confirmación ni el retiro de matrículas ya registradas.
 
 ### Periodos académicos y vacantes
 
@@ -374,7 +390,7 @@ src/main/java/pe/edu/pucp/colegio/
 ├── ColegioBackendApplication.java
 ├── common/
 │   ├── audit/       # Auditoría y persistencia de errores
-│   ├── controller/  # Catálogos, estudiantes, periodos, matrículas y logs
+│   ├── controller/  # Catálogos, estudiantes, periodos, matrículas, ventanas y logs
 │   ├── dto/         # Solicitudes y respuestas
 │   ├── exception/   # Excepciones de negocio y manejo HTTP global
 │   ├── model/       # Personas, catálogo curricular, organización y matrículas
@@ -398,7 +414,7 @@ src/test/
 └── resources/application.yml
 ```
 
-Flyway crea las tablas de seguridad, catálogo curricular, matrículas y organización académica. Hibernate valida el esquema al iniciar (`ddl-auto: validate`). Un `Periodo` puede contener varias `Matricula`; cada matrícula enlaza un estudiante con un solo periodo y un estudiante puede matricularse en distintos periodos. Un `Grado` se identifica por número y nivel educativo (`INICIAL`, `PRIMARIA` o `SECUNDARIA`); así se pueden tener, por ejemplo, los grados 1 de Primaria y 1 de Secundaria. Cada grado requiere al menos una `Seccion`, identificada por un código como `A` o `B`, y cada sección pertenece a un solo grado.
+Flyway crea las tablas de seguridad, catálogo curricular, ventanas globales de matrícula, periodos académicos, matrículas y organización académica. Hibernate valida el esquema al iniciar (`ddl-auto: validate`). La ventana de matrícula controla cuándo se permiten nuevas altas; un `Periodo` académico pertenece a un grado y sección y puede contener varias `Matricula`. Cada matrícula enlaza un estudiante con un solo periodo y un estudiante puede matricularse en distintos periodos. Un `Grado` se identifica por número y nivel educativo (`INICIAL`, `PRIMARIA` o `SECUNDARIA`); así se pueden tener, por ejemplo, los grados 1 de Primaria y 1 de Secundaria. Cada grado requiere al menos una `Seccion`, identificada por un código como `A` o `B`, y cada sección pertenece a un solo grado.
 
 ## Requisitos
 
@@ -539,7 +555,7 @@ curl http://localhost:8080/api/v1/auth/me \
 
 ## Pruebas
 
-El proyecto cuenta con pruebas unitarias y de integración para autenticación, cuentas, catálogo, estudiantes, matrícula, vacantes, autorización y registro de errores. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
+El proyecto cuenta con pruebas unitarias y de integración para autenticación y recuperación, cuentas, catálogo, estudiantes, ventanas y periodos de matrícula, vacantes, plantillas horarias, autorización y registro de errores. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
 
 ```bash
 mvn test
@@ -549,11 +565,12 @@ mvn test
 
 | Historia | Avance del backend |
 | --- | --- |
-| US-1.1 Periodo de matrícula | Pendiente como ventana independiente con fecha de inicio/límite y estados pendiente, vigente y vencido. El periodo académico actual está asociado a grado y sección y no reemplaza ese contrato. |
-| US-1.2 Registrar alumnos y asignar grado/sección | Parcial: existen operaciones de estudiante y matrícula, falta completar el flujo integrado según la historia. |
+| US-1.1 Periodo de matrícula | Implementada: ventana global independiente, estados calculados por fecha y bloqueo de nuevas matrículas fuera de vigencia. |
+| US-1.2 Registrar alumnos y asignar grado/sección | Implementada en backend: alta de estudiantes, listado con filtros y paginación, asignación de perfil a cuentas y matrícula por periodo académico con confirmación y retiro lógico. |
 | US-1.7 Vacantes por grado/sección | Implementada: capacidad, resumen y control de vacantes; no permite reducir capacidad por debajo de matrículas activas (`422`). |
 | US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
 | US-4.3 Bloques y franjas horarias | Implementada en backend: plantillas por turno con bloques pedagógicos y recreos calculados, validación del rango horario y administración de estado. La integración con interfaz de usuario queda pendiente. |
+| US-5.1 Activar/desactivar cuentas (extra) | Implementada: cambio de estado de cuentas; cuentas inactivas no pueden iniciar sesión ni usar tokens existentes. |
 | US-5.2 Roles y permisos | Implementada para las rutas existentes: roles estrictos `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` y `APODERADO`; las funciones administrativas de los módulos están protegidas para `ADMINISTRADOR`. Cuentas permiten alta, consulta y edición acotada de correo y datos personales. |
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |

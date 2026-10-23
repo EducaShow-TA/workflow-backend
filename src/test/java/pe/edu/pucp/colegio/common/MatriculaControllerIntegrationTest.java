@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.common;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,7 @@ import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -27,6 +29,7 @@ import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.model.Seccion;
 
 @SpringBootTest
@@ -42,6 +45,14 @@ class MatriculaControllerIntegrationTest {
   @Autowired ObjectMapper objectMapper;
 
   @PersistenceContext EntityManager entityManager;
+
+  @BeforeEach
+  void abrirVentanaDeMatriculaParaLosCasosDeMatricula() {
+    PeriodoMatricula ventana = new PeriodoMatricula();
+    ventana.setFechaInicio(LocalDate.now().minusDays(1));
+    ventana.setFechaLimite(LocalDate.now().plusDays(1));
+    entityManager.persist(ventana);
+  }
 
   @Test
   void registraEstudianteLoMatriculaLoRetiraYPuedeMatricularloOtraVez() throws Exception {
@@ -119,6 +130,22 @@ class MatriculaControllerIntegrationTest {
   }
 
   @Test
+  void noPermiteReducirCapacidadPorDebajoDeLasMatriculasActivas() throws Exception {
+    Integer periodoId = crearPeriodo(2);
+    EstudianteResponse primero = crearEstudiante();
+    EstudianteResponse segundo = crearEstudiante();
+    matricular(periodoId, primero.estudianteId()).andExpect(status().isCreated());
+    matricular(periodoId, segundo.estudianteId()).andExpect(status().isCreated());
+    Integer seccionId = entityManager.find(Periodo.class, periodoId).getSeccion().getId();
+
+    mvc.perform(
+            patch("/api/v1/secciones/{id}", seccionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"vacantesTotales\":1}"))
+        .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
   void devuelveNotFoundParaPeriodoOEstudianteInexistentes() throws Exception {
     EstudianteResponse estudiante = crearEstudiante();
     matricular(Integer.MAX_VALUE, estudiante.estudianteId()).andExpect(status().isNotFound());
@@ -145,6 +172,28 @@ class MatriculaControllerIntegrationTest {
                 periodoId,
                 estudiante.estudianteId()))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void noPermiteRegistrarMatriculaFueraDeLaVentanaVigente() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    EstudianteResponse estudiante = crearEstudiante();
+    PeriodoMatricula ventana =
+        entityManager
+            .createQuery("select p from PeriodoMatricula p", PeriodoMatricula.class)
+            .getSingleResult();
+    ventana.setFechaInicio(LocalDate.now().minusDays(5));
+    ventana.setFechaLimite(LocalDate.now().minusDays(1));
+    entityManager.flush();
+
+    mvc.perform(
+            post("/api/v1/periodos/{periodoId}/matriculas", periodoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        new MatriculaCreateRequest(estudiante.estudianteId()))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value("No hay un periodo de matrícula vigente"));
   }
 
   @Test

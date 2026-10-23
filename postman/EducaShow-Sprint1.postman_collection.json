@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "41c99ff6-f2b9-450b-b43b-4bab3c084801",
     "name": "EducaShow - Sprint 1 Backend",
-    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Usuario semilla local: admin@educore.edu.pe / Admin2026! (cámbialo solo si la clave de tu base fue rotada).\n\nCobertura: US-3.5 Catálogo curricular, US-1.7 Vacantes por sección, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.2 cuentas, actualización de datos y autorización por rol en rutas administrativas. Incluye matrícula académica actual, que no implementa por sí sola la US-1.1 independiente. US-4.3 incluye pruebas de plantillas horarias. US-5.9 CSV se genera y carga automáticamente desde un script previo; consulta postman/README.md.\n\nEl environment configura gradoId=1, que corresponde a 1.º de secundaria en una base local nueva con V12 aplicada. La API actual lista secciones pero no expone consulta de grados. Si tu base tiene IDs distintos, cambia gradoId. El flujo crea una sección libre automáticamente y matricula dos estudiantes para probar el rechazo 422 de capacidad.",
+    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Usuario semilla local: admin@educore.edu.pe / Admin2026! (cámbialo solo si la clave de tu base fue rotada).\n\nCobertura: US-1.1 ventana de matrícula, US-1.2 estudiantes y matrícula, US-1.7 Vacantes por sección, US-3.5 Catálogo curricular, US-4.3 plantillas horarias, US-5.1 estado de cuentas, US-5.2 roles y permisos, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.9 carga CSV. Consulta postman/README.md para la preparación y los límites de las pruebas de correo.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -213,6 +213,59 @@
     {
       "name": "01 - Catálogo curricular (US-3.5)",
       "item": [
+        {
+          "name": "Crear competencia por endpoint propio",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"P{{$guid}}\",\n  \"nombre\": \"Competencia independiente {{$guid}}\",\n  \"descripcion\": \"Creada desde el endpoint de competencias\",\n  \"areaCodigos\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/competencias",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "competencias" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Competencia independiente creada', () => pm.response.to.have.status(201));",
+                  "pm.expect(pm.response.json().codigo).to.be.a('string').and.not.empty;",
+                  "pm.environment.set('competenciaIndependienteCodigo', pm.response.json().codigo);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar competencia independiente por código",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/competencias/{{competenciaIndependienteCodigo}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "competencias", "{{competenciaIndependienteCodigo}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Competencia consultada por código', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().codigo).to.eql(pm.environment.get('competenciaIndependienteCodigo'));"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "Listar áreas y competencias (incluye inactivas)",
           "request": {
@@ -636,6 +689,50 @@
               }
             }
           ]
+        },
+        {
+          "name": "Desactivar competencia independiente por DELETE",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/competencias/{{competenciaIndependienteCodigo}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "competencias", "{{competenciaIndependienteCodigo}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DELETE desactiva competencia', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Desactivar área por DELETE",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/areas/{{areaId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "areas", "{{areaId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DELETE desactiva área', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -783,9 +880,240 @@
       ]
     },
     {
-      "name": "03 - Matrícula académica existente (base operativa; US-1.2 parcial)",
-      "description": "La API actual modela periodos por grado y sección; no representa todavía una ventana independiente de matrícula US-1.1.",
+      "name": "03 - Ventana de matrícula y matrícula académica (US-1.1 / US-1.2)",
+      "description": "La ventana global US-1.1 se configura al inicio de este flujo. El periodo académico posterior sigue asociado a grado y sección.",
       "item": [
+        {
+          "name": "Configurar ventana de matrícula vigente (US-1.1)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ahora = new Date();",
+                  "const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1);",
+                  "const limite = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 30);",
+                  "const fecha = d => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');",
+                  "pm.environment.set('fechaInicioMatricula', fecha(inicio));",
+                  "pm.environment.set('fechaLimiteMatricula', fecha(limite));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana de matrícula creada y vigente', () => pm.response.to.have.status(201));",
+                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');",
+                  "pm.environment.set('ventanaMatriculaId', String(pm.response.json().id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula" ]
+            }
+          }
+        },
+        {
+          "name": "Estado PENDIENTE antes de la fecha de inicio",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const hoy = new Date();",
+                  "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
+                  "pm.environment.set('inicioPendiente', fecha(30));",
+                  "pm.environment.set('limitePendiente', fecha(60));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana pendiente creada', () => pm.response.to.have.status(201));",
+                  "pm.expect(pm.response.json().estado).to.eql('PENDIENTE');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"{{inicioPendiente}}\",\n  \"fechaLimite\": \"{{limitePendiente}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula" ]
+            }
+          }
+        },
+        {
+          "name": "Estado VENCIDO después de la fecha límite",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const hoy = new Date();",
+                  "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
+                  "pm.environment.set('inicioVencido', fecha(-60));",
+                  "pm.environment.set('limiteVencido', fecha(-30));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana vencida creada', () => pm.response.to.have.status(201));",
+                  "pm.expect(pm.response.json().estado).to.eql('VENCIDO');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"{{inicioVencido}}\",\n  \"fechaLimite\": \"{{limiteVencido}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula" ]
+            }
+          }
+        },
+        {
+          "name": "Rechazar fecha límite igual al inicio",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"2026-01-01\",\n  \"fechaLimite\": \"2026-01-01\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Fecha límite no posterior se rechaza', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar ventanas de matrícula y consultar estado",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listado de ventanas disponible', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().some(p => String(p.id) === pm.environment.get('ventanaMatriculaId'))).to.eql(true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar ventana de matrícula por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana consultada', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar ventana vigente",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana actualizada', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "Crear periodo académico para la sección recién creada",
           "request": {
@@ -968,6 +1296,38 @@
           ]
         },
         {
+          "name": "Listar estudiantes con filtros y paginación (US-1.2)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estudiantes?nombre=Luis&dni=9{{studentSuffix}}&page=0&size=5",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "estudiantes" ],
+              "query": [
+                { "key": "nombre", "value": "Luis" },
+                { "key": "dni", "value": "9{{studentSuffix}}" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "5" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listado de estudiantes paginado', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.content).to.be.an('array');",
+                  "pm.expect(body.content.some(e => e.dni === '9' + pm.environment.get('studentSuffix'))).to.eql(true);",
+                  "pm.expect(body.size).to.eql(5);"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Matricular estudiante 1 en el periodo",
           "request": {
             "method": "POST",
@@ -1007,6 +1367,34 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Primera matrícula creada', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rechazar matrícula duplicada del estudiante 1",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos", "{{periodoId}}", "matriculas" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Matrícula activa duplicada responde 409', () => pm.response.to.have.status(409));"
                 ]
               }
             }
@@ -1135,6 +1523,28 @@
           ]
         },
         {
+          "name": "Rechazar doble confirmación de matrícula",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas/{{estudianteId}}/confirmar",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos", "{{periodoId}}", "matriculas", "{{estudianteId}}", "confirmar" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Doble confirmación responde 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Eliminar matrícula de prueba 1",
           "request": {
             "method": "DELETE",
@@ -1195,12 +1605,111 @@
               }
             }
           ]
+        },
+        {
+          "name": "Cerrar la ventana para probar bloqueo de matrícula",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const hoy = new Date();",
+                  "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
+                  "pm.environment.set('inicioVentanaCerrada', fecha(-60));",
+                  "pm.environment.set('limiteVentanaCerrada', fecha(-30));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana queda vencida', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().estado).to.eql('VENCIDO');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"{{inicioVentanaCerrada}}\",\n  \"fechaLimite\": \"{{limiteVentanaCerrada}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaId}}" ]
+            }
+          }
+        },
+        {
+          "name": "Rechazar nueva matrícula cuando la ventana venció",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos", "{{periodoId}}", "matriculas" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('No permite nuevas matrículas fuera de vigencia', () => pm.response.to.have.status(409));",
+                  "pm.expect(pm.response.json().message).to.include('periodo de matrícula vigente');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reabrir la ventana de matrícula vigente",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana vuelve a estar vigente', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "04 - Cuentas y roles (US-5.2)",
-      "description": "Cuentas: crear, editar nombre/apellidos/correo y listar como ADMINISTRADOR. PUT conserva DNI, rol y contraseña. La colección prueba que DOCENTE no puede listar cuentas (403) y que una petición anónima recibe 401. Las demás rutas operativas también están limitadas a ADMINISTRADOR y se verifican en pruebas de integración.",
+      "name": "04 - Cuentas, roles, estado y CSV (US-5.1 / US-5.2 / US-5.9)",
+      "description": "Cuentas: crear y editar datos, desactivar/reactivar y verificar que login y tokens previos dejan de funcionar; luego asigna el perfil ALUMNO a una cuenta con Persona. Comprueba que DOCENTE no puede listar cuentas (403) y que una petición anónima recibe 401. Incluye la carga CSV de US-5.9.",
       "item": [
         {
           "name": "Crear cuenta docente de prueba",
@@ -1382,6 +1891,143 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('El rol DOCENTE recibe 403 en gestión de cuentas', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Desactivar cuenta y comprobar que no acepta el token previo (US-5.1)",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas-usuario/{{cuentaUsuarioId}}/estado",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "cuentas-usuario", "{{cuentaUsuarioId}}", "estado" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cuenta desactivada', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().activo).to.eql(false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login rechazado para cuenta inactiva (US-5.1)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{cuentaUsuarioUsernameEditado}}\",\n  \"password\": \"Temporal123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "auth", "login" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('La cuenta desactivada no inicia sesión', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token emitido antes de desactivar cuenta queda rechazado (US-5.1)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [ { "key": "token", "value": "{{docenteToken}}", "type": "string" } ]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas-usuario",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "cuentas-usuario" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Token previo de cuenta inactiva recibe 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reactivar cuenta para conservarla disponible",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas-usuario/{{cuentaUsuarioId}}/estado",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "cuentas-usuario", "{{cuentaUsuarioId}}", "estado" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cuenta reactivada', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().activo).to.eql(true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Asignar perfil ALUMNO a una cuenta existente (US-1.2)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estudiantes/{{cuentaUsuarioId}}/asignar",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "estudiantes", "{{cuentaUsuarioId}}", "asignar" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Perfil de estudiante asignado', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().rol).to.eql('ALUMNO');",
+                  "pm.environment.set('estudianteAsignadoId', String(pm.response.json().estudianteId));"
                 ]
               }
             }
@@ -2020,7 +2666,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Plantilla inválida {{$guid}}\",\n  \"turno\": \"TARDE\",\n  \"horaInicio\": \"08:00:00\",\n  \"horaFin\": \"13:00:00\",\n  \"duracionHoraPedagogicaMinutos\": 45,\n  \"cantidadBloquesPedagogicos\": 8,\n  \"recreos\": []\n}",
+              "raw": "{\r\n  \"nombre\": \"Plantilla inválida {{$guid}}\",\r\n  \"turno\": \"MANANA\",\r\n  \"horaInicio\": \"08:00:00\",\r\n  \"horaFin\": \"13:00:00\",\r\n  \"duracionHoraPedagogicaMinutos\": 45,\r\n  \"cantidadBloquesPedagogicos\": 8,\r\n  \"recreos\": []\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2046,7 +2692,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Rechaza bloques que exceden el turno', () => pm.response.to.have.status(422));"
+                  "pm.test('Rechaza plantilla que excede la duración del turno', () => pm.response.to.have.status(422));",
+                  "pm.test('El motivo es el exceso de duración', () => pm.expect(pm.response.json().message).to.include('exceden la hora de fin del turno'));"
                 ]
               }
             }
