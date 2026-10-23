@@ -12,7 +12,11 @@ import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.exception.ConflictException;
+import pe.edu.pucp.colegio.common.model.Apoderado;
+import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Persona;
+import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
@@ -29,16 +33,22 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
 
   private final CuentaUsuarioRepository cuentas;
   private final PersonaRepository personas;
+  private final EstudianteRepository estudiantes;
+  private final ApoderadoRepository apoderados;
   private final RegistroAuditoriaRepository auditorias;
   private final PasswordEncoder encoder;
 
   public CuentaUsuarioServiceImpl(
       CuentaUsuarioRepository cuentas,
       PersonaRepository personas,
+      EstudianteRepository estudiantes,
+      ApoderadoRepository apoderados,
       RegistroAuditoriaRepository auditorias,
       PasswordEncoder encoder) {
     this.cuentas = cuentas;
     this.personas = personas;
+    this.estudiantes = estudiantes;
+    this.apoderados = apoderados;
     this.auditorias = auditorias;
     this.encoder = encoder;
   }
@@ -61,6 +71,15 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
         cuentas.save(
             new CuentaUsuario(
                 request.username(), encoder.encode(request.password()), request.rol(), persona));
+    if (request.rol() == pe.edu.pucp.colegio.security.model.Rol.ALUMNO) {
+      Estudiante estudiante = new Estudiante();
+      estudiante.setPersona(persona);
+      estudiantes.save(estudiante);
+    } else if (request.rol() == pe.edu.pucp.colegio.security.model.Rol.APODERADO) {
+      Apoderado apoderado = new Apoderado();
+      apoderado.setPersona(persona);
+      apoderados.save(apoderado);
+    }
     var responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
     auditorias.save(
         new RegistroAuditoria(

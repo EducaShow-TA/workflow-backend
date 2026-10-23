@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.security.controller;
 
 import java.io.IOException;
 import java.util.Locale;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -61,7 +62,7 @@ public class CargaMasivaUsuariosController {
     } else {
       estado = HttpStatus.CREATED;
     }
-    return ResponseEntity.status(estado).body(resultado);
+    return ResponseEntity.status(estado).cacheControl(CacheControl.noStore()).body(resultado);
   }
 
   /** Descarga un CSV de ejemplo con las columnas esperadas. */

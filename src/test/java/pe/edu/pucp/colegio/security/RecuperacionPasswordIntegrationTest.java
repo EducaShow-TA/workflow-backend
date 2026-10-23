@@ -70,6 +70,16 @@ class RecuperacionPasswordIntegrationTest {
     assertFalse(tokenGuardado.getTokenHash().equals(tokenClaro));
     assertTrue(tokenGuardado.getTokenHash().matches("[0-9a-f]{64}"));
 
+    for (int intento = 0; intento < 5; intento++) {
+      cuenta.registrarIntentoFallido(5, 30);
+    }
+    cuentas.save(cuenta);
+    mvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + correo + "\",\"password\":\"ClaveOriginal123\"}"))
+        .andExpect(status().isUnauthorized());
+
     mvc.perform(
             post("/api/v1/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -79,6 +89,11 @@ class RecuperacionPasswordIntegrationTest {
     CuentaUsuario actualizada = cuentas.findById(cuenta.getId()).orElseThrow();
     assertTrue(passwordEncoder.matches("NuevaClaveSegura123", actualizada.getPassword()));
     assertFalse(tokens.findById(tokenGuardado.getId()).orElseThrow().getActive());
+    mvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + correo + "\",\"password\":\"NuevaClaveSegura123\"}"))
+        .andExpect(status().isOk());
 
     mvc.perform(
             post("/api/v1/auth/reset-password")
@@ -98,6 +113,28 @@ class RecuperacionPasswordIntegrationTest {
             jsonPath("$.message")
                 .value(org.hamcrest.Matchers.containsString("Si la cuenta existe")));
     verifyNoInteractions(mailSender);
+  }
+
+  @Test
+  void solicitudConUsernameNoEmailUsaCorreoDePersona() throws Exception {
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+    String correo = "alumno-" + suffix + "@ejemplo.edu.pe";
+    Persona persona = new Persona("8" + suffix, "Alumno", "Apellido", "Prueba");
+    persona.setCorreo(correo);
+    persona = personas.save(persona);
+    cuentas.save(
+        new CuentaUsuario(
+            "alumno" + suffix, passwordEncoder.encode("ClaveOriginal123"), Rol.ALUMNO, persona));
+
+    mvc.perform(
+            post("/api/v1/auth/forgot-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"alumno" + suffix + "\"}"))
+        .andExpect(status().isOk());
+
+    var captor = org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+    verify(mailSender).send(captor.capture());
+    assertTrue(java.util.Arrays.asList(captor.getValue().getTo()).contains(correo));
   }
 
   private CuentaUsuario crearCuenta(String correo, String suffix) {

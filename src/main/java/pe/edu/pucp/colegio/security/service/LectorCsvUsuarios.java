@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.security.service;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,9 @@ public class LectorCsvUsuarios {
 
   public List<FilaUsuarioCsv> leer(byte[] contenido) {
     String texto = new String(contenido, StandardCharsets.UTF_8);
+    if (texto.indexOf('\uFFFD') >= 0) {
+      texto = new String(contenido, Charset.forName("windows-1252"));
+    }
     if (texto.startsWith("\uFEFF")) {
       texto = texto.substring(1);
     }

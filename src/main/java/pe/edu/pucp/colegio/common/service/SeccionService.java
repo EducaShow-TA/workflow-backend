@@ -83,16 +83,13 @@ public class SeccionService {
   private SeccionResponse respuesta(Seccion seccion) {
     long matriculados = matriculas.countAlumnosActivosPorSeccion(seccion.getId());
     Integer capacidad = seccion.getVacantesTotales();
-    if (capacidad == null || capacidad <= 0) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "La sección no tiene una capacidad válida configurada");
-    }
+    int capacidadVisible = capacidad == null || capacidad <= 0 ? 0 : capacidad;
     return new SeccionResponse(
         seccion.getId(),
         seccion.getGrado().getNumero(),
         seccion.getCodigo(),
-        capacidad,
+        capacidadVisible,
         matriculados,
-        Math.max(0, capacidad - matriculados));
+        Math.max(0, capacidadVisible - matriculados));
   }
 }
