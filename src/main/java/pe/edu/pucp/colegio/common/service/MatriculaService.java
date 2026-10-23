@@ -25,23 +25,30 @@ public class MatriculaService {
   private final PeriodoRepository periodos;
   private final VacantesService vacantes;
   private final SeccionRepository secciones;
+  private final PeriodoMatriculaService periodosMatricula;
 
   public MatriculaService(
       MatriculaRepository matriculas,
       EstudianteRepository estudiantes,
       PeriodoRepository periodos,
       VacantesService vacantes,
-      SeccionRepository secciones) {
+      SeccionRepository secciones,
+      PeriodoMatriculaService periodosMatricula) {
     this.matriculas = matriculas;
     this.estudiantes = estudiantes;
     this.periodos = periodos;
     this.vacantes = vacantes;
     this.secciones = secciones;
+    this.periodosMatricula = periodosMatricula;
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public MatriculaResponse crear(Integer periodoId, MatriculaCreateRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
+    if (!periodosMatricula.hayPeriodoVigente()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "No hay un periodo de matrícula vigente");
+    }
     secciones
         .findByIdForUpdate(periodo.getSeccion().getId())
         .orElseThrow(

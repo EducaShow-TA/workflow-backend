@@ -224,6 +224,30 @@ class CuentaUsuarioIntegrationTest {
   }
 
   @Test
+  void crearRechazaUsernameNoEmailYPasswordMayorAlLimiteBcrypt() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+
+    mvc.perform(
+            post("/api/v1/cuentas-usuario")
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    cuenta(suffix, "dni" + suffix, "DOCENTE")
+                        .replace("u" + suffix + "@colegio.edu.pe", "username-invalido")))
+        .andExpect(status().isBadRequest());
+
+    mvc.perform(
+            post("/api/v1/cuentas-usuario")
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    cuenta(suffix, "dni" + suffix, "DOCENTE")
+                        .replace("Clave2026!", "A".repeat(73))))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void crearCuentasAlumnoYApoderadoCreaSusPerfiles() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String sufijoAlumno = UUID.randomUUID().toString().substring(0, 8);
