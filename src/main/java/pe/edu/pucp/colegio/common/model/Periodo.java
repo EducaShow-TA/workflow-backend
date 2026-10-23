@@ -75,6 +75,13 @@ public class Periodo extends EntidadBase {
     this.estado = estado;
   }
 
+  public EstadoPeriodo calcularEstado(LocalDate fecha) {
+    if (fecha.isBefore(fechaInicio)) {
+      return EstadoPeriodo.PLANIFICADO;
+    }
+    return fecha.isAfter(fechaFin) ? EstadoPeriodo.FINALIZADO : EstadoPeriodo.EN_CURSO;
+  }
+
   public Set<Matricula> getMatriculas() {
     return matriculas;
   }

@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.dto;
 
 import java.time.LocalDate;
+import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 
 public record VacantesPeriodoResponse(
     Integer periodoId,
@@ -14,4 +15,5 @@ public record VacantesPeriodoResponse(
     int vacantesTotales,
     long matriculasActivas,
     int vacantesDisponibles,
-    boolean hayVacantes) {}
+    boolean hayVacantes,
+    EstadoPeriodo estado) {}
