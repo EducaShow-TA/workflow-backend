@@ -33,20 +33,18 @@ public class RegistroErrorController {
   public PagedModel<RegistroErrorResponseDTO> listar(
       @RequestParam(required = false) NivelLog nivel,
       @RequestParam(required = false) String modulo,
+      @RequestParam(required = false) String texto,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate desde,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate hasta,
       @PageableDefault(size = 20, sort = "fechaHora", direction = Sort.Direction.DESC)
           Pageable pageable) {
-    return new PagedModel<>(
-        servicio
-            .consultar(nivel, modulo, desde, hasta, pageable)
-            .map(RegistroErrorResponseDTO::resumen));
+    return new PagedModel<>(servicio.listar(nivel, modulo, texto, desde, hasta, pageable));
   }
 
   @GetMapping("/{id}")
   public RegistroErrorResponseDTO detalle(@PathVariable Integer id) {
-    return RegistroErrorResponseDTO.detalle(servicio.obtener(id));
+    return servicio.detalle(id);
   }
 }

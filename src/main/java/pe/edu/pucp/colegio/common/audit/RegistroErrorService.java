@@ -1,8 +1,15 @@
 package pe.edu.pucp.colegio.common.audit;
 
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.LocalDate;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -16,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.pucp.colegio.common.dto.RegistroErrorResponseDTO;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
@@ -31,6 +39,8 @@ public class RegistroErrorService {
   private static final int MAX = 255;
   private static final int MAX_TRAZA = 4000;
   private static final String PREFIJO_API = "/api/v1/";
+  private static final int MAX_TEXTO_BUSQUEDA = 100;
+  private static final char ESCAPE = '!';
 
   private final RegistroErrorRepository errores;
   private final CuentaUsuarioRepository cuentas;
@@ -64,9 +74,50 @@ public class RegistroErrorService {
     }
   }
 
+  /** Página del log con el correo y el rol de cada cuenta, leídos en una sola consulta. */
+  @Transactional(readOnly = true)
+  public Page<RegistroErrorResponseDTO> listar(
+      NivelLog nivel,
+      String modulo,
+      String texto,
+      LocalDate desde,
+      LocalDate hasta,
+      Pageable pageable) {
+    Page<RegistroError> pagina = consultar(nivel, modulo, texto, desde, hasta, pageable);
+    Map<Integer, CuentaUsuario> cuentasPorId =
+        cuentas
+            .findAllById(
+                pagina.getContent().stream()
+                    .map(RegistroError::getIdUsuario)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet()))
+            .stream()
+            .collect(Collectors.toMap(CuentaUsuario::getId, Function.identity()));
+    return pagina.map(
+        registro -> {
+          CuentaUsuario cuenta = cuentasPorId.get(registro.getIdUsuario());
+          return RegistroErrorResponseDTO.resumen(registro, usernameDe(cuenta), rolDe(cuenta));
+        });
+  }
+
+  @Transactional(readOnly = true)
+  public RegistroErrorResponseDTO detalle(Integer id) {
+    RegistroError registro = obtener(id);
+    CuentaUsuario cuenta =
+        registro.getIdUsuario() == null
+            ? null
+            : cuentas.findById(registro.getIdUsuario()).orElse(null);
+    return RegistroErrorResponseDTO.detalle(registro, usernameDe(cuenta), rolDe(cuenta));
+  }
+
   @Transactional(readOnly = true)
   public Page<RegistroError> consultar(
-      NivelLog nivel, String modulo, LocalDate desde, LocalDate hasta, Pageable pageable) {
+      NivelLog nivel,
+      String modulo,
+      String texto,
+      LocalDate desde,
+      LocalDate hasta,
+      Pageable pageable) {
     if (desde != null && hasta != null && hasta.isBefore(desde)) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "La fecha 'hasta' no puede ser anterior a 'desde'");
@@ -77,6 +128,24 @@ public class RegistroErrorService {
     }
     if (modulo != null && !modulo.isBlank()) {
       spec = spec.and((r, q, cb) -> cb.equal(r.get("modulo"), modulo.trim()));
+    }
+    if (texto != null && !texto.isBlank()) {
+      String patron = "%" + escaparComodines(recortar(texto.trim(), MAX_TEXTO_BUSQUEDA)) + "%";
+      spec =
+          spec.and(
+              (r, q, cb) -> {
+                Subquery<Integer> cuentasCoincidentes = q.subquery(Integer.class);
+                Root<CuentaUsuario> cuenta = cuentasCoincidentes.from(CuentaUsuario.class);
+                cuentasCoincidentes
+                    .select(cuenta.<Integer>get("id"))
+                    .where(cb.like(cb.lower(cuenta.<String>get("username")), patron, ESCAPE));
+                return cb.or(
+                    cb.like(cb.lower(r.<String>get("mensaje")), patron, ESCAPE),
+                    cb.like(cb.lower(r.<String>get("codigoError")), patron, ESCAPE),
+                    cb.like(cb.lower(r.<String>get("endpoint")), patron, ESCAPE),
+                    cb.like(cb.lower(r.<String>get("modulo")), patron, ESCAPE),
+                    r.get("idUsuario").in(cuentasCoincidentes));
+              });
     }
     if (desde != null) {
       spec =
@@ -105,6 +174,22 @@ public class RegistroErrorService {
       return null;
     }
     return cuentas.findByUsername(auth.getName()).map(CuentaUsuario::getId).orElse(null);
+  }
+
+  /**
+   * Busca el texto tal cual: "%" y "_" no actúan como comodines de LIKE. Se usa "!" como carácter
+   * de escape porque la barra invertida se interpreta distinto en MySQL y en H2.
+   */
+  static String escaparComodines(String texto) {
+    return texto.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
+  }
+
+  private static String usernameDe(CuentaUsuario cuenta) {
+    return cuenta == null ? null : cuenta.getUsername();
+  }
+
+  private static String rolDe(CuentaUsuario cuenta) {
+    return cuenta == null || cuenta.getRol() == null ? null : cuenta.getRol().name();
   }
 
   static String deducirModulo(String endpoint) {
