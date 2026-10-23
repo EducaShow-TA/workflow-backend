@@ -13,6 +13,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorRepository;
+import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -21,6 +24,9 @@ class CuentaUsuarioIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired RegistroErrorRepository errores;
+  @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired EstudianteRepository estudiantes;
+  @Autowired ApoderadoRepository apoderados;
 
   private String login(String user, String pass) throws Exception {
     String body =
@@ -167,5 +173,78 @@ class CuentaUsuarioIntegrationTest {
   @Test
   void sinTokenRetorna401() throws Exception {
     mvc.perform(get("/api/v1/cuentas-usuario")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void desactivarCuentaImpideLoginYUsoDeTokenPrevio() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String sufijo = UUID.randomUUID().toString().substring(0, 8);
+    String body =
+        mvc.perform(
+                post("/api/v1/cuentas-usuario")
+                    .header("Authorization", "Bearer " + admin)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(cuenta(sufijo, sufijo, "DOCENTE")))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    int id = json.readTree(body).get("id").asInt();
+    String username = "u" + sufijo + "@colegio.edu.pe";
+    String docente = login(username, "Clave2026!");
+
+    mvc.perform(
+            patch("/api/v1/cuentas-usuario/{id}/estado", id)
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"activo\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.activo").value(false));
+
+    mvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username + "\",\"password\":\"Clave2026!\"}"))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + docente))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void administradorNoPuedeDesactivarSuPropiaCuenta() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    int id = cuentas.findByUsername("admin@educore.edu.pe").orElseThrow().getId();
+
+    mvc.perform(
+            patch("/api/v1/cuentas-usuario/{id}/estado", id)
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"activo\":false}"))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void crearCuentasAlumnoYApoderadoCreaSusPerfiles() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String sufijoAlumno = UUID.randomUUID().toString().substring(0, 8);
+    String sufijoApoderado = UUID.randomUUID().toString().substring(0, 8);
+
+    mvc.perform(
+            post("/api/v1/cuentas-usuario")
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuenta(sufijoAlumno, sufijoAlumno, "ALUMNO")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.rol").value("ALUMNO"));
+    mvc.perform(
+            post("/api/v1/cuentas-usuario")
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuenta(sufijoApoderado, sufijoApoderado, "APODERADO")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.rol").value("APODERADO"));
+
+    assertTrue(estudiantes.existsByPersonaDni(sufijoAlumno));
+    assertTrue(apoderados.existsByPersonaDni(sufijoApoderado));
   }
 }

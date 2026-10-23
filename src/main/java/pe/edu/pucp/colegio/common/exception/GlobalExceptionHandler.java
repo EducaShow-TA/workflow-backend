@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pe.edu.pucp.colegio.common.audit.NivelLog;
@@ -161,6 +162,17 @@ public class GlobalExceptionHandler {
         NivelLog.INFO,
         "REQ_415",
         "Tipo de contenido no soportado",
+        r);
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ErrorRespuestaDTO> archivoDemasiadoGrande(
+      MaxUploadSizeExceededException e, HttpServletRequest r) {
+    return responder(
+        HttpStatus.PAYLOAD_TOO_LARGE,
+        NivelLog.INFO,
+        "REQ_413",
+        "El archivo supera el tamaño máximo permitido",
         r);
   }
 

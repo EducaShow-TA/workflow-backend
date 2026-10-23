@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -124,6 +125,30 @@ class VacantesPeriodoIntegrationTest {
         .andExpect(jsonPath("$.matriculasActivas").value(0))
         .andExpect(jsonPath("$.vacantesDisponibles").value(6))
         .andExpect(jsonPath("$.hayVacantes").value(true));
+  }
+
+  @Test
+  void listarSeccionesNoFallaSiUnaCapacidadEsNula() throws Exception {
+    Seccion seccion = crearSeccion(null);
+    entityManager.flush();
+
+    String respuesta =
+        mvc.perform(get("/api/v1/secciones"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    JsonNode secciones = objectMapper.readTree(respuesta);
+    JsonNode seccionConCapacidadNula = null;
+    for (JsonNode elemento : secciones) {
+      if (elemento.get("id").asInt() == seccion.getId()) {
+        seccionConCapacidadNula = elemento;
+        break;
+      }
+    }
+
+    assertEquals(0, seccionConCapacidadNula.get("vacantesTotales").asInt());
+    assertEquals(0, seccionConCapacidadNula.get("vacantesDisponibles").asInt());
   }
 
   private Seccion crearSeccion(Integer vacantes) {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -101,6 +102,8 @@ class CargaMasivaUsuariosIntegrationTest {
     String cuerpo =
         mvc.perform(multipart(URL).file(archivo(csv)).header("Authorization", "Bearer " + admin))
             .andExpect(status().isCreated())
+            .andExpect(
+                header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
             .andExpect(jsonPath("$.exitoso").value(true))
             .andExpect(jsonPath("$.cuentas.length()").value(3))
             .andReturn()

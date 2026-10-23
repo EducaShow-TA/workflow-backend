@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,17 @@ class LectorCsvUsuariosTest {
     assertEquals(1, filas.size());
     assertEquals("DOCENTE", filas.get(0).rol());
     assertEquals("Carlos", filas.get(0).nombres());
+  }
+
+  @Test
+  void leer_csvWindows1252_conservaTildes() {
+    String csv = CABECERA + "\nDOCENTE,10555666,José,Pérez,Ríos,jose@colegio.edu.pe,,,,\n";
+
+    List<FilaUsuarioCsv> filas = lector.leer(csv.getBytes(Charset.forName("windows-1252")));
+
+    assertEquals("José", filas.getFirst().nombres());
+    assertEquals("Pérez", filas.getFirst().apellidoPaterno());
+    assertEquals("Ríos", filas.getFirst().apellidoMaterno());
   }
 
   @Test
