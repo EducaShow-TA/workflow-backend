@@ -1,0 +1,3 @@
+ALTER TABLE personas ADD COLUMN tipo_documento VARCHAR(20) NOT NULL DEFAULT 'DNI';
+ALTER TABLE personas ADD COLUMN nacionalidad VARCHAR(50);
+ALTER TABLE personas ADD COLUMN direccion VARCHAR(255);

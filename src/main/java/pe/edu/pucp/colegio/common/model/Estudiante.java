@@ -15,8 +15,8 @@ public class Estudiante extends EntidadBase {
   @OneToMany(mappedBy = "estudiante")
   private Set<Matricula> matriculas = new LinkedHashSet<>();
 
-  @OneToOne(mappedBy = "estudiante", fetch = FetchType.LAZY)
-  private VinculoFamiliar vinculoFamiliar;
+  @OneToMany(mappedBy = "estudiante")
+  private Set<VinculoFamiliar> vinculosFamiliares = new LinkedHashSet<>();
 
   public Persona getPersona() {
     return persona;
@@ -26,22 +26,16 @@ public class Estudiante extends EntidadBase {
     this.persona = persona;
   }
 
-  public VinculoFamiliar getVinculoFamiliar() {
-    return vinculoFamiliar;
+  public Set<VinculoFamiliar> getVinculosFamiliares() {
+    return vinculosFamiliares;
   }
 
-  public void setVinculoFamiliar(VinculoFamiliar vinculoFamiliar) {
-    if (this.vinculoFamiliar == vinculoFamiliar) {
-      return;
+  public void agregarVinculoFamiliar(VinculoFamiliar vinculoFamiliar) {
+    if (vinculoFamiliar == null) {
+      throw new IllegalArgumentException("El vínculo familiar no puede ser nulo");
     }
-    VinculoFamiliar anterior = this.vinculoFamiliar;
-    this.vinculoFamiliar = vinculoFamiliar;
-    if (anterior != null && anterior.getEstudiante() == this) {
-      anterior.setEstudiante(null);
-    }
-    if (vinculoFamiliar != null && vinculoFamiliar.getEstudiante() != this) {
-      vinculoFamiliar.setEstudiante(this);
-    }
+    vinculoFamiliar.setEstudiante(this);
+    vinculosFamiliares.add(vinculoFamiliar);
   }
 
   public Set<Matricula> getMatriculas() {

@@ -19,6 +19,7 @@ import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
@@ -33,29 +34,33 @@ class EstudianteControllerIntegrationTest {
   @Autowired PersonaRepository personas;
   @Autowired EstudianteRepository estudiantes;
   @Autowired PasswordEncoder passwordEncoder;
+  @Autowired VinculoFamiliarRepository vinculos;
 
   @Test
   void crearDaDeAltaCuentaConRolAlumnoYPerfilEstudiante() throws Exception {
     String suffix = UUID.randomUUID().toString().substring(0, 8);
     String username = "alumno-" + suffix;
-    String dni = "1" + suffix.replace("-", "");
+    String dni =
+        String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
+    String dniApoderado =
+        String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
+    String dniSegundoApoderado =
+        String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
 
     mvc.perform(
             post("/api/v1/estudiantes")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    "{\"username\":\""
-                        + username
-                        + "\",\"password\":\"ClaveSegura123\",\"dni\":\""
-                        + dni
-                        + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Pérez\","
-                        + "\"apellidoMaterno\":\"Díaz\",\"correo\":\"ana-"
-                        + suffix
-                        + "@ejemplo.edu.pe\",\"fechaNacimiento\":\"2012-05-10\"}"))
+                    """
+                    {"username":"%s","password":"ClaveSegura123","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
+                    """
+                        .formatted(username, dni, suffix, dniApoderado, dniSegundoApoderado)))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.username").value(username))
         .andExpect(jsonPath("$.rol").value("ALUMNO"))
         .andExpect(jsonPath("$.dni").value(dni));
+    assertEquals(
+        2, vinculos.countByEstudianteId(estudiantes.findByPersonaDni(dni).orElseThrow().getId()));
 
     CuentaUsuario cuenta = cuentas.findByUsername(username).orElseThrow();
     assertEquals(Rol.ALUMNO, cuenta.getRol());

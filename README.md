@@ -258,7 +258,7 @@ Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las
 
 #### `POST /api/v1/estudiantes`
 
-Crea una Persona, un perfil de estudiante y una cuenta nueva con rol `ALUMNO`. No se recibe el rol en el cuerpo; la contraseña se almacena con BCrypt. Devuelve `201` con:
+Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO` y sus vínculos familiares en una sola transacción. No se recibe el rol en el cuerpo; la contraseña se almacena con BCrypt. Admite DNI de 8 dígitos o pasaporte alfanumérico de 6 a 12 caracteres. Devuelve `201` con:
 
 ```json
 {
@@ -277,16 +277,19 @@ Campos esperados:
 | --- | --- | --- |
 | `username` | string | Obligatorio, no vacío, máximo 50 caracteres |
 | `password` | string | Obligatorio, de 8 a 72 caracteres |
-| `dni` | string | Obligatorio, no vacío, máximo 15 caracteres |
-| `nombre` | string | Obligatorio, no vacío, máximo 100 caracteres |
+| `tipoDocumento` | string | Obligatorio: `DNI` o `PASAPORTE` |
+| `numeroDocumento` | string | Obligatorio; formato según `tipoDocumento` |
+| `nombres` | string | Obligatorio, no vacío, máximo 100 caracteres |
 | `apellidoPaterno` | string | Obligatorio, no vacío, máximo 100 caracteres |
 | `apellidoMaterno` | string | Obligatorio, no vacío, máximo 100 caracteres |
 | `fechaNacimiento` | fecha | Opcional, formato `YYYY-MM-DD` |
-| `telefono` | string | Opcional, máximo 20 caracteres |
+| `celular` | string | Opcional, máximo 20 caracteres |
 | `genero` | string | Opcional, máximo 20 caracteres |
-| `correo` | string | Opcional, debe tener formato de correo, máximo 254 caracteres |
+| `correoElectronico` | string | Opcional, debe tener formato de correo, máximo 254 caracteres |
+| `nacionalidad`, `direccion` | string | Opcionales; máximo 50 y 255 caracteres |
+| `apoderados` | array | Obligatorio, al menos uno; exactamente uno debe tener `esPrincipal: true`. Incluye documento, nombres, ambos apellidos, celular, correo opcional, parentesco y `esPrincipal`. |
 
-DNI o username ya registrados producen `409`.
+Documento o username ya registrados producen `409`. Si falla el registro de un apoderado, no queda creado el estudiante ni su cuenta.
 
 #### `GET /api/v1/estudiantes`
 

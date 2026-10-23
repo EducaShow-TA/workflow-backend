@@ -12,11 +12,16 @@ import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
+import pe.edu.pucp.colegio.common.model.Apoderado;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.Parentesco;
 import pe.edu.pucp.colegio.common.model.Persona;
+import pe.edu.pucp.colegio.common.model.VinculoFamiliar;
+import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
@@ -30,18 +35,24 @@ public class EstudianteService {
   private final CuentaUsuarioRepository cuentas;
   private final PasswordEncoder passwordEncoder;
   private final pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas;
+  private final ApoderadoRepository apoderados;
+  private final VinculoFamiliarRepository vinculos;
 
   public EstudianteService(
       PersonaRepository personas,
       EstudianteRepository estudiantes,
       CuentaUsuarioRepository cuentas,
       PasswordEncoder passwordEncoder,
-      pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas) {
+      pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas,
+      ApoderadoRepository apoderados,
+      VinculoFamiliarRepository vinculos) {
     this.personas = personas;
     this.estudiantes = estudiantes;
     this.cuentas = cuentas;
     this.passwordEncoder = passwordEncoder;
     this.matriculas = matriculas;
+    this.apoderados = apoderados;
+    this.vinculos = vinculos;
   }
 
   @Transactional(readOnly = true)
@@ -90,8 +101,32 @@ public class EstudianteService {
 
   @Transactional
   public EstudianteResponse crear(EstudianteCreateRequest request) {
-    if (personas.existsByDni(request.dni())) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una persona con ese DNI");
+    validarDocumento(request.tipoDocumento(), request.numeroDocumento());
+    long principales =
+        request.apoderados().stream()
+            .filter(EstudianteCreateRequest.ApoderadoCreateRequest::esPrincipal)
+            .count();
+    if (principales != 1) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Debe indicar exactamente un apoderado principal");
+    }
+    long documentosApoderadoUnicos =
+        request.apoderados().stream()
+            .map(EstudianteCreateRequest.ApoderadoCreateRequest::numeroDocumento)
+            .distinct()
+            .count();
+    if (documentosApoderadoUnicos != request.apoderados().size()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "No se puede repetir el documento de un apoderado");
+    }
+    if (request.apoderados().stream()
+        .anyMatch(apoderado -> apoderado.numeroDocumento().equals(request.numeroDocumento()))) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El estudiante no puede registrarse como su propio apoderado");
+    }
+    if (personas.existsByDni(request.numeroDocumento())) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "Ya existe una persona con ese documento");
     }
     if (cuentas.existsByUsername(request.username())) {
       throw new ResponseStatusException(
@@ -100,10 +135,16 @@ public class EstudianteService {
 
     Persona persona =
         new Persona(
-            request.dni(), request.nombre(), request.apellidoPaterno(), request.apellidoMaterno());
+            request.numeroDocumento(),
+            request.nombres(),
+            request.apellidoPaterno(),
+            request.apellidoMaterno());
+    persona.setTipoDocumento(request.tipoDocumento());
     persona.setFechaNacimiento(request.fechaNacimiento());
-    persona.setTelefono(request.telefono());
-    persona.setCorreo(request.correo());
+    persona.setTelefono(request.celular());
+    persona.setCorreo(request.correoElectronico());
+    persona.setNacionalidad(request.nacionalidad());
+    persona.setDireccion(request.direccion());
     if (request.genero() != null && !request.genero().isBlank()) {
       persona.setGenero(request.genero());
     }
@@ -118,6 +159,38 @@ public class EstudianteService {
             request.username(), passwordEncoder.encode(request.password()), Rol.ALUMNO, persona);
     cuentas.save(cuenta);
 
+    for (EstudianteCreateRequest.ApoderadoCreateRequest datos : request.apoderados()) {
+      validarDocumento(datos.tipoDocumento(), datos.numeroDocumento());
+      Persona personaApoderado = personas.findByDni(datos.numeroDocumento()).orElse(null);
+      if (personaApoderado == null) {
+        personaApoderado =
+            new Persona(
+                datos.numeroDocumento(),
+                datos.nombres(),
+                datos.apellidoPaterno(),
+                datos.apellidoMaterno());
+        personaApoderado.setTipoDocumento(datos.tipoDocumento());
+        personaApoderado.setTelefono(datos.celular());
+        personaApoderado.setCorreo(datos.correoElectronico());
+        personaApoderado = personas.save(personaApoderado);
+      } else if (!personaApoderado.getTipoDocumento().equals(datos.tipoDocumento())) {
+        throw new ResponseStatusException(
+            HttpStatus.CONFLICT, "El tipo de documento del apoderado no coincide");
+      }
+      Apoderado apoderado = apoderados.findByPersonaDni(datos.numeroDocumento()).orElse(null);
+      if (apoderado == null) {
+        Apoderado nuevo = new Apoderado();
+        nuevo.setPersona(personaApoderado);
+        apoderado = apoderados.save(nuevo);
+      }
+      VinculoFamiliar vinculo = new VinculoFamiliar();
+      vinculo.setEstudiante(estudiante);
+      vinculo.setApoderado(apoderado);
+      vinculo.setParentesco(Parentesco.valueOf(datos.parentesco()));
+      vinculo.setEsPrincipal(datos.esPrincipal());
+      vinculos.save(vinculo);
+    }
+
     return new EstudianteResponse(
         estudiante.getId(),
         persona.getId(),
@@ -125,6 +198,17 @@ public class EstudianteService {
         cuenta.getRol().name(),
         persona.getDni(),
         persona.getNombreCompleto());
+  }
+
+  private void validarDocumento(String tipo, String numero) {
+    boolean valido =
+        "DNI".equals(tipo)
+            ? numero.matches("\\d{8}")
+            : "PASAPORTE".equals(tipo) && numero.matches("[A-Z0-9]{6,12}");
+    if (!valido) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El número de documento no cumple el formato indicado");
+    }
   }
 
   @Transactional

@@ -249,7 +249,11 @@ class CargaMasivaUsuariosIntegrationTest {
         .andExpect(jsonPath("$.resultados[0].estado").value("CREADO"));
 
     assertEquals(estudianteId, estudiantes.findByPersonaDni(dniAlumno).orElseThrow().getId());
-    var vinculo = vinculos.findByEstudianteId(estudianteId).orElseThrow();
+    var apoderadoNuevo = apoderados.findByPersonaDni(dniApoderadoNuevo).orElseThrow();
+    var vinculo =
+        vinculos
+            .findByEstudianteIdAndApoderadoId(estudianteId, apoderadoNuevo.getId())
+            .orElseThrow();
     assertEquals(
         apoderados.findByPersonaDni(dniApoderadoNuevo).orElseThrow().getId(),
         vinculo.getApoderado().getId());
