@@ -13,21 +13,28 @@ public record RegistroErrorResponseDTO(
     String codigoError,
     String modulo,
     Integer idUsuario,
+    String usuario,
+    String rolUsuario,
     String metodoHttp,
     String endpoint,
     Integer codigoEstado,
     String mensaje,
     String stackTrace) {
 
-  public static RegistroErrorResponseDTO resumen(RegistroError e) {
-    return de(e, null);
+  /**
+   * Sin la traza técnica; usuario y rol son nulos si la petición fue anónima o la cuenta ya no
+   * existe.
+   */
+  public static RegistroErrorResponseDTO resumen(RegistroError e, String usuario, String rol) {
+    return de(e, usuario, rol, null);
   }
 
-  public static RegistroErrorResponseDTO detalle(RegistroError e) {
-    return de(e, e.getStackTrace());
+  public static RegistroErrorResponseDTO detalle(RegistroError e, String usuario, String rol) {
+    return de(e, usuario, rol, e.getStackTrace());
   }
 
-  private static RegistroErrorResponseDTO de(RegistroError e, String traza) {
+  private static RegistroErrorResponseDTO de(
+      RegistroError e, String usuario, String rol, String traza) {
     return new RegistroErrorResponseDTO(
         e.getId(),
         e.getFechaHora(),
@@ -35,6 +42,8 @@ public record RegistroErrorResponseDTO(
         e.getCodigoError(),
         e.getModulo(),
         e.getIdUsuario(),
+        usuario,
+        rol,
         e.getMetodoHttp(),
         e.getEndpoint(),
         e.getCodigoEstado(),
