@@ -67,7 +67,11 @@ class EstudianteControllerIntegrationTest {
         personas.findById(cuenta.getPersona().getId()).orElseThrow().getCorreo());
 
     mvc.perform(
-            get("/api/v1/estudiantes").param("nombre", "Ana").param("page", "0").param("size", "1"))
+            get("/api/v1/estudiantes")
+                .param("nombre", "Ana")
+                .param("dni", dni)
+                .param("page", "0")
+                .param("size", "1"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content[0].dni").value(dni))
         .andExpect(jsonPath("$.content[0].correo").value("ana-" + suffix + "@ejemplo.edu.pe"))
