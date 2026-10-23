@@ -495,6 +495,10 @@ El instalador MSI con MySQL Configurator es el método recomendado por MySQL par
 
 Define las variables en la misma terminal desde la que ejecutarás Spring Boot. `JWT_SECRET` es obligatorio; si falta, la aplicación falla al crear `JwtTokenProvider` antes de intentar conectarse a la base de datos.
 
+### Con archivo `.env` (recomendado en local)
+
+Copia `.env.example` a `.env` en la raíz del repositorio y completa los valores (`JWT_SECRET` se genera con `openssl rand -base64 32`). Spring Boot lo lee al arrancar mediante `spring.config.import`; las variables exportadas en la terminal tienen prioridad sobre el archivo. `.env` está en `.gitignore` y nunca debe versionarse. Los pasos completos están en [`docs/despliegue-local.md`](docs/despliegue-local.md).
+
 ### Fedora (Bash)
 
 ```bash
@@ -532,6 +536,8 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 | `MAX_LOGIN_ATTEMPTS` | Intentos antes del bloqueo | `3` |
 | `LOCK_TIME_MINUTES` | Duración del bloqueo | `15` minutos |
 | `LOG_FILE` | Archivo de logs | `logs/colegio-backend.log` |
+| `MAIL_USERNAME` | Cuenta SMTP para la recuperación de contraseña | Vacío |
+| `MAIL_PASSWORD` | Contraseña SMTP (en Gmail, una contraseña de aplicación) | Vacío |
 
 ## Verificación manual
 
