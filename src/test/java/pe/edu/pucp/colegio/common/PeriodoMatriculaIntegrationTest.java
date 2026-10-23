@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,6 +17,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.dto.PeriodoMatriculaRequest;
+import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -27,8 +29,11 @@ class PeriodoMatriculaIntegrationTest {
 
   @Autowired ObjectMapper objectMapper;
 
+  @Autowired PeriodoMatriculaRepository periodos;
+
   @Test
   void configuraVentanasYExponeSusEstadosCalculados() throws Exception {
+    long ventanasAntes = periodos.countByActiveTrue();
     crear(LocalDate.now().plusDays(2), LocalDate.now().plusDays(7))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.estado").value("PENDIENTE"));
@@ -41,7 +46,7 @@ class PeriodoMatriculaIntegrationTest {
 
     mvc.perform(get("/api/v1/periodos-matricula"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(3));
+        .andExpect(jsonPath("$.length()").value(ventanasAntes + 3));
   }
 
   @Test
@@ -62,6 +67,21 @@ class PeriodoMatriculaIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"fechaInicio\":\"2026-01-01\",\"fechaLimite\":\"2026-01-10\"}"))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void desactivarVentanaLaRetiraDelListadoYConsulta() throws Exception {
+    String body =
+        crear(LocalDate.now().minusDays(1), LocalDate.now().plusDays(1))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    int id = objectMapper.readTree(body).get("id").asInt();
+
+    mvc.perform(delete("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNoContent());
+
+    mvc.perform(get("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNotFound());
   }
 
   private org.springframework.test.web.servlet.ResultActions crear(

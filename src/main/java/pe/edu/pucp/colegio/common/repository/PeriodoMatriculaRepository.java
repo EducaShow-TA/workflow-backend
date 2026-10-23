@@ -11,4 +11,6 @@ public interface PeriodoMatriculaRepository extends JpaRepository<PeriodoMatricu
 
   boolean existsByActiveTrueAndFechaInicioLessThanEqualAndFechaLimiteGreaterThanEqual(
       LocalDate inicioHasta, LocalDate limiteDesde);
+
+  long countByActiveTrue();
 }

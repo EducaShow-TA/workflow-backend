@@ -71,6 +71,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/periodos-matricula` | Listar ventanas y estado calculado |
 | `GET` | `/api/v1/periodos-matricula/{id}` | Consultar ventana y estado calculado |
 | `PUT` | `/api/v1/periodos-matricula/{id}` | Actualizar ventana de matrícula |
+| `DELETE` | `/api/v1/periodos-matricula/{id}` | Desactivar ventana de matrícula |
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
 | `PATCH` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar` | Confirmar una matrícula en registro |
@@ -299,7 +300,7 @@ Lista estudiantes activos y sus matrículas en una página. Acepta filtros opcio
 
 La ventana de matrícula es global y separada del periodo académico asociado a grado y sección. Todas las rutas requieren rol `ADMINISTRADOR`. El sistema considera ambas fechas inclusivas: antes de `fechaInicio` el estado es `PENDIENTE`, entre ambas fechas es `VIGENTE` y después de `fechaLimite` es `VENCIDO`. La fecha límite debe ser posterior a la fecha de inicio.
 
-`POST /api/v1/periodos-matricula` recibe `{ "fechaInicio": "2026-10-20", "fechaLimite": "2026-10-31" }` y responde `201` con `id`, las fechas y `estado`. `GET` lista las ventanas activas con su estado actual y `GET /{id}` consulta una. `PUT /{id}` actualiza ambas fechas. Las fechas inválidas responden `400`; una ventana inexistente responde `404`.
+`POST /api/v1/periodos-matricula` recibe `{ "fechaInicio": "2026-10-20", "fechaLimite": "2026-10-31" }` y responde `201` con `id`, las fechas y `estado`. `GET` lista las ventanas activas con su estado actual y `GET /{id}` consulta una. `PUT /{id}` actualiza ambas fechas. `DELETE /{id}` la desactiva lógicamente para que deje de habilitar matrículas. Las fechas inválidas responden `400`; una ventana inexistente o ya desactivada responde `404`.
 
 El endpoint de registro `POST /api/v1/periodos/{periodoId}/matriculas` solo acepta altas mientras exista una ventana global en estado `VIGENTE`; fuera de ella responde `409`. Esta validación no afecta la confirmación ni el retiro de matrículas ya registradas.
 
