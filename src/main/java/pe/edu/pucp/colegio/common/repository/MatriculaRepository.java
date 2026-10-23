@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +22,6 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
           + "and m.estado in (pe.edu.pucp.colegio.common.model.EstadoMatricula.EN_REGISTRO, "
           + "pe.edu.pucp.colegio.common.model.EstadoMatricula.CONFIRMADA)")
   long countAlumnosActivosPorSeccion(@Param("seccionId") Integer seccionId);
+
+  boolean existsByActiveTrueAndFechaMatriculaBetween(LocalDate desde, LocalDate hasta);
 }

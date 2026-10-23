@@ -34,13 +34,13 @@ class PeriodoMatriculaIntegrationTest {
   @Test
   void configuraVentanasYExponeSusEstadosCalculados() throws Exception {
     long ventanasAntes = periodos.countByActiveTrue();
-    crear(LocalDate.now().plusDays(2), LocalDate.now().plusDays(7))
+    crear(LocalDate.now().plusDays(3), LocalDate.now().plusDays(7))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.estado").value("PENDIENTE"));
     crear(LocalDate.now().minusDays(2), LocalDate.now().plusDays(2))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.estado").value("VIGENTE"));
-    crear(LocalDate.now().minusDays(7), LocalDate.now().minusDays(2))
+    crear(LocalDate.now().minusDays(7), LocalDate.now().minusDays(3))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.estado").value("VENCIDO"));
 
@@ -51,9 +51,9 @@ class PeriodoMatriculaIntegrationTest {
 
   @Test
   void rechazaLimiteIgualOAnteriorAlInicio() throws Exception {
-    crear(LocalDate.now(), LocalDate.now()).andExpect(status().isBadRequest());
+    crear(LocalDate.now(), LocalDate.now()).andExpect(status().isUnprocessableEntity());
     crear(LocalDate.now().plusDays(2), LocalDate.now().plusDays(1))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
   }
 
   @Test
