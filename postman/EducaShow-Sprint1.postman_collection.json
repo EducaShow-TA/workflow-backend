@@ -120,7 +120,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{adminUser}}\"\n}",
+              "raw": "{\n  \"correo\": \"{{adminUser}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

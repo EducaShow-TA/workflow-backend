@@ -36,7 +36,7 @@ public class AuthController {
   public ResponseEntity<Map<String, String>> solicitarRecuperacion(
       @Valid @RequestBody SolicitarRecuperacionPasswordRequestDTO request) {
 
-    recuperacion.solicitarRecuperacion(request.username());
+    recuperacion.solicitarRecuperacion(request.correo());
 
     return ResponseEntity.ok(
         Map.of(

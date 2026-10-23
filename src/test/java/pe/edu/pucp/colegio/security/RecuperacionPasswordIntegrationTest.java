@@ -53,7 +53,7 @@ class RecuperacionPasswordIntegrationTest {
     mvc.perform(
             post("/api/v1/auth/forgot-password")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"" + correo + "\"}"))
+                .content("{\"correo\":\"" + correo + "\"}"))
         .andExpect(status().isOk())
         .andExpect(
             jsonPath("$.message")
@@ -107,7 +107,7 @@ class RecuperacionPasswordIntegrationTest {
     mvc.perform(
             post("/api/v1/auth/forgot-password")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"noexiste@ejemplo.edu.pe\"}"))
+                .content("{\"correo\":\"noexiste@ejemplo.edu.pe\"}"))
         .andExpect(status().isOk())
         .andExpect(
             jsonPath("$.message")
@@ -116,7 +116,7 @@ class RecuperacionPasswordIntegrationTest {
   }
 
   @Test
-  void solicitudConUsernameNoEmailUsaCorreoDePersona() throws Exception {
+  void solicitudPorCorreoEncuentraCuentaAunqueUsernameSeaDistinto() throws Exception {
     String suffix = UUID.randomUUID().toString().substring(0, 8);
     String correo = "alumno-" + suffix + "@ejemplo.edu.pe";
     Persona persona = new Persona("8" + suffix, "Alumno", "Apellido", "Prueba");
@@ -129,7 +129,7 @@ class RecuperacionPasswordIntegrationTest {
     mvc.perform(
             post("/api/v1/auth/forgot-password")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"alumno" + suffix + "\"}"))
+                .content("{\"correo\":\"" + correo + "\"}"))
         .andExpect(status().isOk());
 
     var captor = org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
