@@ -11,6 +11,7 @@ import pe.edu.pucp.colegio.common.dto.CompetenciaRequest;
 import pe.edu.pucp.colegio.common.dto.CompetenciaResponse;
 import pe.edu.pucp.colegio.common.service.CatalogoService;
 
+/** Expone las operaciones de consulta y gestión de competencias curriculares. */
 @RestController
 @RequestMapping("/api/v1/competencias")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

@@ -17,6 +17,7 @@ import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
 
+/** Gestiona la matrícula, confirmación y retiro de estudiantes por periodo. */
 @Service
 public class MatriculaService {
 

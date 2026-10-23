@@ -16,6 +16,7 @@ import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
 import pe.edu.pucp.colegio.common.service.EstudianteService;
 
+/** Expone las operaciones administrativas de registro y consulta de estudiantes. */
 @RestController
 @RequestMapping("/api/v1/estudiantes")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

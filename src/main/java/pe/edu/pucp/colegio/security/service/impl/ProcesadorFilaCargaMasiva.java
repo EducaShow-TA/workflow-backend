@@ -22,6 +22,7 @@ import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 /** Persiste una fila independiente para que un error no revierta el resto de la carga. */
+/** Procesa una fila CSV y crea o actualiza los perfiles asociados al usuario. */
 @Service
 public class ProcesadorFilaCargaMasiva {
 

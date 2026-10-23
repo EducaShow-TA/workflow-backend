@@ -21,6 +21,7 @@ import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
+/** Gestiona el registro, consulta y asignación de perfiles de estudiante. */
 @Service
 public class EstudianteService {
 

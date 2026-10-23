@@ -15,6 +15,7 @@ import pe.edu.pucp.colegio.common.dto.CatalogoCompetenciaResponse;
 import pe.edu.pucp.colegio.common.dto.CompetenciaNuevaRequest;
 import pe.edu.pucp.colegio.common.service.CatalogoService;
 
+/** Expone las operaciones de consulta y gestión de áreas curriculares. */
 @RestController
 @RequestMapping("/api/v1/areas")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

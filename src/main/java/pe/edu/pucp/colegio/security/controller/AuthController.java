@@ -9,6 +9,7 @@ import pe.edu.pucp.colegio.security.dto.*;
 import pe.edu.pucp.colegio.security.service.AuthService;
 import pe.edu.pucp.colegio.security.service.RecuperacionPasswordService;
 
+/** Expone las operaciones públicas de autenticación y gestión de credenciales. */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {

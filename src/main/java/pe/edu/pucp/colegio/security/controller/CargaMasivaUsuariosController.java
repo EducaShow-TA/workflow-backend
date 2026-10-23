@@ -20,6 +20,7 @@ import pe.edu.pucp.colegio.security.dto.CargaMasivaResultadoDTO;
 import pe.edu.pucp.colegio.security.service.CargaMasivaUsuariosService;
 
 /** Carga masiva de cuentas desde un CSV (US-5.9). Solo el rol ADMINISTRADOR puede usarla. */
+/** Expone la carga de usuarios desde CSV y la descarga de su plantilla. */
 @RestController
 @RequestMapping("/api/v1/cuentas-usuario/carga-masiva")
 @PreAuthorize("hasRole('ADMINISTRADOR')")
