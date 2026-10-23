@@ -939,7 +939,7 @@
                 "exec": [
                   "const hoy = new Date();",
                   "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
-                  "pm.environment.set('inicioPendiente', fecha(30));",
+                  "pm.environment.set('inicioPendiente', fecha(31));",
                   "pm.environment.set('limitePendiente', fecha(60));"
                 ]
               }
@@ -1035,7 +1035,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Fecha límite no posterior se rechaza', () => pm.response.to.have.status(400));"
+                  "pm.test('Fecha límite no posterior se rechaza', () => pm.response.to.have.status(422));"
                 ]
               }
             }
@@ -1281,7 +1281,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.environment.set('studentSuffix', String(Date.now()).slice(-11) + String(Math.floor(Math.random() * 10))); "
+                  "pm.environment.set('studentSuffix', String(Math.floor(Math.random() * 10000000)).padStart(7, '0')); "
                 ]
               }
             },
@@ -1618,8 +1618,8 @@
                 "exec": [
                   "const hoy = new Date();",
                   "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
-                  "pm.environment.set('inicioVentanaCerrada', fecha(-60));",
-                  "pm.environment.set('limiteVentanaCerrada', fecha(-30));"
+                  "pm.environment.set('inicioVentanaCerrada', fecha(-120));",
+                  "pm.environment.set('limiteVentanaCerrada', fecha(-90));"
                 ]
               }
             },
