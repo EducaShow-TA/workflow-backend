@@ -51,6 +51,13 @@ public class PeriodoMatriculaService {
     return respuesta(periodos.save(periodo));
   }
 
+  @Transactional
+  public void desactivar(Integer id) {
+    PeriodoMatricula periodo = buscarEntidad(id);
+    periodo.setActive(false);
+    periodos.save(periodo);
+  }
+
   @Transactional(readOnly = true)
   public boolean hayPeriodoVigente() {
     LocalDate hoy = LocalDate.now();

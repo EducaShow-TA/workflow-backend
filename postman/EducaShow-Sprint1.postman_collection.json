@@ -950,7 +950,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Ventana pendiente creada', () => pm.response.to.have.status(201));",
-                  "pm.expect(pm.response.json().estado).to.eql('PENDIENTE');"
+                  "pm.expect(pm.response.json().estado).to.eql('PENDIENTE');",
+                  "pm.environment.set('ventanaMatriculaPendienteId', String(pm.response.json().id));"
                 ]
               }
             }
@@ -991,7 +992,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Ventana vencida creada', () => pm.response.to.have.status(201));",
-                  "pm.expect(pm.response.json().estado).to.eql('VENCIDO');"
+                  "pm.expect(pm.response.json().estado).to.eql('VENCIDO');",
+                  "pm.environment.set('ventanaMatriculaVencidaId', String(pm.response.json().id));"
                 ]
               }
             }
@@ -1677,15 +1679,9 @@
           ]
         },
         {
-          "name": "Reabrir la ventana de matrícula vigente",
+          "name": "Desactivar la ventana principal creada en esta ejecución",
           "request": {
-            "method": "PUT",
-            "header": [ { "key": "Content-Type", "value": "application/json" } ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
+            "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
               "host": [ "{{baseUrl}}" ],
@@ -1698,8 +1694,51 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Ventana vuelve a estar vigente', () => pm.response.to.have.status(200));",
-                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');"
+                  "pm.test('Ventana principal desactivada', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Desactivar ventana pendiente creada en esta ejecución",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaPendienteId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaPendienteId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana pendiente desactivada', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Desactivar ventana vencida creada en esta ejecución",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaVencidaId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaVencidaId}}" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ventana vencida desactivada', () => pm.response.to.have.status(204));"
                 ]
               }
             }

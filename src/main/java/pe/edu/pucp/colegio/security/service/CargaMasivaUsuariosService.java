@@ -6,8 +6,8 @@ import pe.edu.pucp.colegio.security.dto.CargaMasivaResultadoDTO;
 public interface CargaMasivaUsuariosService {
 
   /**
-   * Valida todo el archivo y, solo si no hay errores, crea todas las cuentas en una sola
-   * transacción. Si hay errores no se guarda nada y el resultado los detalla.
+   * Valida cada fila y procesa las válidas, cada una en su propia transacción. Las filas rechazadas
+   * se reportan con su motivo sin impedir el procesamiento del resto.
    */
   CargaMasivaResultadoDTO cargar(byte[] contenido, String usernameResponsable);
 }

@@ -46,12 +46,16 @@ class MatriculaControllerIntegrationTest {
 
   @PersistenceContext EntityManager entityManager;
 
+  private Integer ventanaMatriculaId;
+
   @BeforeEach
   void abrirVentanaDeMatriculaParaLosCasosDeMatricula() {
     PeriodoMatricula ventana = new PeriodoMatricula();
     ventana.setFechaInicio(LocalDate.now().minusDays(1));
     ventana.setFechaLimite(LocalDate.now().plusDays(1));
     entityManager.persist(ventana);
+    entityManager.flush();
+    ventanaMatriculaId = ventana.getId();
   }
 
   @Test
@@ -178,10 +182,7 @@ class MatriculaControllerIntegrationTest {
   void noPermiteRegistrarMatriculaFueraDeLaVentanaVigente() throws Exception {
     Integer periodoId = crearPeriodo(1);
     EstudianteResponse estudiante = crearEstudiante();
-    PeriodoMatricula ventana =
-        entityManager
-            .createQuery("select p from PeriodoMatricula p", PeriodoMatricula.class)
-            .getSingleResult();
+    PeriodoMatricula ventana = entityManager.find(PeriodoMatricula.class, ventanaMatriculaId);
     ventana.setFechaInicio(LocalDate.now().minusDays(5));
     ventana.setFechaLimite(LocalDate.now().minusDays(1));
     entityManager.flush();
