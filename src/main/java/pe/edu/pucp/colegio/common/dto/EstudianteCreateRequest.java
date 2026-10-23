@@ -1,40 +1,37 @@
 package pe.edu.pucp.colegio.common.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.List;
 
 public record EstudianteCreateRequest(
     @NotBlank @Size(max = 50) String username,
     @NotBlank @Size(min = 8, max = 72) String password,
-    @NotBlank @Size(max = 15) String dni,
-    @NotBlank @Size(max = 100) String nombre,
+    @NotBlank @Pattern(regexp = "DNI|PASAPORTE") String tipoDocumento,
+    @NotBlank @Size(max = 15) String numeroDocumento,
+    @NotBlank @Size(max = 100) String nombres,
     @NotBlank @Size(max = 100) String apellidoPaterno,
     @NotBlank @Size(max = 100) String apellidoMaterno,
     LocalDate fechaNacimiento,
-    @Size(max = 20) String telefono,
+    @Size(max = 20) String celular,
     @Size(max = 20) String genero,
-    @jakarta.validation.constraints.Email @Size(max = 254) String correo) {
-  public EstudianteCreateRequest(
-      String username,
-      String password,
-      String dni,
-      String nombre,
-      String apellidoPaterno,
-      String apellidoMaterno,
-      LocalDate fechaNacimiento,
-      String telefono,
-      String genero) {
-    this(
-        username,
-        password,
-        dni,
-        nombre,
-        apellidoPaterno,
-        apellidoMaterno,
-        fechaNacimiento,
-        telefono,
-        genero,
-        null);
-  }
+    @jakarta.validation.constraints.Email @Size(max = 254) String correoElectronico,
+    @Size(max = 50) String nacionalidad,
+    @Size(max = 255) String direccion,
+    @NotEmpty @Valid List<ApoderadoCreateRequest> apoderados) {
+
+  public record ApoderadoCreateRequest(
+      @NotBlank @Pattern(regexp = "DNI|PASAPORTE") String tipoDocumento,
+      @NotBlank @Size(max = 15) String numeroDocumento,
+      @NotBlank @Size(max = 100) String nombres,
+      @NotBlank @Size(max = 100) String apellidoPaterno,
+      @NotBlank @Size(max = 100) String apellidoMaterno,
+      @NotBlank @Size(max = 20) String celular,
+      @jakarta.validation.constraints.Email @Size(max = 254) String correoElectronico,
+      @NotBlank @Pattern(regexp = "PADRE|MADRE|TUTOR_LEGAL|OTRO") String parentesco,
+      boolean esPrincipal) {}
 }

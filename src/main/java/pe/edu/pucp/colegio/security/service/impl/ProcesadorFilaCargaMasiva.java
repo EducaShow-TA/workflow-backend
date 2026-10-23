@@ -133,7 +133,17 @@ public class ProcesadorFilaCargaMasiva {
                   () ->
                       new IllegalArgumentException(
                           "No existe el apoderado indicado para el alumno"));
-      VinculoFamiliar vinculo = vinculos.findByEstudianteId(estudiante.getId()).orElse(null);
+      VinculoFamiliar vinculo =
+          vinculos
+              .findByEstudianteIdAndApoderadoId(estudiante.getId(), apoderado.getId())
+              .orElse(null);
+      for (VinculoFamiliar existente : vinculos.findAllByEstudianteId(estudiante.getId())) {
+        if (!existente.getApoderado().getId().equals(apoderado.getId())
+            && existente.isEsPrincipal()) {
+          existente.setEsPrincipal(false);
+          vinculos.save(existente);
+        }
+      }
       if (vinculo == null) {
         vinculo = new VinculoFamiliar();
         vinculo.setEstudiante(estudiante);

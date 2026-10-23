@@ -226,17 +226,36 @@ class MatriculaControllerIntegrationTest {
 
   private EstudianteResponse crearEstudiante() throws Exception {
     String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    String dni =
+        String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
+    String dniApoderado =
+        String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
     EstudianteCreateRequest request =
         new EstudianteCreateRequest(
             "alumno-" + suffix,
             "ClaveSegura123",
-            suffix,
+            "DNI",
+            dni,
             "Estudiante",
             "Prueba",
             "Matricula",
             LocalDate.of(2012, 5, 10),
             "999999999",
-            "NO_IDENTIFICADO");
+            "NO_IDENTIFICADO",
+            null,
+            null,
+            null,
+            java.util.List.of(
+                new EstudianteCreateRequest.ApoderadoCreateRequest(
+                    "DNI",
+                    dniApoderado,
+                    "Apoderado",
+                    "Prueba",
+                    "Matricula",
+                    "999888777",
+                    null,
+                    "MADRE",
+                    true)));
 
     String response =
         mvc.perform(

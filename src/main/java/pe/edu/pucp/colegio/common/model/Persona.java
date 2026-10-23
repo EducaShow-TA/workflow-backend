@@ -10,6 +10,9 @@ public class Persona extends EntidadBase {
   @Column(nullable = false, unique = true, length = 15)
   private String dni;
 
+  @Column(name = "tipo_documento", nullable = false, length = 20)
+  private String tipoDocumento = "DNI";
+
   @Column(nullable = false)
   private String nombre;
 
@@ -25,6 +28,12 @@ public class Persona extends EntidadBase {
 
   @Column(length = 254)
   private String correo;
+
+  @Column(length = 50)
+  private String nacionalidad;
+
+  @Column(length = 255)
+  private String direccion;
 
   protected Persona() {}
 
@@ -42,6 +51,14 @@ public class Persona extends EntidadBase {
 
   public void setDni(String dni) {
     this.dni = dni;
+  }
+
+  public String getTipoDocumento() {
+    return tipoDocumento;
+  }
+
+  public void setTipoDocumento(String tipoDocumento) {
+    this.tipoDocumento = tipoDocumento;
   }
 
   public String getNombre() {
@@ -94,6 +111,22 @@ public class Persona extends EntidadBase {
 
   public void setCorreo(String correo) {
     this.correo = correo;
+  }
+
+  public String getNacionalidad() {
+    return nacionalidad;
+  }
+
+  public void setNacionalidad(String nacionalidad) {
+    this.nacionalidad = nacionalidad;
+  }
+
+  public String getDireccion() {
+    return direccion;
+  }
+
+  public void setDireccion(String direccion) {
+    this.direccion = direccion;
   }
 
   public void setGenero(String genero) {

@@ -939,7 +939,7 @@
                 "exec": [
                   "const hoy = new Date();",
                   "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
-                  "pm.environment.set('inicioPendiente', fecha(30));",
+                  "pm.environment.set('inicioPendiente', fecha(31));",
                   "pm.environment.set('limitePendiente', fecha(60));"
                 ]
               }
@@ -1035,7 +1035,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Fecha límite no posterior se rechaza', () => pm.response.to.have.status(400));"
+                  "pm.test('Fecha límite no posterior se rechaza', () => pm.response.to.have.status(422));"
                 ]
               }
             }
@@ -1203,7 +1203,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"postman.alumno.{{studentSuffix}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"dni\": \"9{{studentSuffix}}\",\n  \"nombre\": \"Ana Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-05-10\",\n  \"telefono\": \"999111222\",\n  \"genero\": \"FEMENINO\"\n}",
+              "raw": "{\n  \"username\": \"postman.alumno.{{studentSuffix}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"tipoDocumento\": \"DNI\",\n  \"numeroDocumento\": \"9{{studentSuffix}}\",\n  \"nombres\": \"Ana Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-05-10\",\n  \"celular\": \"999111222\",\n  \"genero\": \"FEMENINO\",\n  \"correoElectronico\": \"ana.{{studentSuffix}}@example.test\",\n  \"nacionalidad\": \"PERUANA\",\n  \"direccion\": \"Av. de prueba 123\",\n  \"apoderados\": [{\n    \"tipoDocumento\": \"DNI\",\n    \"numeroDocumento\": \"4{{studentSuffix}}\",\n    \"nombres\": \"Rosa Postman\",\n    \"apellidoPaterno\": \"Prueba\",\n    \"apellidoMaterno\": \"Local\",\n    \"celular\": \"987654321\",\n    \"correoElectronico\": \"rosa.{{studentSuffix}}@example.test\",\n    \"parentesco\": \"MADRE\",\n    \"esPrincipal\": true\n  }]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1228,7 +1228,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.environment.set('studentSuffix', String(Date.now()).slice(-11) + String(Math.floor(Math.random() * 10))); "
+                  "pm.environment.set('studentSuffix', String(Math.floor(Math.random() * 10000000)).padStart(7, '0')); "
                 ]
               }
             },
@@ -1256,7 +1256,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"postman.alumno.{{studentSuffix}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"dni\": \"9{{studentSuffix}}\",\n  \"nombre\": \"Luis Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-06-11\",\n  \"telefono\": \"999111223\",\n  \"genero\": \"MASCULINO\"\n}",
+              "raw": "{\n  \"username\": \"postman.alumno.{{studentSuffix}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"tipoDocumento\": \"DNI\",\n  \"numeroDocumento\": \"9{{studentSuffix}}\",\n  \"nombres\": \"Luis Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-06-11\",\n  \"celular\": \"999111223\",\n  \"genero\": \"MASCULINO\",\n  \"apoderados\": [{\n    \"tipoDocumento\": \"DNI\",\n    \"numeroDocumento\": \"4{{studentSuffix}}\",\n    \"nombres\": \"Rosa Postman\",\n    \"apellidoPaterno\": \"Prueba\",\n    \"apellidoMaterno\": \"Local\",\n    \"celular\": \"987654321\",\n    \"parentesco\": \"MADRE\",\n    \"esPrincipal\": true\n  }]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1281,7 +1281,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.environment.set('studentSuffix', String(Date.now()).slice(-11) + String(Math.floor(Math.random() * 10))); "
+                  "pm.environment.set('studentSuffix', String(Math.floor(Math.random() * 10000000)).padStart(7, '0')); "
                 ]
               }
             },
@@ -1618,8 +1618,8 @@
                 "exec": [
                   "const hoy = new Date();",
                   "const fecha = (offset) => { const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offset); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };",
-                  "pm.environment.set('inicioVentanaCerrada', fecha(-60));",
-                  "pm.environment.set('limiteVentanaCerrada', fecha(-30));"
+                  "pm.environment.set('inicioVentanaCerrada', fecha(-120));",
+                  "pm.environment.set('limiteVentanaCerrada', fecha(-90));"
                 ]
               }
             },

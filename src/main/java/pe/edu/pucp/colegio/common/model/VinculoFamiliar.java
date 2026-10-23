@@ -6,7 +6,9 @@ import jakarta.persistence.*;
 @Table(
     name = "vinculos_familiares",
     uniqueConstraints =
-        @UniqueConstraint(name = "uk_vinculo_familiar_estudiante", columnNames = "estudiante_id"))
+        @UniqueConstraint(
+            name = "uk_vinculo_estudiante_apoderado",
+            columnNames = {"estudiante_id", "apoderado_id"}))
 public class VinculoFamiliar extends EntidadBase {
 
   @Enumerated(EnumType.STRING)
@@ -20,8 +22,8 @@ public class VinculoFamiliar extends EntidadBase {
   @JoinColumn(name = "apoderado_id", nullable = false)
   private Apoderado apoderado;
 
-  @OneToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "estudiante_id", nullable = false, unique = true)
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "estudiante_id", nullable = false)
   private Estudiante estudiante;
 
   public Parentesco getParentesco() {
@@ -67,11 +69,11 @@ public class VinculoFamiliar extends EntidadBase {
     }
     Estudiante anterior = this.estudiante;
     this.estudiante = estudiante;
-    if (anterior != null && anterior.getVinculoFamiliar() == this) {
-      anterior.setVinculoFamiliar(null);
+    if (anterior != null) {
+      anterior.getVinculosFamiliares().remove(this);
     }
-    if (estudiante != null && estudiante.getVinculoFamiliar() != this) {
-      estudiante.setVinculoFamiliar(this);
+    if (estudiante != null) {
+      estudiante.getVinculosFamiliares().add(this);
     }
   }
 }
