@@ -182,9 +182,9 @@ git commit --amend -m "fix(pagos): corregir redondeo de mora"
 ### 4.3 Verificar y subir tu rama
 
 ```bash
-mvn spotless:apply              # aplica el formato del proyecto
-mvn spotless:check              # comprueba el formato Java
-mvn verify                      # compila y ejecuta las pruebas
+./mvnw spotless:apply           # aplica el formato del proyecto (Linux/macOS)
+./mvnw spotless:check           # comprueba el formato Java
+./mvnw verify                   # compila y ejecuta las pruebas
 git fetch origin
 git rebase origin/Development   # vuelve a actualizarte justo antes de subir
 git push --force-with-lease origin <tu-rama>
@@ -248,8 +248,8 @@ CONFLICT (content): Merge conflict in src/main/java/.../AuthServiceImpl.java
    Si hay más commits con conflictos, repite los pasos.
 4. Al terminar, verifica que todo funciona antes de subir:
    ```bash
-   mvn spotless:check
-   mvn verify
+   ./mvnw spotless:check
+   ./mvnw verify
    git push --force-with-lease origin <tu-rama>
    ```
 
@@ -318,7 +318,7 @@ git switch <tu-rama>
 
 **El CI falló por formato (Spotless).**
 ```bash
-mvn spotless:apply
+./mvnw spotless:apply
 git commit -am "style: aplicar formato del proyecto"
 git push --force-with-lease origin <tu-rama>
 ```
@@ -343,9 +343,9 @@ git add <archivos>
 git commit -m "tipo(alcance): descripción"
 
 # Antes de subir
-mvn spotless:apply
-mvn spotless:check
-mvn verify
+./mvnw spotless:apply
+./mvnw spotless:check
+./mvnw verify
 git fetch origin
 git rebase origin/Development
 git push --force-with-lease origin <tu-rama>
