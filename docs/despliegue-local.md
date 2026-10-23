@@ -126,26 +126,32 @@ cd workflow-backend
 git switch <tu-rama>
 ```
 
-Variables de entorno (en cada terminal donde ejecutes el backend):
+Configuración local con un archivo `.env` (solo la primera vez):
 
 ```bash
-# Linux / macOS
-export DB_URL='jdbc:mysql://localhost:3306/colegio_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
-export DB_USERNAME='colegio'
-export DB_PASSWORD='colegio_local'
-export JWT_SECRET="$(openssl rand -base64 32)"
+cp .env.example .env               # Windows: copy .env.example .env
+openssl rand -base64 32            # copia el resultado en JWT_SECRET= dentro de .env
 ```
 
-```powershell
-# Windows (PowerShell)
-$env:DB_URL = 'jdbc:mysql://localhost:3306/colegio_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
-$env:DB_USERNAME = 'colegio'
-$env:DB_PASSWORD = 'colegio_local'
-$env:JWT_SECRET = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+`.env.example` ya trae los datos del MySQL de la sección 2; solo falta descomentar `JWT_SECRET` y pegar la clave
+generada. En Windows sin `openssl`, genera la clave en PowerShell con
+`[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))`.
+
+Atajo en Linux: crea `.env` y genera `JWT_SECRET` en un solo paso (en macOS, usa `sed -i ''` en lugar de `sed -i`):
+
+```bash
+cp .env.example .env && sed -i "s|^# JWT_SECRET=$|JWT_SECRET=$(openssl rand -base64 32)|" .env
 ```
 
-En un IDE, defínelas en la configuración de ejecución (IntelliJ: *Run → Edit Configurations → Environment
-variables*). En NetBeans quedan en `nbactions.xml`, que **no se versiona**.
+Para comprobarlo, `grep '^JWT_SECRET=' .env` debe mostrar una línea sin `#` y con la clave. Si ya tenías un `.env`,
+`cp` lo reemplaza: haz una copia antes si guardaste otros valores.
+
+Spring Boot lee `.env` al arrancar (`spring.config.import` en `application.yml`), así que funciona igual desde la
+terminal, IntelliJ o NetBeans sin configurar variables en el IDE. `.env` **no se versiona** (está en `.gitignore`):
+nunca lo agregues a un commit ni pongas tus secretos en `nbactions.xml` u otros archivos del IDE.
+
+Las variables exportadas en la terminal o definidas en el IDE tienen prioridad sobre `.env`. Sirve para cambiar un
+valor puntual sin editar el archivo, por ejemplo `PORT=8081 mvn spring-boot:run`.
 
 Verificar y arrancar:
 
@@ -249,7 +255,7 @@ Antes de compartir la URL:
 | `failed to connect to the docker API at unix:///var/run/docker.sock` | El servicio de Docker está apagado. Enciéndelo con `sudo systemctl start docker` (o `sudo systemctl enable --now docker` para que arranque con el equipo) y luego `docker start colegio-mysql`. |
 | `Communications link failure` al arrancar el backend | MySQL no está encendido o aún no termina de iniciar: `docker start colegio-mysql` y espera a `ready for connections`. |
 | Flyway: `Migration checksum mismatch for migration version N` | Tu base aplicó una versión anterior de esa migración y el archivo cambió después. En local, recrea la base (`docker rm -f colegio-mysql` y vuelve a crear el contenedor). En el repositorio, una migración ya integrada no se edita, ni siquiera para cambiar espacios: los cambios van en una `V{n}` nueva. |
-| `Could not resolve placeholder 'JWT_SECRET'` | Falta la variable de entorno `JWT_SECRET` en esa terminal o en la configuración del IDE. |
+| `Could not resolve placeholder 'JWT_SECRET'` | Falta `JWT_SECRET`: créalo en `.env` (sección 3) y comprueba que ejecutas el backend desde la carpeta del repositorio, donde está `.env`. |
 | Docker: `port is already allocated` (3306) | Ya tienes otro MySQL/MariaDB en ese puerto. Apágalo o usa `-p 3307:3306` y cambia el puerto en `DB_URL`. |
 | La cuenta queda bloqueada al iniciar sesión | Tras 3 intentos fallidos la cuenta se bloquea 15 minutos (US-5.6). Espera o recrea la base. |
 | Al iniciar sesión el botón se queda esperando y no pasa nada | El backend está apagado: el `devProxy` no responde mientras `:8080` no esté escuchando. Arráncalo (`mvn spring-boot:run`). |

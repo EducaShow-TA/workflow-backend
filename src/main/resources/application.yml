@@ -3,6 +3,9 @@ server:
 spring:
     application:
         name: colegio-backend
+    # Variables locales desde .env (no versionado). Es opcional: en servidores y CI llegan del entorno.
+    config:
+        import: optional:file:.env[.properties]
     servlet:
         multipart:
             max-file-size: 10MB
