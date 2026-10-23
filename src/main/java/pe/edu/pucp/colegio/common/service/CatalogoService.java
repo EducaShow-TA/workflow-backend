@@ -27,6 +27,7 @@ import pe.edu.pucp.colegio.common.model.Competencia;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
 
+/** Gestiona las reglas de negocio del catálogo de áreas y competencias. */
 @Service
 @Transactional
 public class CatalogoService {

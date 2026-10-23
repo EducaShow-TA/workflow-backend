@@ -28,6 +28,7 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 import pe.edu.pucp.colegio.security.repository.TokenRecuperacionPasswordRepository;
 import pe.edu.pucp.colegio.security.service.RecuperacionPasswordService;
 
+/** Gestiona la emisión y consumo de tokens de recuperación de contraseña. */
 @Service
 public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordService {
 

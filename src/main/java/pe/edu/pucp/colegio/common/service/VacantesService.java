@@ -9,6 +9,7 @@ import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 
+/** Calcula y valida las vacantes disponibles para una sección. */
 @Service
 public class VacantesService {
 

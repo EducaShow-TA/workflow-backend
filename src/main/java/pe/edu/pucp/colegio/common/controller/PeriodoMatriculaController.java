@@ -16,6 +16,7 @@ import pe.edu.pucp.colegio.common.dto.PeriodoMatriculaRequest;
 import pe.edu.pucp.colegio.common.dto.PeriodoMatriculaResponse;
 import pe.edu.pucp.colegio.common.service.PeriodoMatriculaService;
 
+/** Expone las operaciones de configuración y consulta de ventanas de matrícula. */
 @RestController
 @RequestMapping("/api/v1/periodos-matricula")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

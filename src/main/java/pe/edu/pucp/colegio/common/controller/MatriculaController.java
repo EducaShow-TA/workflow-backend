@@ -14,6 +14,7 @@ import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
 import pe.edu.pucp.colegio.common.service.MatriculaService;
 
+/** Expone las operaciones de matrícula de estudiantes en periodos académicos. */
 @RestController
 @RequestMapping("/api/v1/periodos/{periodoId}/matriculas")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

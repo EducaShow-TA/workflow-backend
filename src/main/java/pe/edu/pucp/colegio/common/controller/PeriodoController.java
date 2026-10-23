@@ -15,6 +15,7 @@ import pe.edu.pucp.colegio.common.dto.VacantesPeriodoResponse;
 import pe.edu.pucp.colegio.common.service.PeriodoService;
 import pe.edu.pucp.colegio.common.service.VacantesService;
 
+/** Expone las operaciones de administración de periodos académicos. */
 @RestController
 @RequestMapping("/api/v1/periodos")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

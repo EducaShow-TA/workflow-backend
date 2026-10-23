@@ -5,6 +5,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+/** Envía los mensajes de correo usados por los flujos del sistema. */
 @Service
 public class CorreoService {
 

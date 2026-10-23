@@ -14,6 +14,7 @@ import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
 /** Endpoints de cuentas de usuario. Solo el rol ADMINISTRADOR puede usarlos. */
+/** Expone las operaciones administrativas de gestión de cuentas de usuario. */
 @RestController
 @RequestMapping("/api/v1/cuentas-usuario")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

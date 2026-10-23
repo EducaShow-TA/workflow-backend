@@ -19,6 +19,7 @@ import pe.edu.pucp.colegio.common.dto.PlantillaHorarioRequest;
 import pe.edu.pucp.colegio.common.dto.PlantillaHorarioResponse;
 import pe.edu.pucp.colegio.common.service.PlantillaHorarioService;
 
+/** Expone las operaciones de administración de plantillas de bloques horarios. */
 @RestController
 @RequestMapping("/api/v1/horarios/plantillas")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

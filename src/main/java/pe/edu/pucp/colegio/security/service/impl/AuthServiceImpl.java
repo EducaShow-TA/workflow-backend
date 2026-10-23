@@ -13,6 +13,7 @@ import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 import pe.edu.pucp.colegio.security.service.AuthService;
 
+/** Autentica cuentas y aplica las reglas de acceso durante el inicio de sesión. */
 @Service
 public class AuthServiceImpl implements AuthService {
 

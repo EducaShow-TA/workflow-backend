@@ -14,6 +14,7 @@ import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
 
+/** Gestiona los periodos académicos asociados a grado y sección. */
 @Service
 public class PeriodoService {
 

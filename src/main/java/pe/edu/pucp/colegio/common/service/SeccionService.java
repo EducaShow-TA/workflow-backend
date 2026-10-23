@@ -15,6 +15,7 @@ import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
 
+/** Gestiona secciones y valida su capacidad frente a las matrículas activas. */
 @Service
 public class SeccionService {
 

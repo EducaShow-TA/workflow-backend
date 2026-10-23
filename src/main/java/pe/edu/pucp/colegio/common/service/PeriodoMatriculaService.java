@@ -12,6 +12,7 @@ import pe.edu.pucp.colegio.common.model.EstadoPeriodoMatricula;
 import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
 
+/** Gestiona las ventanas de tiempo habilitadas para registrar matrículas. */
 @Service
 public class PeriodoMatriculaService {
 

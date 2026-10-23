@@ -17,6 +17,7 @@ import pe.edu.pucp.colegio.common.dto.SeccionResponse;
 import pe.edu.pucp.colegio.common.dto.SeccionVacantesRequest;
 import pe.edu.pucp.colegio.common.service.SeccionService;
 
+/** Expone las operaciones de administración de secciones y sus vacantes. */
 @RestController
 @RequestMapping("/api/v1/secciones")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

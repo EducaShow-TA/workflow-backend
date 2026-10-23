@@ -26,6 +26,7 @@ import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
+/** Gestiona la creación, consulta, actualización y estado de las cuentas. */
 @Service
 public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
 

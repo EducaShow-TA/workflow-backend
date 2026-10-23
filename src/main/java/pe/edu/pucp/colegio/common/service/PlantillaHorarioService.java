@@ -23,6 +23,7 @@ import pe.edu.pucp.colegio.common.model.TipoBloqueHorario;
 import pe.edu.pucp.colegio.common.repository.BloqueHorarioRepository;
 import pe.edu.pucp.colegio.common.repository.PlantillaHorarioRepository;
 
+/** Construye y administra plantillas de bloques y recreos por turno. */
 @Service
 public class PlantillaHorarioService {
 

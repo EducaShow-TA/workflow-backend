@@ -33,6 +33,7 @@ import pe.edu.pucp.colegio.security.service.CargaMasivaUsuariosService;
 import pe.edu.pucp.colegio.security.service.LectorCsvUsuarios;
 
 /** Procesa cada fila válida de forma independiente para conservar los resultados parciales. */
+/** Coordina la validación y el procesamiento por filas de archivos CSV de usuarios. */
 @Service
 public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosService {
 
