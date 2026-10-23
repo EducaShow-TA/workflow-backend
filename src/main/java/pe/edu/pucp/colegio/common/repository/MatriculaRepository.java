@@ -19,9 +19,18 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
   @Query(
       "select count(distinct m.estudiante.id) from Matricula m "
           + "where m.periodo.seccion.id = :seccionId and m.active = true "
+          + "and m.periodo.fechaInicio between :desde and :hasta "
           + "and m.estado in (pe.edu.pucp.colegio.common.model.EstadoMatricula.EN_REGISTRO, "
           + "pe.edu.pucp.colegio.common.model.EstadoMatricula.CONFIRMADA)")
-  long countAlumnosActivosPorSeccion(@Param("seccionId") Integer seccionId);
+  long countAlumnosActivosPorSeccionEntre(
+      @Param("seccionId") Integer seccionId,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta);
+
+  default long countAlumnosActivosPorSeccionEnAnhio(Integer seccionId, int anhio) {
+    return countAlumnosActivosPorSeccionEntre(
+        seccionId, LocalDate.of(anhio, 1, 1), LocalDate.of(anhio, 12, 31));
+  }
 
   boolean existsByActiveTrueAndFechaMatriculaBetween(LocalDate desde, LocalDate hasta);
 }
