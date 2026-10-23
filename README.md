@@ -4,7 +4,7 @@ Backend REST monolítico modular para el sistema de gestión integral de un cole
 
 ## Guía de trabajo
 
-El equipo integra cambios en `Development` mediante Pull Requests desde ramas personales permanentes; al cierre del sprint, integra `Development` en `main`. Antes de subir cambios, ejecuta `mvn spotless:apply`, `mvn spotless:check` y `mvn verify`. El flujo detallado está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
+El equipo integra cambios en `Development` mediante Pull Requests desde ramas personales permanentes; al cierre del sprint, integra `Development` en `main`. Usa Maven Wrapper (`mvnw.cmd` en Windows o `./mvnw` en Linux/macOS) para ejecutar `spotless:apply`, `spotless:check` y `verify` sin instalar Maven globalmente. El flujo detallado está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
 ## Tecnologías
 
@@ -423,11 +423,35 @@ Flyway crea las tablas de seguridad, catálogo curricular, ventanas globales de 
 - Maven.
 - Un servidor MySQL accesible en `localhost:3306`.
 
-Este checkout todavía no contiene Maven Wrapper ni los workflows de CI descritos en el diseño técnico del repositorio; por ahora se requiere una instalación local de Maven y ejecutar las verificaciones manualmente.
+El repositorio incluye Maven Wrapper, configurado para Maven 3.9.16. Se requiere un JDK 25. La primera ejecución necesita conexión a internet para descargar Maven; las siguientes reutilizan la copia guardada en la caché del usuario.
 
 Para instalar los requisitos y levantar MySQL, backend y frontend en tu máquina, sigue [`docs/despliegue-local.md`](docs/despliegue-local.md). El flujo de ramas y Pull Requests está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
-### Instalar Maven
+### Usar Maven Wrapper
+
+Abre la terminal en la raíz del backend, donde están `pom.xml` y los scripts del wrapper.
+
+En Windows PowerShell:
+
+```powershell
+.\mvnw.cmd --version
+.\mvnw.cmd spotless:apply
+.\mvnw.cmd spotless:check
+.\mvnw.cmd verify
+```
+
+En Linux o macOS:
+
+```bash
+./mvnw --version
+./mvnw spotless:apply
+./mvnw spotless:check
+./mvnw verify
+```
+
+Puedes pasar cualquier comando de Maven al wrapper, por ejemplo `test`, `clean package` o `spring-boot:run`. No necesitas instalar Maven globalmente.
+
+### Instalar Maven (opcional)
 ```bash
 sudo dnf install maven
 mvn -version
@@ -506,7 +530,7 @@ export DB_URL='jdbc:mysql://127.0.0.1:3306/colegio_db?useSSL=false&serverTimezon
 export DB_USERNAME='educashow'
 export DB_PASSWORD='PASSWORD_2026'
 export JWT_SECRET="$(openssl rand -base64 32)"
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
 ### Windows (PowerShell)
@@ -518,7 +542,7 @@ $env:DB_PASSWORD = 'PASSWORD_2026'
 $bytes = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
 $env:JWT_SECRET = [Convert]::ToBase64String($bytes)
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
@@ -541,7 +565,7 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 
 ## Verificación manual
 
-Con la base de datos activa y las variables configuradas, inicia la aplicación con `mvn spring-boot:run`. Flyway aplica las migraciones disponibles y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
+Con la base de datos activa y las variables configuradas, inicia la aplicación con `./mvnw spring-boot:run` en Linux/macOS o ` .\mvnw.cmd spring-boot:run` en PowerShell. Flyway aplica las migraciones disponibles y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
 
 La migración inicial crea una cuenta administradora semilla para desarrollo local. No uses esa cuenta en entornos compartidos o desplegados; debe rotarse o deshabilitarse antes de cualquier despliegue. En una base donde V1 ya fue aplicada, modificar el archivo V1 no actualiza los datos existentes; la rotación debe hacerse mediante una actualización separada.
 
@@ -564,8 +588,11 @@ curl http://localhost:8080/api/v1/auth/me \
 
 El proyecto cuenta con pruebas unitarias y de integración para autenticación y recuperación, cuentas, catálogo, estudiantes, ventanas y periodos de matrícula, vacantes, plantillas horarias, autorización y registro de errores. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
 
+`verify` ejecuta también `spotless:check` y JaCoCo. JaCoCo genera el reporte en `target/site/jacoco/index.html` y falla el build si la cobertura de líneas de `pe.edu.pucp.colegio.security.service.impl` es menor al 70 %.
+
 ```bash
-mvn test
+./mvnw test       # ejecuta las pruebas
+./mvnw verify     # pruebas, formato y umbral de cobertura
 ```
 
 ## Avance del Sprint 1 y pendientes
