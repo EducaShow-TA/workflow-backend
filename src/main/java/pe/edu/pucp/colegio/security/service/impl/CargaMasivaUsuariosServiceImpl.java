@@ -1,39 +1,30 @@
 package pe.edu.pucp.colegio.security.service.impl;
 
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
-import pe.edu.pucp.colegio.common.model.Apoderado;
-import pe.edu.pucp.colegio.common.model.Estudiante;
-import pe.edu.pucp.colegio.common.model.Parentesco;
-import pe.edu.pucp.colegio.common.model.Persona;
-import pe.edu.pucp.colegio.common.model.VinculoFamiliar;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
-import pe.edu.pucp.colegio.common.repository.PersonaRepository;
-import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.dto.CargaMasivaResultadoDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaCargadaDTO;
 import pe.edu.pucp.colegio.security.dto.ErrorFilaDTO;
+import pe.edu.pucp.colegio.security.dto.FilaCargaMasivaResultadoDTO;
 import pe.edu.pucp.colegio.security.dto.FilaUsuarioCsv;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -41,11 +32,7 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 import pe.edu.pucp.colegio.security.service.CargaMasivaUsuariosService;
 import pe.edu.pucp.colegio.security.service.LectorCsvUsuarios;
 
-/**
- * Implementa la carga masiva en dos fases: primero valida todas las filas sin escribir nada y, solo
- * si no hay errores, persiste todo en una transacción. Así un archivo con un error no deja cuentas
- * a medias y los alumnos pueden referirse a apoderados que están en el mismo archivo.
- */
+/** Procesa cada fila válida de forma independiente para conservar los resultados parciales. */
 @Service
 public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosService {
 
@@ -54,147 +41,257 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
   private static final Set<Rol> ROLES_PERMITIDOS =
       EnumSet.of(Rol.DOCENTE, Rol.ALUMNO, Rol.APODERADO);
   private static final Pattern CORREO = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-  private static final String ALFABETO =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  private static final int LARGO_CONTRASENHA = 12;
-  private static final SecureRandom ALEATORIO = new SecureRandom();
 
   private final LectorCsvUsuarios lector;
-  private final PersonaRepository personas;
   private final CuentaUsuarioRepository cuentas;
   private final EstudianteRepository estudiantes;
   private final ApoderadoRepository apoderados;
-  private final VinculoFamiliarRepository vinculos;
   private final RegistroAuditoriaRepository auditorias;
-  private final PasswordEncoder encoder;
+  private final ProcesadorFilaCargaMasiva procesador;
 
   public CargaMasivaUsuariosServiceImpl(
       LectorCsvUsuarios lector,
-      PersonaRepository personas,
       CuentaUsuarioRepository cuentas,
       EstudianteRepository estudiantes,
       ApoderadoRepository apoderados,
-      VinculoFamiliarRepository vinculos,
       RegistroAuditoriaRepository auditorias,
-      PasswordEncoder encoder) {
+      ProcesadorFilaCargaMasiva procesador) {
     this.lector = lector;
-    this.personas = personas;
     this.cuentas = cuentas;
     this.estudiantes = estudiantes;
     this.apoderados = apoderados;
-    this.vinculos = vinculos;
     this.auditorias = auditorias;
-    this.encoder = encoder;
+    this.procesador = procesador;
   }
 
   @Override
-  @Transactional
   public CargaMasivaResultadoDTO cargar(byte[] contenido, String usernameResponsable) {
     List<FilaUsuarioCsv> filas = lector.leer(contenido);
-    List<ErrorFilaDTO> errores = validar(filas);
-    if (!errores.isEmpty()) {
-      log.warn("event=carga_masiva_rechazada filas={} errores={}", filas.size(), errores.size());
-      return new CargaMasivaResultadoDTO(false, filas.size(), errores, List.of());
-    }
-    List<CuentaCargadaDTO> creadas = persistir(filas);
-    var responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
-    auditorias.save(
-        new RegistroAuditoria(
-            responsable == null ? null : responsable.getId(),
-            responsable == null ? null : responsable.getRol().name(),
-            AccionAuditoria.CREAR,
-            "Carga masiva de usuarios: " + creadas.size() + " cuentas"));
-    log.info(
-        "event=carga_masiva_completada cuentas={} por={}", creadas.size(), usernameResponsable);
-    return new CargaMasivaResultadoDTO(true, filas.size(), List.of(), creadas);
-  }
+    Map<Integer, List<ErrorFilaDTO>> errores = validar(filas);
+    List<FilaCargaMasivaResultadoDTO> resultados = new ArrayList<>();
+    List<CuentaCargadaDTO> cuentasCreadas = new ArrayList<>();
+    int usuariosCreados = 0;
+    int usuariosActualizados = 0;
+    int usuariosVinculados = 0;
+    int usuariosSinCambios = 0;
 
-  // ---------- fase 1: validación (no escribe en la base) ----------
+    List<FilaUsuarioCsv> ordenadas =
+        filas.stream()
+            .sorted(
+                Comparator.comparing((FilaUsuarioCsv fila) -> rolDe(fila) != Rol.APODERADO)
+                    .thenComparingInt(FilaUsuarioCsv::fila))
+            .toList();
 
-  private List<ErrorFilaDTO> validar(List<FilaUsuarioCsv> filas) {
-    List<ErrorFilaDTO> errores = new ArrayList<>();
-    Set<String> dnisVistos = new HashSet<>();
-    Set<String> correosVistos = new HashSet<>();
-    Set<String> dnisApoderadosArchivo = new HashSet<>();
-    for (FilaUsuarioCsv f : filas) {
-      if (rolDe(f) == Rol.APODERADO && f.dni() != null) {
-        dnisApoderadosArchivo.add(f.dni());
+    for (FilaUsuarioCsv fila : ordenadas) {
+      if (errores.containsKey(fila.fila())) {
+        continue;
+      }
+      if (rolDe(fila) == Rol.ALUMNO && !apoderados.existsByPersonaDni(fila.dniApoderado())) {
+        agregar(
+            errores,
+            fila.fila(),
+            "dni_apoderado",
+            "No se pudo procesar: el apoderado no está registrado o su fila fue rechazada");
+        continue;
+      }
+
+      try {
+        ResultadoProcesamientoFila procesado = procesador.procesar(fila);
+        boolean creado = procesado.cuentaCreada();
+        boolean actualizado = procesado.datosActualizados();
+        boolean vinculado = procesado.vinculoCreado();
+        if (creado) {
+          usuariosCreados++;
+          cuentasCreadas.add(
+              new CuentaCargadaDTO(
+                  fila.fila(),
+                  procesado.rol().name(),
+                  procesado.dni(),
+                  procesado.username(),
+                  procesado.contrasenhaTemporal()));
+        }
+        if (actualizado) {
+          usuariosActualizados++;
+        }
+        if (vinculado) {
+          usuariosVinculados++;
+        }
+        if (!creado && !actualizado && !vinculado) {
+          usuariosSinCambios++;
+        }
+        resultados.add(
+            new FilaCargaMasivaResultadoDTO(
+                fila.fila(),
+                estado(creado, actualizado, vinculado),
+                procesado.rol().name(),
+                procesado.dni(),
+                procesado.username()));
+      } catch (DataIntegrityViolationException e) {
+        log.warn(
+            "event=carga_masiva_fila_rechazada fila={} causa=conflicto_integridad", fila.fila());
+        agregar(
+            errores,
+            fila.fila(),
+            "datos",
+            "Conflicto con datos existentes; revise el DNI, correo o vínculo familiar");
+      } catch (RuntimeException e) {
+        log.error("event=carga_masiva_fila_fallida fila={}", fila.fila(), e);
+        agregar(errores, fila.fila(), "datos", mensajeSeguro(e));
       }
     }
-    for (FilaUsuarioCsv f : filas) {
-      validarFila(f, errores, dnisVistos, correosVistos, dnisApoderadosArchivo);
+
+    int filasRechazadas = errores.size();
+    int filasProcesadas = resultados.size();
+    if (filasProcesadas > 0) {
+      var responsable = cuentas.findByUsernameIgnoreCase(usernameResponsable).orElse(null);
+      AccionAuditoria accion =
+          usuariosCreados > 0 ? AccionAuditoria.CREAR : AccionAuditoria.ACTUALIZAR;
+      auditorias.save(
+          new RegistroAuditoria(
+              responsable == null ? null : responsable.getId(),
+              responsable == null ? null : responsable.getRol().name(),
+              accion,
+              "Carga masiva: "
+                  + usuariosCreados
+                  + " creados, "
+                  + usuariosActualizados
+                  + " actualizados, "
+                  + usuariosVinculados
+                  + " vinculados y "
+                  + filasRechazadas
+                  + " filas rechazadas"));
+    }
+
+    log.info(
+        "event=carga_masiva_completada total={} procesadas={} rechazadas={} por={}",
+        filas.size(),
+        filasProcesadas,
+        filasRechazadas,
+        usernameResponsable);
+    List<ErrorFilaDTO> detalleErrores = errores.values().stream().flatMap(List::stream).toList();
+    return new CargaMasivaResultadoDTO(
+        detalleErrores.isEmpty(),
+        filas.size(),
+        usuariosCreados,
+        usuariosActualizados,
+        usuariosVinculados,
+        usuariosSinCambios,
+        filasRechazadas,
+        detalleErrores,
+        cuentasCreadas,
+        resultados);
+  }
+
+  private Map<Integer, List<ErrorFilaDTO>> validar(List<FilaUsuarioCsv> filas) {
+    Map<Integer, List<ErrorFilaDTO>> errores = new LinkedHashMap<>();
+    Set<String> dnisVistos = new HashSet<>();
+    Set<String> correosVistos = new HashSet<>();
+    Map<String, FilaUsuarioCsv> apoderadosEnArchivo = new LinkedHashMap<>();
+
+    for (FilaUsuarioCsv fila : filas) {
+      validarCampos(fila, errores, dnisVistos, correosVistos);
+      if (rolDe(fila) == Rol.APODERADO && fila.dni() != null) {
+        apoderadosEnArchivo.putIfAbsent(fila.dni(), fila);
+      }
+    }
+
+    Set<String> apoderadosValidosEnArchivo = new HashSet<>();
+    for (Map.Entry<String, FilaUsuarioCsv> entry : apoderadosEnArchivo.entrySet()) {
+      if (!errores.containsKey(entry.getValue().fila())) {
+        apoderadosValidosEnArchivo.add(entry.getKey());
+      }
+    }
+
+    for (FilaUsuarioCsv fila : filas) {
+      if (rolDe(fila) != Rol.ALUMNO) {
+        continue;
+      }
+      if (fila.dniApoderado() == null) {
+        agregar(errores, fila.fila(), "dni_apoderado", "Es obligatorio para un ALUMNO");
+      } else if (!apoderados.existsByPersonaDni(fila.dniApoderado())
+          && !apoderadosValidosEnArchivo.contains(fila.dniApoderado())) {
+        agregar(
+            errores,
+            fila.fila(),
+            "dni_apoderado",
+            "No existe un apoderado válido con ese DNI ni una fila válida en el archivo");
+      }
+      if (fila.parentesco() == null) {
+        agregar(errores, fila.fila(), "parentesco", "Es obligatorio para un ALUMNO");
+      } else if (parentescoDe(fila) == null) {
+        agregar(
+            errores,
+            fila.fila(),
+            "parentesco",
+            "Valor inválido; use PADRE, MADRE, TUTOR_LEGAL u OTRO");
+      }
     }
     return errores;
   }
 
-  private void validarFila(
-      FilaUsuarioCsv f,
-      List<ErrorFilaDTO> errores,
-      Set<String> dnisVistos,
-      Set<String> correosVistos,
-      Set<String> dnisApoderadosArchivo) {
-    int n = f.fila();
-    Rol rol = rolDe(f);
-    if (rol == null) {
-      agregar(errores, n, "rol", "Rol inválido o no permitido; use DOCENTE, ALUMNO o APODERADO");
-    }
-    validarTexto(errores, n, "dni", f.dni(), 15, true);
-    validarTexto(errores, n, "nombres", f.nombres(), 100, true);
-    validarTexto(errores, n, "apellido_paterno", f.apellidoPaterno(), 100, true);
-    validarTexto(errores, n, "apellido_materno", f.apellidoMaterno(), 100, true);
-    validarTexto(errores, n, "telefono", f.telefono(), 20, false);
-    validarCorreo(errores, n, f.correo());
-    validarFecha(errores, n, f.fechaNacimiento());
-    validarDuplicados(errores, f, dnisVistos, correosVistos);
-    if (rol == Rol.ALUMNO) {
-      validarVinculo(errores, f, dnisApoderadosArchivo);
-    }
-  }
-
-  private void validarDuplicados(
-      List<ErrorFilaDTO> errores,
-      FilaUsuarioCsv f,
+  private void validarCampos(
+      FilaUsuarioCsv fila,
+      Map<Integer, List<ErrorFilaDTO>> errores,
       Set<String> dnisVistos,
       Set<String> correosVistos) {
-    if (f.dni() != null) {
-      if (!dnisVistos.add(f.dni())) {
-        agregar(errores, f.fila(), "dni", "DNI repetido dentro del archivo");
-      } else if (personas.existsByDni(f.dni())) {
-        agregar(errores, f.fila(), "dni", "Ya existe una persona con ese DNI");
-      }
+    Rol rol = rolDe(fila);
+    if (rol == null) {
+      agregar(
+          errores,
+          fila.fila(),
+          "rol",
+          "Rol inválido o no permitido; use DOCENTE, ALUMNO o APODERADO");
     }
-    if (f.correo() != null) {
-      String correo = f.correo().toLowerCase(Locale.ROOT);
+    validarTexto(errores, fila.fila(), "dni", fila.dni(), 15, true);
+    validarTexto(errores, fila.fila(), "nombres", fila.nombres(), 100, true);
+    validarTexto(errores, fila.fila(), "apellido_paterno", fila.apellidoPaterno(), 100, true);
+    validarTexto(errores, fila.fila(), "apellido_materno", fila.apellidoMaterno(), 100, true);
+    validarTexto(errores, fila.fila(), "telefono", fila.telefono(), 20, false);
+    validarCorreo(errores, fila.fila(), fila.correo());
+    validarFecha(errores, fila.fila(), fila.fechaNacimiento());
+
+    if (fila.dni() != null && !dnisVistos.add(fila.dni())) {
+      agregar(errores, fila.fila(), "dni", "DNI repetido dentro del archivo");
+    }
+    if (fila.correo() != null) {
+      String correo = fila.correo().trim().toLowerCase(Locale.ROOT);
       if (!correosVistos.add(correo)) {
-        agregar(errores, f.fila(), "correo", "Correo repetido dentro del archivo");
-      } else if (cuentas.existsByUsername(correo)) {
-        agregar(errores, f.fila(), "correo", "Ya existe una cuenta con ese correo");
+        agregar(errores, fila.fila(), "correo", "Correo repetido dentro del archivo");
       }
+      validarConflictosExistentes(fila, rol, correo, errores);
     }
   }
 
-  private void validarVinculo(
-      List<ErrorFilaDTO> errores, FilaUsuarioCsv f, Set<String> dnisApoderadosArchivo) {
-    if (f.dniApoderado() == null) {
-      agregar(errores, f.fila(), "dni_apoderado", "Es obligatorio para un ALUMNO");
-    } else if (!dnisApoderadosArchivo.contains(f.dniApoderado())
-        && !apoderados.existsByPersonaDni(f.dniApoderado())) {
-      agregar(
-          errores,
-          f.fila(),
-          "dni_apoderado",
-          "No existe un apoderado con ese DNI ni está en el archivo");
+  private void validarConflictosExistentes(
+      FilaUsuarioCsv fila, Rol rol, String correo, Map<Integer, List<ErrorFilaDTO>> errores) {
+    if (fila.dni() == null || rol == null) {
+      return;
     }
-    if (f.parentesco() == null) {
-      agregar(errores, f.fila(), "parentesco", "Es obligatorio para un ALUMNO");
-    } else if (parentescoDe(f) == null) {
-      agregar(
-          errores, f.fila(), "parentesco", "Valor inválido; use PADRE, MADRE, TUTOR_LEGAL u OTRO");
+    CuentaUsuario cuentaExistente = cuentas.findByPersonaDni(fila.dni()).orElse(null);
+    if (cuentaExistente != null) {
+      if (cuentaExistente.getRol() != rol) {
+        agregar(
+            errores,
+            fila.fila(),
+            "rol",
+            "No se permite cambiar el rol de una cuenta existente mediante la carga");
+      }
+      if (cuentas.existsByUsernameIgnoreCaseAndIdNot(correo, cuentaExistente.getId())) {
+        agregar(errores, fila.fila(), "correo", "El correo ya pertenece a otra cuenta");
+      }
+    } else if (cuentas.findByUsernameIgnoreCase(correo).isPresent()) {
+      agregar(errores, fila.fila(), "correo", "El correo ya pertenece a otra persona");
+    }
+
+    if (rol == Rol.ALUMNO && apoderados.existsByPersonaDni(fila.dni())) {
+      agregar(errores, fila.fila(), "rol", "La persona ya está registrada como apoderado");
+    } else if (rol == Rol.APODERADO && estudiantes.existsByPersonaDni(fila.dni())) {
+      agregar(errores, fila.fila(), "rol", "La persona ya está registrada como alumno");
     }
   }
 
   private static void validarTexto(
-      List<ErrorFilaDTO> errores,
+      Map<Integer, List<ErrorFilaDTO>> errores,
       int fila,
       String campo,
       String valor,
@@ -209,7 +306,8 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     }
   }
 
-  private static void validarCorreo(List<ErrorFilaDTO> errores, int fila, String correo) {
+  private static void validarCorreo(
+      Map<Integer, List<ErrorFilaDTO>> errores, int fila, String correo) {
     if (correo == null) {
       agregar(errores, fila, "correo", "Es obligatorio");
     } else if (correo.length() > 50 || !CORREO.matcher(correo).matches()) {
@@ -217,7 +315,8 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     }
   }
 
-  private static void validarFecha(List<ErrorFilaDTO> errores, int fila, String fecha) {
+  private static void validarFecha(
+      Map<Integer, List<ErrorFilaDTO>> errores, int fila, String fecha) {
     if (fecha == null) {
       return;
     }
@@ -228,97 +327,56 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     }
   }
 
-  private static void agregar(List<ErrorFilaDTO> errores, int fila, String campo, String mensaje) {
-    errores.add(new ErrorFilaDTO(fila, campo, mensaje));
-  }
-
-  // ---------- fase 2: persistencia (una sola transacción) ----------
-
-  private List<CuentaCargadaDTO> persistir(List<FilaUsuarioCsv> filas) {
-    List<FilaUsuarioCsv> apoderadosPrimero =
-        filas.stream()
-            .sorted(Comparator.comparing((FilaUsuarioCsv f) -> rolDe(f) != Rol.APODERADO))
-            .toList();
-    Map<String, Apoderado> apoderadosCreados = new HashMap<>();
-    Map<Integer, CuentaCargadaDTO> porFila = new TreeMap<>();
-    for (FilaUsuarioCsv f : apoderadosPrimero) {
-      Rol rol = rolDe(f);
-      Persona persona = personas.save(nuevaPersona(f));
-      switch (rol) {
-        case APODERADO -> {
-          Apoderado apoderado = new Apoderado();
-          apoderado.setPersona(persona);
-          apoderadosCreados.put(f.dni(), apoderados.save(apoderado));
-        }
-        case ALUMNO -> crearAlumno(f, persona, apoderadosCreados);
-        default -> {
-          // DOCENTE: por ahora solo tiene persona y cuenta (aún no existe la entidad Docente).
-        }
-      }
-      String contrasenha = generarContrasenha();
-      String correo = f.correo().toLowerCase(Locale.ROOT);
-      cuentas.save(new CuentaUsuario(correo, encoder.encode(contrasenha), rol, persona));
-      porFila.put(
-          f.fila(), new CuentaCargadaDTO(f.fila(), rol.name(), f.dni(), correo, contrasenha));
+  private static String mensajeSeguro(RuntimeException e) {
+    if (e instanceof IllegalArgumentException && e.getMessage() != null) {
+      return e.getMessage();
     }
-    return new ArrayList<>(porFila.values());
+    return "No se pudo procesar la fila; revise los datos y sus vínculos";
   }
 
-  private void crearAlumno(
-      FilaUsuarioCsv f, Persona persona, Map<String, Apoderado> apoderadosCreados) {
-    Estudiante estudiante = new Estudiante();
-    estudiante.setPersona(persona);
-    estudiante = estudiantes.save(estudiante);
-    Apoderado apoderado = apoderadosCreados.get(f.dniApoderado());
-    if (apoderado == null) {
-      apoderado = apoderados.findByPersonaDni(f.dniApoderado()).orElseThrow();
+  private static String estado(boolean creado, boolean actualizado, boolean vinculado) {
+    if (creado && vinculado) {
+      return "CREADO_Y_VINCULADO";
     }
-    VinculoFamiliar vinculo = new VinculoFamiliar();
-    vinculo.setParentesco(parentescoDe(f));
-    vinculo.setEsPrincipal(true);
-    vinculo.setApoderado(apoderado);
-    vinculo.setEstudiante(estudiante);
-    vinculos.save(vinculo);
-  }
-
-  private static Persona nuevaPersona(FilaUsuarioCsv f) {
-    Persona persona = new Persona(f.dni(), f.nombres(), f.apellidoPaterno(), f.apellidoMaterno());
-    persona.setTelefono(f.telefono());
-    if (f.fechaNacimiento() != null) {
-      persona.setFechaNacimiento(LocalDate.parse(f.fechaNacimiento()));
+    if (creado) {
+      return "CREADO";
     }
-    return persona;
-  }
-
-  private static String generarContrasenha() {
-    StringBuilder clave = new StringBuilder(LARGO_CONTRASENHA);
-    for (int i = 0; i < LARGO_CONTRASENHA; i++) {
-      clave.append(ALFABETO.charAt(ALEATORIO.nextInt(ALFABETO.length())));
+    if (actualizado && vinculado) {
+      return "ACTUALIZADO_Y_VINCULADO";
     }
-    return clave.toString();
+    if (actualizado) {
+      return "ACTUALIZADO";
+    }
+    if (vinculado) {
+      return "VINCULADO";
+    }
+    return "SIN_CAMBIOS";
   }
 
-  // ---------- conversiones ----------
+  private static void agregar(
+      Map<Integer, List<ErrorFilaDTO>> errores, int fila, String campo, String mensaje) {
+    errores
+        .computeIfAbsent(fila, ignorado -> new ArrayList<>())
+        .add(new ErrorFilaDTO(fila, campo, mensaje));
+  }
 
-  private static Rol rolDe(FilaUsuarioCsv f) {
-    if (f.rol() == null) {
+  private static Rol rolDe(FilaUsuarioCsv fila) {
+    if (fila.rol() == null) {
       return null;
     }
     try {
-      Rol rol = Rol.valueOf(f.rol().trim().toUpperCase(Locale.ROOT));
+      Rol rol = Rol.valueOf(fila.rol().trim().toUpperCase(Locale.ROOT));
       return ROLES_PERMITIDOS.contains(rol) ? rol : null;
     } catch (IllegalArgumentException e) {
       return null;
     }
   }
 
-  private static Parentesco parentescoDe(FilaUsuarioCsv f) {
-    if (f.parentesco() == null) {
-      return null;
-    }
+  private static pe.edu.pucp.colegio.common.model.Parentesco parentescoDe(FilaUsuarioCsv fila) {
     try {
-      return Parentesco.valueOf(f.parentesco().trim().toUpperCase(Locale.ROOT));
-    } catch (IllegalArgumentException e) {
+      return pe.edu.pucp.colegio.common.model.Parentesco.valueOf(
+          fila.parentesco().trim().toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException | NullPointerException e) {
       return null;
     }
   }

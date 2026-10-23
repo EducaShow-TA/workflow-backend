@@ -11,5 +11,8 @@ public interface CuentaUsuarioService {
   CuentaResponseDTO actualizar(
       Integer id, ActualizarCuentaRequestDTO request, String usernameResponsable);
 
+  CuentaResponseDTO cambiarEstado(
+      Integer id, CambiarEstadoCuentaRequestDTO request, String usernameResponsable);
+
   List<CuentaResponseDTO> listar();
 }

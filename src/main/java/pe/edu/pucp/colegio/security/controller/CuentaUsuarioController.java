@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
@@ -42,5 +43,13 @@ public class CuentaUsuarioController {
       @Valid @RequestBody ActualizarCuentaRequestDTO request,
       Authentication authentication) {
     return ResponseEntity.ok(servicio.actualizar(id, request, authentication.getName()));
+  }
+
+  @PatchMapping("/{id}/estado")
+  public ResponseEntity<CuentaResponseDTO> cambiarEstado(
+      @PathVariable Integer id,
+      @Valid @RequestBody CambiarEstadoCuentaRequestDTO request,
+      Authentication authentication) {
+    return ResponseEntity.ok(servicio.cambiarEstado(id, request, authentication.getName()));
   }
 }
