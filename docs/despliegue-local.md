@@ -106,10 +106,14 @@ Uso diario:
 
 | Acción | Comando |
 |---|---|
+| Encender Docker (si no arranca solo con el equipo) | `sudo systemctl start docker` |
 | Encender | `docker start colegio-mysql` |
 | Apagar | `docker stop colegio-mysql` |
 | Abrir consola SQL | `docker exec -it colegio-mysql mysql -ucolegio -pcolegio_local colegio_db` |
+| Consultar desde tu terminal (con el cliente `mariadb` o `mysql` instalado) | `mariadb -h127.0.0.1 -ucolegio -pcolegio_local colegio_db -e "SHOW TABLES;"` |
 | Borrar todo y empezar de cero | `docker rm -f colegio-mysql` y volver a crear el contenedor |
+
+Detener el contenedor o el servicio de Docker no borra los datos; solo `docker rm` los elimina.
 
 No hace falta crear tablas: **Flyway** aplica las migraciones (`src/main/resources/db/migration`) al arrancar el
 backend.
@@ -175,15 +179,18 @@ npm ci             # instala exactamente lo de package-lock.json
 npm run dev        # http://localhost:3000
 ```
 
-El frontend de este checkout activa datos de demostración cuando `NUXT_PUBLIC_API_BASE` está vacío. Para probar el
-backend local mediante el `devProxy` configurado en `nuxt.config.ts`, crea un archivo `.env` en el frontend con:
+No hace falta archivo `.env`: con `NUXT_PUBLIC_API_BASE` vacío, el frontend llama a `/api` en el mismo origen y el
+`devProxy` de `nuxt.config.ts` reenvía esas peticiones a `http://localhost:8080`. No pongas una URL absoluta como
+`http://localhost:3000`: en el navegador de otra persona (por ejemplo, a través de un túnel, sección 6),
+`localhost` es su propia máquina.
 
-```dotenv
-NUXT_PUBLIC_API_BASE=http://localhost:3000
+Los módulos que todavía usan datos de prueba se eligen con `NUXT_PUBLIC_DATOS_PRUEBA` (valor por defecto en
+`nuxt.config.ts`, opciones en `.env.example`). Esas pantallas muestran datos simulados y no prueban la integración.
+Para forzar que todos los módulos llamen al backend:
+
+```bash
+NUXT_PUBLIC_DATOS_PRUEBA= npm run dev
 ```
-
-Así las solicitudes van al mismo origen del frontend y Nuxt reenvía `/api` a `http://localhost:8080`. Si se omite
-esta variable, las pantallas que usan `useDatosPrueba()` muestran datos simulados y no prueban la integración.
 
 Verificaciones antes de abrir un Pull Request:
 
@@ -205,15 +212,48 @@ Para recorrer las APIs del backend con Postman, importar la colección y el envi
 
 Al recargar la página se pide iniciar sesión otra vez: el token se guarda solo en memoria (comportamiento esperado).
 
-## 6. Problemas frecuentes
+## 6. Mostrar tu entorno a otros (túnel temporal)
+
+Para enseñar el sistema a tus compañeros por unos minutos, sin desplegarlo, puedes publicar tu `localhost:3000` con
+un túnel de Cloudflare. No necesita cuenta.
+
+```bash
+# Instalar (una vez)
+sudo pacman -S cloudflared          # Arch / CachyOS
+winget install Cloudflare.cloudflared   # Windows
+
+# Terminal del frontend: permitir el dominio del túnel en el servidor de desarrollo
+__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.trycloudflare.com npm run dev
+
+# Otra terminal: abrir el túnel (imprime una URL https://<palabras>.trycloudflare.com)
+cloudflared tunnel --url http://localhost:3000
+```
+
+La variable de entorno evita el error `Blocked request. This host ... is not allowed`. Nuxt no lee
+`vite.config.js`, así que crear ese archivo no lo soluciona; la variable tampoco modifica ningún archivo versionado.
+
+Antes de compartir la URL:
+
+- **Queda expuesto todo el sistema**, no solo las pantallas: por el `devProxy`, la URL también llega a tu backend
+  (`/api/...`) y a tu base local.
+- La contraseña del administrador inicial es conocida por todo el equipo. Comparte la URL solo con quienes deban
+  verla y cierra el túnel (`Ctrl+C` en la terminal de `cloudflared`) al terminar. Cada túnel nuevo usa una URL
+  distinta.
+- Lo que hagan los demás queda en tu base local. Para empezar limpio después, recrea el contenedor (sección 2).
+
+## 7. Problemas frecuentes
 
 | Síntoma | Causa y solución |
 |---|---|
 | Spotless falla con `NoSuchFieldError ... endPositions` | Estás usando un JDK distinto de 25. Revisa `mvn -v` y ajusta `JAVA_HOME`. |
+| `failed to connect to the docker API at unix:///var/run/docker.sock` | El servicio de Docker está apagado. Enciéndelo con `sudo systemctl start docker` (o `sudo systemctl enable --now docker` para que arranque con el equipo) y luego `docker start colegio-mysql`. |
 | `Communications link failure` al arrancar el backend | MySQL no está encendido o aún no termina de iniciar: `docker start colegio-mysql` y espera a `ready for connections`. |
+| Flyway: `Migration checksum mismatch for migration version N` | Tu base aplicó una versión anterior de esa migración y el archivo cambió después. En local, recrea la base (`docker rm -f colegio-mysql` y vuelve a crear el contenedor). En el repositorio, una migración ya integrada no se edita, ni siquiera para cambiar espacios: los cambios van en una `V{n}` nueva. |
 | `Could not resolve placeholder 'JWT_SECRET'` | Falta la variable de entorno `JWT_SECRET` en esa terminal o en la configuración del IDE. |
 | Docker: `port is already allocated` (3306) | Ya tienes otro MySQL/MariaDB en ese puerto. Apágalo o usa `-p 3307:3306` y cambia el puerto en `DB_URL`. |
 | La cuenta queda bloqueada al iniciar sesión | Tras 3 intentos fallidos la cuenta se bloquea 15 minutos (US-5.6). Espera o recrea la base. |
 | Al iniciar sesión el botón se queda esperando y no pasa nada | El backend está apagado: el `devProxy` no responde mientras `:8080` no esté escuchando. Arráncalo (`mvn spring-boot:run`). |
 | `npm warn install-scripts ... blocked` | npm 12 bloquea scripts de instalación de dependencias (`esbuild`, `unrs-resolver`). El proyecto funciona igual; se puede ignorar. |
 | Flyway: `MySQL 8.4 is newer than this version of Flyway` | Solo es una advertencia: la versión de Flyway de Spring Boot 3.5 no prueba oficialmente MySQL 8.4. Las migraciones se aplican bien. |
+| Maven: `Could not transfer metadata ... flyway-community-db-support ... 401` | Solo es una advertencia: un POM de Flyway declara un repositorio de GitHub Packages que exige autenticación. Las dependencias se descargan de Maven Central y el build no se afecta. |
+| Por el túnel: `Blocked request. This host (...) is not allowed` | Levanta el frontend con `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.trycloudflare.com npm run dev` (sección 6). |
