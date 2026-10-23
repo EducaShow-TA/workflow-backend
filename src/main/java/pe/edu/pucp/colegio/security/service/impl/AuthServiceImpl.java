@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.security.service.impl;
 
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class AuthServiceImpl implements AuthService {
   private final PasswordEncoder encoder;
   private final JwtTokenProvider tokens;
   private final int maxAttempts, lockMinutes;
+  private final String hashPasswordDummy;
 
   public AuthServiceImpl(
       CuentaUsuarioRepository users,
@@ -34,18 +36,14 @@ public class AuthServiceImpl implements AuthService {
     this.tokens = tokens;
     this.maxAttempts = maxAttempts;
     this.lockMinutes = lockMinutes;
+    this.hashPasswordDummy = encoder.encode(UUID.randomUUID().toString());
   }
 
   @Transactional(noRollbackFor = UnauthorizedException.class)
   public AuthResponseDTO login(LoginRequestDTO request) {
-    CuentaUsuario user =
-        users
-            .findByUsername(request.getUsername())
-            .orElseThrow(() -> new UnauthorizedException("Credenciales inválidas"));
-    if (!user.getActive()) {
-      throw new UnauthorizedException("Credenciales inválidas");
-    }
-    if (user.estaBloqueada()) {
+    CuentaUsuario user = users.findByUsername(request.getUsername()).orElse(null);
+    if (user == null || !Boolean.TRUE.equals(user.getActive()) || user.estaBloqueada()) {
+      encoder.matches(request.getPassword(), hashPasswordDummy);
       throw new UnauthorizedException("Credenciales inválidas");
     }
     if (user.bloqueoVencido()) {

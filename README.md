@@ -39,6 +39,9 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
 | `PUT` | `/api/v1/cuentas-usuario/{id}` | Editar correo y datos personales de una cuenta (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/cuentas-usuario/{id}/estado` | Activar/desactivar una cuenta (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/cuentas-usuario/carga-masiva` | Cargar usuarios desde CSV (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/cuentas-usuario/carga-masiva/plantilla` | Descargar plantilla CSV (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/areas` | Listar áreas con competencias |
 | `POST` | `/api/v1/areas` | Crear área con competencias iniciales |
 | `GET` | `/api/v1/areas/{idOrCodigo}` | Consultar un área |
@@ -156,7 +159,7 @@ Respuesta `200`:
 }
 ```
 
-Credenciales inválidas, cuenta inactiva, bloqueada o datos de login vacíos producen `401` o `400` según corresponda.
+Contraseña incorrecta, cuenta inexistente, inactiva o bloqueada producen `401` con el mismo mensaje: `Credenciales inválidas`. Para reducir diferencias de tiempo que podrían revelar si el usuario existe, el backend también ejecuta una verificación BCrypt ficticia al rechazar cuentas inexistentes, inactivas o bloqueadas. Los datos de login vacíos producen `400`.
 
 #### `GET /api/v1/auth/me`
 
@@ -170,7 +173,17 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 ### Cuentas de usuario
 
-`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario` y `PUT /api/v1/cuentas-usuario/{id}` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9 y sigue pendiente.
+`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9.
+
+El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactivación surte efecto también para tokens emitidos previamente.
+
+#### Carga masiva de usuarios (US-5.9)
+
+`GET /api/v1/cuentas-usuario/carga-masiva/plantilla` descarga un ejemplo. `POST /api/v1/cuentas-usuario/carga-masiva` recibe una parte `multipart/form-data` llamada `archivo` con extensión `.csv`. Ambas rutas requieren rol `ADMINISTRADOR`. La cabecera requiere `rol`, `dni`, `nombres`, `apellido_paterno`, `apellido_materno` y `correo`; admite `telefono`, `fecha_nacimiento`, `dni_apoderado` y `parentesco`. El archivo admite comas o punto y coma y hasta 500 filas. Los roles permitidos son `DOCENTE`, `ALUMNO` y `APODERADO`; los alumnos requieren DNI de apoderado y parentesco.
+
+Cada fila se valida y procesa de forma independiente. Las filas válidas se guardan aunque otras sean rechazadas. Un DNI existente actualiza los datos personales permitidos sin reemplazar la cuenta, la contraseña, el rol ni las matrículas; un correo duplicado de otra cuenta o un cambio de rol se rechaza. La carga sincroniza el correo con `Persona`, y para alumnos crea o actualiza el vínculo familiar existente. Los campos opcionales vacíos conservan el valor previo de una persona existente. Las personas sin cuenta reciben una nueva cuenta activa y una contraseña temporal que solo se devuelve en el resultado de esa carga.
+
+La respuesta contiene `totalFilas`, `usuariosCreados`, `usuariosActualizados`, `usuariosVinculados`, `usuariosSinCambios`, `filasRechazadas`, `cuentas` (incluye contraseñas temporales solo para cuentas nuevas), `resultados` y `errores` con número de fila, campo y motivo. Responde `201` si todas las filas se procesaron y se crearon cuentas; `200` si hubo procesamiento parcial o solo actualizaciones/vínculos; `422` si ninguna fila pudo procesarse o el archivo no tiene estructura válida. Los cambios de cada fila se confirman en una transacción independiente.
 
 Ejemplo de `PUT /api/v1/cuentas-usuario/12`:
 
@@ -542,7 +555,7 @@ mvn test
 | US-5.2 Roles y permisos | Implementada para las rutas existentes: roles estrictos `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` y `APODERADO`; las funciones administrativas de los módulos están protegidas para `ADMINISTRADOR`. Cuentas permiten alta, consulta y edición acotada de correo y datos personales. |
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
-| US-5.9 Carga masiva CSV | Pendiente: sin endpoint de importación. |
+| US-5.9 Carga masiva CSV | Implementada en backend: carga CSV protegida para administrador, procesamiento parcial por fila, actualización de personas/cuentas existentes sin cambiar contraseña o rol, creación de perfiles/vínculos y reporte de resultados. La interfaz de usuario aún está pendiente. |
 
 El estado actual de las historias se describe en la tabla anterior. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 

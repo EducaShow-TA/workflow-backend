@@ -38,7 +38,7 @@ public class CargaMasivaUsuariosController {
     this.servicio = servicio;
   }
 
-  /** Responde 201 si se crearon todas las cuentas, o 422 con la lista de errores por fila. */
+  /** Devuelve el resumen de filas procesadas, incluso cuando algunas filas son rechazadas. */
   @PostMapping
   public ResponseEntity<CargaMasivaResultadoDTO> cargar(
       @RequestParam(value = "archivo", required = false) MultipartFile archivo,
@@ -53,7 +53,14 @@ public class CargaMasivaUsuariosController {
     }
     CargaMasivaResultadoDTO resultado =
         servicio.cargar(archivo.getBytes(), authentication.getName());
-    HttpStatus estado = resultado.exitoso() ? HttpStatus.CREATED : HttpStatus.UNPROCESSABLE_ENTITY;
+    HttpStatus estado;
+    if (resultado.filasRechazadas() == resultado.totalFilas()) {
+      estado = HttpStatus.UNPROCESSABLE_ENTITY;
+    } else if (resultado.filasRechazadas() > 0 || resultado.usuariosCreados() == 0) {
+      estado = HttpStatus.OK;
+    } else {
+      estado = HttpStatus.CREATED;
+    }
     return ResponseEntity.status(estado).body(resultado);
   }
 

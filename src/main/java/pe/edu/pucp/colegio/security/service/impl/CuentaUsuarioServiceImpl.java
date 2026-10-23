@@ -15,6 +15,7 @@ import pe.edu.pucp.colegio.common.exception.ConflictException;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
@@ -110,6 +111,43 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
             AccionAuditoria.ACTUALIZAR,
             "Actualización de cuenta " + cuenta.getUsername()));
     log.info("event=cuenta_actualizada id={} por={}", id, usernameResponsable);
+    return aDto(cuenta);
+  }
+
+  @Override
+  @Transactional
+  public CuentaResponseDTO cambiarEstado(
+      Integer id, CambiarEstadoCuentaRequestDTO request, String usernameResponsable) {
+    CuentaUsuario cuenta =
+        cuentas
+            .findById(id)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta no encontrada"));
+
+    var responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
+    if (!request.activo()
+        && Boolean.TRUE.equals(cuenta.getActive())
+        && responsable != null
+        && responsable.getId().equals(cuenta.getId())) {
+      throw new ConflictException("No se puede desactivar la cuenta del administrador autenticado");
+    }
+
+    if (!request.activo().equals(cuenta.getActive())) {
+      cuenta.setActive(request.activo());
+      auditorias.save(
+          new RegistroAuditoria(
+              responsable == null ? null : responsable.getId(),
+              responsable == null ? null : responsable.getRol().name(),
+              AccionAuditoria.ACTUALIZAR,
+              (request.activo() ? "Activación" : "Desactivación")
+                  + " de cuenta "
+                  + cuenta.getUsername()));
+      log.info(
+          "event=cuenta_estado_actualizado id={} activo={} por={}",
+          id,
+          request.activo(),
+          usernameResponsable);
+    }
     return aDto(cuenta);
   }
 

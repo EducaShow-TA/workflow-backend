@@ -1,7 +1,9 @@
 package pe.edu.pucp.colegio.security;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,6 +21,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @SpringBootTest
@@ -33,6 +40,10 @@ class CargaMasivaUsuariosIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired PersonaRepository personas;
+  @Autowired EstudianteRepository estudiantes;
+  @Autowired ApoderadoRepository apoderados;
+  @Autowired VinculoFamiliarRepository vinculos;
 
   private static String dniAleatorio() {
     return String.valueOf(10_000_000 + ThreadLocalRandom.current().nextInt(89_000_000));
@@ -110,7 +121,7 @@ class CargaMasivaUsuariosIntegrationTest {
   }
 
   @Test
-  void cargaConDniRepetido_retorna422YNoCreaNingunaCuenta() throws Exception {
+  void cargaConDniRepetido_procesaLaFilaValidaYRechazaLaDuplicada() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String s = sufijo();
     String dni = dniAleatorio();
@@ -128,12 +139,117 @@ class CargaMasivaUsuariosIntegrationTest {
             + "@colegio.edu.pe,,,,\n";
 
     mvc.perform(multipart(URL).file(archivo(csv)).header("Authorization", "Bearer " + admin))
-        .andExpect(status().isUnprocessableEntity())
+        .andExpect(status().isOk())
         .andExpect(jsonPath("$.exitoso").value(false))
+        .andExpect(jsonPath("$.usuariosCreados").value(1))
+        .andExpect(jsonPath("$.filasRechazadas").value(1))
         .andExpect(jsonPath("$.errores[0].fila").value(2))
         .andExpect(jsonPath("$.errores[0].campo").value("dni"));
 
-    assertFalse(cuentas.existsByUsername("uno" + s + "@colegio.edu.pe"));
+    assertTrue(cuentas.existsByUsername("uno" + s + "@colegio.edu.pe"));
+    assertFalse(cuentas.existsByUsername("dos" + s + "@colegio.edu.pe"));
+  }
+
+  @Test
+  void cargaConPersonaExistente_actualizaDatosConservandoCuentaYContrasenha() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String s = sufijo();
+    String dni = dniAleatorio();
+    String correoOriginal = "docente" + s + "@colegio.edu.pe";
+    String csvOriginal =
+        CABECERA + "DOCENTE," + dni + ",Ana,Perez,Diaz," + correoOriginal + ",,1988-04-03,,\n";
+
+    String cuerpoOriginal =
+        mvc.perform(
+                multipart(URL)
+                    .file(archivo(csvOriginal))
+                    .header("Authorization", "Bearer " + admin))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String contrasenhaTemporal =
+        json.readTree(cuerpoOriginal).get("cuentas").get(0).get("contrasenhaTemporal").asText();
+    CuentaUsuario cuentaOriginal = cuentas.findByUsernameIgnoreCase(correoOriginal).orElseThrow();
+    Integer cuentaId = cuentaOriginal.getId();
+    String hashOriginal = cuentaOriginal.getPassword();
+
+    String correoActualizado = "docente-actualizado" + s + "@colegio.edu.pe";
+    String csvActualizado =
+        CABECERA
+            + "DOCENTE,"
+            + dni
+            + ",Andrea,Lopez,Rojas,"
+            + correoActualizado
+            + ",999111222,1988-04-03,,\n";
+    mvc.perform(
+            multipart(URL).file(archivo(csvActualizado)).header("Authorization", "Bearer " + admin))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.usuariosCreados").value(0))
+        .andExpect(jsonPath("$.usuariosActualizados").value(1))
+        .andExpect(jsonPath("$.cuentas").isEmpty())
+        .andExpect(jsonPath("$.resultados[0].estado").value("ACTUALIZADO"));
+
+    CuentaUsuario cuentaActualizada = cuentas.findByPersonaDni(dni).orElseThrow();
+    assertEquals(cuentaId, cuentaActualizada.getId());
+    assertEquals(hashOriginal, cuentaActualizada.getPassword());
+    assertEquals("Andrea", personas.findByDni(dni).orElseThrow().getNombre());
+    assertEquals(correoActualizado, personas.findByDni(dni).orElseThrow().getCorreo());
+    login(correoActualizado, contrasenhaTemporal);
+  }
+
+  @Test
+  void cargaActualizaVinculoExistenteSinRecrearAlEstudiante() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String s = sufijo();
+    String dniAlumno = dniAleatorio();
+    String dniApoderadoInicial = dniAleatorio();
+    String correoAlumno = "alumno" + s + "@colegio.edu.pe";
+    String csvInicial =
+        CABECERA
+            + "ALUMNO,"
+            + dniAlumno
+            + ",Luis,Torres,Quispe,"
+            + correoAlumno
+            + ",,2011-05-14,"
+            + dniApoderadoInicial
+            + ",MADRE\n"
+            + "APODERADO,"
+            + dniApoderadoInicial
+            + ",Rosa,Quispe,Mamani,ap-inicial"
+            + s
+            + "@colegio.edu.pe,,,,\n";
+    mvc.perform(multipart(URL).file(archivo(csvInicial)).header("Authorization", "Bearer " + admin))
+        .andExpect(status().isCreated());
+
+    Integer estudianteId = estudiantes.findByPersonaDni(dniAlumno).orElseThrow().getId();
+    String dniApoderadoNuevo = dniAleatorio();
+    String csvActualizado =
+        CABECERA
+            + "ALUMNO,"
+            + dniAlumno
+            + ",Luis,Torres,Quispe,"
+            + correoAlumno
+            + ",,2011-05-14,"
+            + dniApoderadoNuevo
+            + ",PADRE\n"
+            + "APODERADO,"
+            + dniApoderadoNuevo
+            + ",Rosa,Quispe,Mamani,ap-nuevo"
+            + s
+            + "@colegio.edu.pe,,,,\n";
+    mvc.perform(
+            multipart(URL).file(archivo(csvActualizado)).header("Authorization", "Bearer " + admin))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.usuariosCreados").value(1))
+        .andExpect(jsonPath("$.usuariosVinculados").value(1))
+        .andExpect(jsonPath("$.resultados[0].estado").value("CREADO"));
+
+    assertEquals(estudianteId, estudiantes.findByPersonaDni(dniAlumno).orElseThrow().getId());
+    var vinculo = vinculos.findByEstudianteId(estudianteId).orElseThrow();
+    assertEquals(
+        apoderados.findByPersonaDni(dniApoderadoNuevo).orElseThrow().getId(),
+        vinculo.getApoderado().getId());
   }
 
   @Test
