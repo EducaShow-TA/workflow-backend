@@ -124,6 +124,40 @@ class CargaMasivaUsuariosIntegrationTest {
   }
 
   @Test
+  void cargaSeparaUsernameDeCorreoYPermiteLoginConAmbos() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String sufijo = sufijo();
+    String username = "docente-" + sufijo;
+    String correo = "contacto-" + sufijo + "@colegio.edu.pe";
+    String dni = dniAleatorio();
+    String csv =
+        "rol,dni,nombres,apellido_paterno,apellido_materno,correo,telefono,fecha_nacimiento,"
+            + "dni_apoderado,parentesco,username\n"
+            + "DOCENTE,"
+            + dni
+            + ",Ana,Perez,Diaz,"
+            + correo
+            + ",,,,,"
+            + username
+            + "\n";
+
+    String cuerpo =
+        mvc.perform(multipart(URL).file(archivo(csv)).header("Authorization", "Bearer " + admin))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.cuentas[0].username").value(username))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String contrasenhaTemporal =
+        json.readTree(cuerpo).get("cuentas").get(0).get("contrasenhaTemporal").asText();
+
+    assertEquals(username, cuentas.findByPersonaDni(dni).orElseThrow().getUsername());
+    assertEquals(correo, personas.findByDni(dni).orElseThrow().getCorreo());
+    login(username, contrasenhaTemporal);
+    login(correo, contrasenhaTemporal);
+  }
+
+  @Test
   void cargaConDniRepetido_procesaLaFilaValidaYRechazaLaDuplicada() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String s = sufijo();

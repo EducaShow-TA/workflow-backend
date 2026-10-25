@@ -57,8 +57,17 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
   @Override
   @Transactional
   public CuentaResponseDTO crear(CrearCuentaRequestDTO request, String usernameResponsable) {
-    if (cuentas.existsByUsername(request.username())) {
-      throw new ConflictException("Ya existe una cuenta con ese correo");
+    if (cuentas.existsByUsernameIgnoreCase(request.username().trim())) {
+      throw new ConflictException("Ya existe una cuenta con ese usuario");
+    }
+    if (!cuentas.findAllByPersonaCorreoIgnoreCase(request.username().trim()).isEmpty()) {
+      throw new ConflictException("El usuario coincide con el correo de contacto de otra cuenta");
+    }
+    if (!cuentas.findAllByPersonaCorreoIgnoreCase(request.correo().trim()).isEmpty()) {
+      throw new ConflictException("El correo ya está asociado a otra cuenta");
+    }
+    if (cuentas.findByUsernameIgnoreCase(request.correo().trim()).isPresent()) {
+      throw new ConflictException("El correo coincide con el usuario de otra cuenta");
     }
     if (personas.existsByDni(request.dni())) {
       throw new ConflictException("Ya existe una persona con ese DNI");
@@ -66,7 +75,7 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
     Persona persona =
         new Persona(
             request.dni(), request.nombre(), request.apellidoPaterno(), request.apellidoMaterno());
-    persona.setCorreo(request.username().trim());
+    persona.setCorreo(request.correo().trim());
     persona = personas.save(persona);
     CuentaUsuario cuenta =
         cuentas.save(
@@ -112,8 +121,22 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta no encontrada"));
     String username = request.username().trim();
-    if (cuentas.existsByUsernameAndIdNot(username, id)) {
-      throw new ConflictException("Ya existe una cuenta con ese correo");
+    if (cuentas.existsByUsernameIgnoreCaseAndIdNot(username, id)) {
+      throw new ConflictException("Ya existe una cuenta con ese usuario");
+    }
+    if (cuentas.findAllByPersonaCorreoIgnoreCase(username).stream()
+        .anyMatch(otra -> !otra.getId().equals(id))) {
+      throw new ConflictException("El usuario coincide con el correo de contacto de otra cuenta");
+    }
+    if (cuentas.findAllByPersonaCorreoIgnoreCase(request.correo().trim()).stream()
+        .anyMatch(otra -> !otra.getId().equals(id))) {
+      throw new ConflictException("El correo ya está asociado a otra cuenta");
+    }
+    if (cuentas
+        .findByUsernameIgnoreCase(request.correo().trim())
+        .filter(otra -> !otra.getId().equals(id))
+        .isPresent()) {
+      throw new ConflictException("El correo coincide con el usuario de otra cuenta");
     }
 
     var responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
@@ -122,7 +145,7 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
       cuenta.getPersona().setNombre(request.nombre().trim());
       cuenta.getPersona().setApellidoPaterno(request.apellidoPaterno().trim());
       cuenta.getPersona().setApellidoMaterno(request.apellidoMaterno().trim());
-      cuenta.getPersona().setCorreo(username);
+      cuenta.getPersona().setCorreo(request.correo().trim());
     }
     auditorias.save(
         new RegistroAuditoria(
@@ -176,6 +199,7 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
     return new CuentaResponseDTO(
         c.getId(),
         c.getUsername(),
+        p == null ? null : p.getCorreo(),
         c.getRol().name(),
         p == null ? c.getUsername() : p.getNombreCompleto(),
         p == null ? "" : p.getDni(),

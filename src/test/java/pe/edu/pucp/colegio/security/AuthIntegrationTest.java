@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.security;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -9,6 +10,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
@@ -18,9 +20,12 @@ class AuthIntegrationTest {
 
   @Autowired MockMvc mvc;
   @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired PersonaRepository personas;
 
   @Test
   void loginDelAdministradorRetornaJwtYPerfil() throws Exception {
+    assertEquals("admin@educore.edu.pe", personas.findByDni("00000000").orElseThrow().getCorreo());
+
     mvc.perform(
             post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

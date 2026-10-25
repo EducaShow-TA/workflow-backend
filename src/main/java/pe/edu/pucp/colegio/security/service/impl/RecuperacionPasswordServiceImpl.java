@@ -65,16 +65,16 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
 
   @Override
   @Transactional
-  public void solicitarRecuperacion(String username) {
-    if (username == null || username.isBlank()) {
+  public void solicitarRecuperacion(String correoSolicitante) {
+    if (correoSolicitante == null || correoSolicitante.isBlank()) {
       return;
     }
 
-    CuentaUsuario cuenta =
-        cuentas
-            .findByUsername(username.trim())
-            .filter(c -> Boolean.TRUE.equals(c.getActive()))
-            .orElse(null);
+    List<CuentaUsuario> coincidencias =
+        cuentas.findAllByPersonaCorreoIgnoreCaseAndActiveTrue(correoSolicitante.trim());
+
+    // No enviar si el correo es ambiguo y podría restablecer la cuenta equivocada.
+    CuentaUsuario cuenta = coincidencias.size() == 1 ? coincidencias.getFirst() : null;
 
     // No revelar si una cuenta existe o está activa.
     if (cuenta == null) {
@@ -103,12 +103,7 @@ public class RecuperacionPasswordServiceImpl implements RecuperacionPasswordServ
         frontendUrl + separador + "token=" + URLEncoder.encode(tokenClaro, StandardCharsets.UTF_8);
 
     try {
-      String destinatario = cuenta.getUsername();
-      if (cuenta.getPersona() != null
-          && cuenta.getPersona().getCorreo() != null
-          && !cuenta.getPersona().getCorreo().isBlank()) {
-        destinatario = cuenta.getPersona().getCorreo();
-      }
+      String destinatario = cuenta.getPersona().getCorreo();
       correo.enviarCorreoRecuperacion(destinatario, enlace, expirationMinutes);
     } catch (MailException e) {
       // No dejar un token activo que el usuario no ha recibido.

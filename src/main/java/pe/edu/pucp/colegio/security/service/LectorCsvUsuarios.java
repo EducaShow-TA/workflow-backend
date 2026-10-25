@@ -66,7 +66,8 @@ public class LectorCsvUsuarios {
                 valor(registro, "telefono"),
                 valor(registro, "fecha_nacimiento"),
                 valor(registro, "dni_apoderado"),
-                valor(registro, "parentesco")));
+                valor(registro, "parentesco"),
+                valor(registro, "username")));
       }
       if (filas.isEmpty()) {
         throw new BusinessException("El archivo no contiene filas de datos");

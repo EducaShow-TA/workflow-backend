@@ -187,10 +187,11 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     Map<Integer, List<ErrorFilaDTO>> errores = new LinkedHashMap<>();
     Set<String> dnisVistos = new HashSet<>();
     Set<String> correosVistos = new HashSet<>();
+    Set<String> usernamesVistos = new HashSet<>();
     Map<String, FilaUsuarioCsv> apoderadosEnArchivo = new LinkedHashMap<>();
 
     for (FilaUsuarioCsv fila : filas) {
-      validarCampos(fila, errores, dnisVistos, correosVistos);
+      validarCampos(fila, errores, dnisVistos, correosVistos, usernamesVistos);
       if (rolDe(fila) == Rol.APODERADO && fila.dni() != null) {
         apoderadosEnArchivo.putIfAbsent(fila.dni(), fila);
       }
@@ -234,7 +235,8 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       FilaUsuarioCsv fila,
       Map<Integer, List<ErrorFilaDTO>> errores,
       Set<String> dnisVistos,
-      Set<String> correosVistos) {
+      Set<String> correosVistos,
+      Set<String> usernamesVistos) {
     Rol rol = rolDe(fila);
     if (rol == null) {
       agregar(
@@ -249,6 +251,7 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     validarTexto(errores, fila.fila(), "apellido_materno", fila.apellidoMaterno(), 100, true);
     validarTexto(errores, fila.fila(), "telefono", fila.telefono(), 20, false);
     validarCorreo(errores, fila.fila(), fila.correo());
+    validarTexto(errores, fila.fila(), "username", fila.username(), 50, false);
     validarFecha(errores, fila.fila(), fila.fechaNacimiento());
 
     if (fila.dni() != null && !dnisVistos.add(fila.dni())) {
@@ -261,6 +264,23 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       }
       validarConflictosExistentes(fila, rol, correo, errores);
     }
+    CuentaUsuario cuentaExistente =
+        fila.dni() == null ? null : cuentas.findByPersonaDni(fila.dni()).orElse(null);
+    String usernameEfectivo =
+        fila.username() == null
+            ? (cuentaExistente == null ? fila.correo() : cuentaExistente.getUsername())
+            : fila.username();
+    if (fila.username() == null
+        && cuentaExistente == null
+        && usernameEfectivo != null
+        && usernameEfectivo.length() > 50) {
+      agregar(
+          errores, fila.fila(), "username", "El correo usado como usuario supera 50 caracteres");
+    }
+    if (usernameEfectivo != null
+        && !usernamesVistos.add(usernameEfectivo.trim().toLowerCase(Locale.ROOT))) {
+      agregar(errores, fila.fila(), "username", "Usuario repetido dentro del archivo");
+    }
   }
 
   private void validarConflictosExistentes(
@@ -269,6 +289,10 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       return;
     }
     CuentaUsuario cuentaExistente = cuentas.findByPersonaDni(fila.dni()).orElse(null);
+    String username =
+        fila.username() == null
+            ? (cuentaExistente == null ? correo : cuentaExistente.getUsername())
+            : fila.username().trim();
     if (cuentaExistente != null) {
       if (cuentaExistente.getRol() != rol) {
         agregar(
@@ -277,11 +301,35 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
             "rol",
             "No se permite cambiar el rol de una cuenta existente mediante la carga");
       }
-      if (cuentas.existsByUsernameIgnoreCaseAndIdNot(correo, cuentaExistente.getId())) {
-        agregar(errores, fila.fila(), "correo", "El correo ya pertenece a otra cuenta");
+      if (cuentas.existsByUsernameIgnoreCaseAndIdNot(username, cuentaExistente.getId())) {
+        agregar(errores, fila.fila(), "username", "El usuario ya pertenece a otra cuenta");
       }
-    } else if (cuentas.findByUsernameIgnoreCase(correo).isPresent()) {
-      agregar(errores, fila.fila(), "correo", "El correo ya pertenece a otra persona");
+    } else if (cuentas.findByUsernameIgnoreCase(username).isPresent()) {
+      agregar(errores, fila.fila(), "username", "El usuario ya pertenece a otra cuenta");
+    }
+    boolean correoDeOtraCuenta =
+        cuentas.findAllByPersonaCorreoIgnoreCase(correo).stream()
+            .anyMatch(c -> cuentaExistente == null || !c.getId().equals(cuentaExistente.getId()));
+    if (correoDeOtraCuenta) {
+      agregar(errores, fila.fila(), "correo", "El correo ya está asociado a otra cuenta");
+    }
+    boolean usuarioCoincideConCorreoDeOtraCuenta =
+        cuentas.findAllByPersonaCorreoIgnoreCase(username).stream()
+            .anyMatch(c -> cuentaExistente == null || !c.getId().equals(cuentaExistente.getId()));
+    if (usuarioCoincideConCorreoDeOtraCuenta) {
+      agregar(
+          errores,
+          fila.fila(),
+          "username",
+          "El usuario coincide con el correo de contacto de otra cuenta");
+    }
+    boolean correoCoincideConUsuarioDeOtraCuenta =
+        cuentas
+            .findByUsernameIgnoreCase(correo)
+            .filter(c -> cuentaExistente == null || !c.getId().equals(cuentaExistente.getId()))
+            .isPresent();
+    if (correoCoincideConUsuarioDeOtraCuenta) {
+      agregar(errores, fila.fila(), "correo", "El correo coincide con el usuario de otra cuenta");
     }
 
     if (rol == Rol.ALUMNO && apoderados.existsByPersonaDni(fila.dni())) {
@@ -311,8 +359,8 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       Map<Integer, List<ErrorFilaDTO>> errores, int fila, String correo) {
     if (correo == null) {
       agregar(errores, fila, "correo", "Es obligatorio");
-    } else if (correo.length() > 50 || !CORREO.matcher(correo).matches()) {
-      agregar(errores, fila, "correo", "Correo inválido (máximo 50 caracteres)");
+    } else if (correo.length() > 254 || !CORREO.matcher(correo).matches()) {
+      agregar(errores, fila, "correo", "Correo inválido (máximo 254 caracteres)");
     }
   }
 

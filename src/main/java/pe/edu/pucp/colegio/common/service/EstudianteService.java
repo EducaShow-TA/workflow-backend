@@ -128,9 +128,27 @@ public class EstudianteService {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "Ya existe una persona con ese documento");
     }
-    if (cuentas.existsByUsername(request.username())) {
+    if (cuentas.existsByUsernameIgnoreCase(request.username().trim())) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "Ya existe una cuenta con ese nombre de usuario");
+    }
+    if (!cuentas.findAllByPersonaCorreoIgnoreCase(request.username().trim()).isEmpty()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El usuario coincide con el correo de otra cuenta");
+    }
+    if (request.correoElectronico() != null
+        && !request.correoElectronico().isBlank()
+        && !cuentas
+            .findAllByPersonaCorreoIgnoreCase(request.correoElectronico().trim())
+            .isEmpty()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El correo ya está asociado a otra cuenta");
+    }
+    if (request.correoElectronico() != null
+        && !request.correoElectronico().isBlank()
+        && cuentas.findByUsernameIgnoreCase(request.correoElectronico().trim()).isPresent()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El correo coincide con el usuario de otra cuenta");
     }
 
     Persona persona =

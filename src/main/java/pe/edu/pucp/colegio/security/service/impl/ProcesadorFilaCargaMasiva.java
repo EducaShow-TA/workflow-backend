@@ -100,14 +100,18 @@ public class ProcesadorFilaCargaMasiva {
           "El rol del CSV no coincide con el rol de la cuenta existente");
     }
     boolean cuentaCreada = cuenta == null;
+    String username =
+        fila.username() == null
+            ? (cuenta == null ? correo : cuenta.getUsername())
+            : fila.username().trim();
     String contrasenhaTemporal = null;
     if (cuentaCreada) {
       contrasenhaTemporal = generarContrasenha();
       cuenta =
           cuentas.save(
-              new CuentaUsuario(correo, encoder.encode(contrasenhaTemporal), rol, persona));
-    } else if (!correo.equals(cuenta.getUsername())) {
-      cuenta.setUsername(correo);
+              new CuentaUsuario(username, encoder.encode(contrasenhaTemporal), rol, persona));
+    } else if (!username.equals(cuenta.getUsername())) {
+      cuenta.setUsername(username);
       cuentas.save(cuenta);
       datosActualizados = true;
     }
@@ -182,7 +186,7 @@ public class ProcesadorFilaCargaMasiva {
     return new ResultadoProcesamientoFila(
         rol,
         fila.dni(),
-        correo,
+        username,
         cuentaCreada,
         datosActualizados,
         vinculoCreado,

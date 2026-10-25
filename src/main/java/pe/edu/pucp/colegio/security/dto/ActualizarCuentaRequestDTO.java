@@ -1,6 +1,5 @@
 package pe.edu.pucp.colegio.security.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -14,7 +13,10 @@ public record ActualizarCuentaRequestDTO(
     @NotBlank(message = "El apellido materno es obligatorio")
         @Size(max = 100, message = "El apellido materno es muy largo")
         String apellidoMaterno,
+    @NotBlank(message = "El usuario es obligatorio")
+        @Size(max = 50, message = "El usuario es muy largo")
+        String username,
     @NotBlank(message = "El correo es obligatorio")
-        @Email(message = "El correo no tiene un formato válido")
-        @Size(max = 50, message = "El correo es muy largo")
-        String username) {}
+        @jakarta.validation.constraints.Email(message = "El correo no tiene un formato válido")
+        @Size(max = 254, message = "El correo es muy largo")
+        String correo) {}

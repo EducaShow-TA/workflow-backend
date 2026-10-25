@@ -47,7 +47,10 @@ class CuentaUsuarioIntegrationTest {
         + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Perez\","
         + "\"apellidoMaterno\":\"Diaz\",\"username\":\"u"
         + sufijo
-        + "@colegio.edu.pe\","
+        + "\","
+        + "\"correo\":\"contacto"
+        + sufijo
+        + "@correo.edu.pe\","
         + "\"password\":\"Clave2026!\",\"rol\":\""
         + rol
         + "\"}";
@@ -65,7 +68,10 @@ class CuentaUsuarioIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(cuenta(sufijo, dni, "DOCENTE")))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.rol").value("DOCENTE"));
+        .andExpect(jsonPath("$.rol").value("DOCENTE"))
+        .andExpect(jsonPath("$.correo").value("contacto" + sufijo + "@correo.edu.pe"));
+    login("u" + sufijo, "Clave2026!");
+    login("contacto" + sufijo + "@correo.edu.pe", "Clave2026!");
 
     mvc.perform(get("/api/v1/cuentas-usuario").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
@@ -94,7 +100,7 @@ class CuentaUsuarioIntegrationTest {
                 .content(cuenta(sufijo, sufijo, "DOCENTE")))
         .andExpect(status().isCreated());
 
-    String docente = login("u" + sufijo + "@colegio.edu.pe", "Clave2026!");
+    String docente = login("u" + sufijo, "Clave2026!");
     mvc.perform(get("/api/v1/cuentas-usuario").header("Authorization", "Bearer " + docente))
         .andExpect(status().isForbidden());
     mvc.perform(get("/api/v1/periodos/1/vacantes").header("Authorization", "Bearer " + docente))
@@ -132,9 +138,12 @@ class CuentaUsuarioIntegrationTest {
                     "{\"nombre\":\"Andrea\",\"apellidoPaterno\":\"Lopez\","
                         + "\"apellidoMaterno\":\"Rojas\",\"username\":\"actualizada"
                         + sufijo
-                        + "@colegio.edu.pe\"}"))
+                        + "\",\"correo\":\"actualizada"
+                        + sufijo
+                        + "@contacto.edu.pe\"}"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.username").value("actualizada" + sufijo + "@colegio.edu.pe"))
+        .andExpect(jsonPath("$.username").value("actualizada" + sufijo))
+        .andExpect(jsonPath("$.correo").value("actualizada" + sufijo + "@contacto.edu.pe"))
         .andExpect(jsonPath("$.rol").value("DOCENTE"))
         .andExpect(jsonPath("$.dni").value(dni))
         .andExpect(jsonPath("$.nombre").value("Andrea"))
@@ -156,7 +165,7 @@ class CuentaUsuarioIntegrationTest {
             .getResponse()
             .getContentAsString();
     int id = json.readTree(body).get("id").asInt();
-    String docente = login("u" + sufijo + "@colegio.edu.pe", "Clave2026!");
+    String docente = login("u" + sufijo, "Clave2026!");
 
     mvc.perform(
             put("/api/v1/cuentas-usuario/{id}", id)
@@ -166,7 +175,9 @@ class CuentaUsuarioIntegrationTest {
                     "{\"nombre\":\"Andrea\",\"apellidoPaterno\":\"Lopez\","
                         + "\"apellidoMaterno\":\"Rojas\",\"username\":\"otro"
                         + sufijo
-                        + "@colegio.edu.pe\"}"))
+                        + "\",\"correo\":\"otro"
+                        + sufijo
+                        + "@contacto.edu.pe\"}"))
         .andExpect(status().isForbidden());
   }
 
@@ -190,7 +201,7 @@ class CuentaUsuarioIntegrationTest {
             .getResponse()
             .getContentAsString();
     int id = json.readTree(body).get("id").asInt();
-    String username = "u" + sufijo + "@colegio.edu.pe";
+    String username = "u" + sufijo;
     String docente = login(username, "Clave2026!");
 
     mvc.perform(
@@ -224,18 +235,26 @@ class CuentaUsuarioIntegrationTest {
   }
 
   @Test
-  void crearRechazaUsernameNoEmailYPasswordMayorAlLimiteBcrypt() throws Exception {
+  void permiteUsernameQueNoEsCorreoYRechazaPasswordMayorAlLimiteBcrypt() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String suffix = UUID.randomUUID().toString().substring(0, 8);
 
-    mvc.perform(
-            post("/api/v1/cuentas-usuario")
-                .header("Authorization", "Bearer " + admin)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    cuenta(suffix, "dni" + suffix, "DOCENTE")
-                        .replace("u" + suffix + "@colegio.edu.pe", "username-invalido")))
-        .andExpect(status().isBadRequest());
+    String respuesta =
+        mvc.perform(
+                post("/api/v1/cuentas-usuario")
+                    .header("Authorization", "Bearer " + admin)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        cuenta(suffix, "dni" + suffix, "DOCENTE")
+                            .replace(
+                                "\"username\":\"u" + suffix + "\"",
+                                "\"username\":\"username-invalido\"")))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "username-invalido", json.readTree(respuesta).get("username").asText());
 
     mvc.perform(
             post("/api/v1/cuentas-usuario")

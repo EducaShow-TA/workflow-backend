@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.security.service.impl;
 
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,7 +43,13 @@ public class AuthServiceImpl implements AuthService {
 
   @Transactional(noRollbackFor = UnauthorizedException.class)
   public AuthResponseDTO login(LoginRequestDTO request) {
-    CuentaUsuario user = users.findByUsername(request.getUsername()).orElse(null);
+    String identificador = request.getUsername().trim();
+    CuentaUsuario user = users.findByUsernameIgnoreCase(identificador).orElse(null);
+    if (user == null) {
+      List<CuentaUsuario> coincidencias =
+          users.findAllByPersonaCorreoIgnoreCaseAndActiveTrue(identificador);
+      user = coincidencias.size() == 1 ? coincidencias.getFirst() : null;
+    }
     if (user == null || !Boolean.TRUE.equals(user.getActive()) || user.estaBloqueada()) {
       encoder.matches(request.getPassword(), hashPasswordDummy);
       throw new UnauthorizedException("Credenciales inválidas");
