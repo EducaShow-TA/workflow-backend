@@ -38,7 +38,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/auth/reset-password` | Restablecer contraseña mediante token |
 | `POST` | `/api/v1/cuentas-usuario` | Crear una cuenta (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
-| `PUT` | `/api/v1/cuentas-usuario/{id}` | Editar correo y datos personales de una cuenta (solo ADMINISTRADOR) |
+| `PUT` | `/api/v1/cuentas-usuario/{id}` | Editar usuario, correo de contacto y datos personales de una cuenta (solo ADMINISTRADOR) |
 | `PATCH` | `/api/v1/cuentas-usuario/{id}/estado` | Activar/desactivar una cuenta (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/cuentas-usuario/carga-masiva` | Cargar usuarios desde CSV (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario/carga-masiva/plantilla` | Descargar plantilla CSV (solo ADMINISTRADOR) |
@@ -175,23 +175,23 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 #### Recuperación de contraseña
 
-`POST /api/v1/auth/forgot-password` es público y recibe `{ "username": "usuario@ejemplo.edu.pe" }`. `username` puede ser un nombre de usuario que no tenga formato de correo; el mensaje se envía al correo registrado en `Persona` cuando está disponible. Responde con un mensaje genérico tanto si la cuenta existe como si no, para no revelar cuentas registradas. Si corresponde, envía por correo un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). El administrador semilla local usa un correo de prueba no supervisado; para completar la recuperación se necesita configurar un destinatario accesible.
+`POST /api/v1/auth/forgot-password` es público y recibe `{ "correo": "persona@ejemplo.edu.pe" }`. Busca una cuenta activa por el correo de contacto de `Persona`, aunque el `username` sea distinto. Si no encuentra exactamente una cuenta activa asociada a ese correo, no envía el mensaje; la respuesta se mantiene genérica para no revelar cuentas registradas. Si corresponde, envía un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). La migración V20 completa el correo de contacto del administrador semilla local; para probar la entrega se necesita configurar SMTP y un buzón accesible.
 
 `POST /api/v1/auth/reset-password` es público y recibe `{ "token": "<token-recibido-por-correo>", "password": "nueva-clave-segura" }`. El token es de un solo uso y la contraseña se almacena con BCrypt.
 
 ### Cuentas de usuario
 
-`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombre, apellidos, correo (`username`), contraseña y uno de los roles `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` o `APODERADO`. El username debe tener formato de correo y hasta 50 caracteres; la contraseña debe tener entre 8 y 72 caracteres. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve las cuentas con datos personales separados y estado activo. La actualización modifica nombre, apellidos y correo; valida que el correo no pertenezca a otra cuenta y conserva el DNI, el rol y la contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. Las operaciones de escritura se registran en auditoría. La carga CSV corresponde a US-5.9.
+`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombres, `username` (identificador de acceso, máximo 50 caracteres), `correo` (correo de contacto, obligatorio y válido), contraseña y rol. El username no tiene que ser un correo y debe ser único sin distinguir mayúsculas; el correo de contacto también debe ser único entre cuentas. La contraseña debe tener entre 8 y 72 caracteres. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve separados `username` y `correo`, datos personales y estado activo. La actualización permite cambiar datos personales, username y correo por separado; conserva DNI, rol y contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. La carga CSV corresponde a US-5.9.
 
-El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactivación surte efecto también para tokens emitidos previamente.
+El login público recibe `{ "username": "identificador", "password": "..." }` y admite como identificador el username o el correo de contacto. Si un correo está asociado a más de una cuenta, no se usa como identificador alternativo. El filtro JWT sigue identificando el token por username. El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactivación surte efecto también para tokens emitidos previamente.
 
 #### Carga masiva de usuarios (US-5.9)
 
-`GET /api/v1/cuentas-usuario/carga-masiva/plantilla` descarga un ejemplo. `POST /api/v1/cuentas-usuario/carga-masiva` recibe una parte `multipart/form-data` llamada `archivo` con extensión `.csv`. Ambas rutas requieren rol `ADMINISTRADOR`. La cabecera requiere `rol`, `dni`, `nombres`, `apellido_paterno`, `apellido_materno` y `correo`; admite `telefono`, `fecha_nacimiento`, `dni_apoderado` y `parentesco`. El archivo admite comas o punto y coma y hasta 500 filas. Los roles permitidos son `DOCENTE`, `ALUMNO` y `APODERADO`; los alumnos requieren DNI de apoderado y parentesco.
+`GET /api/v1/cuentas-usuario/carga-masiva/plantilla` descarga un ejemplo. `POST /api/v1/cuentas-usuario/carga-masiva` recibe una parte `multipart/form-data` llamada `archivo` con extensión `.csv`. Ambas rutas requieren rol `ADMINISTRADOR`. La cabecera requiere `rol`, `dni`, `nombres`, `apellido_paterno`, `apellido_materno` y `correo`; `username`, `telefono`, `fecha_nacimiento`, `dni_apoderado` y `parentesco` son opcionales. `correo` es el correo de contacto. Si se omite `username`, una cuenta nueva usa el correo como username y una cuenta existente conserva su username actual. El archivo admite comas o punto y coma y hasta 500 filas. Los roles permitidos son `DOCENTE`, `ALUMNO` y `APODERADO`; los alumnos requieren DNI de apoderado y parentesco.
 
 La carga acepta CSV UTF-8 y Windows-1252 (formato común al exportar desde Excel en Windows), de hasta 10 MB por archivo. Antes de guardar en Excel, importa la columna `dni` como texto para evitar que se eliminen ceros iniciales; una vez eliminados al exportar, el backend no puede reconstruirlos. El DNI se conserva como texto y admite letras para documentos alternativos. La respuesta de carga usa `Cache-Control: no-store` porque incluye contraseñas temporales de cuentas nuevas. Los archivos que superan el límite se responden con `413` y mensaje estándar.
 
-Cada fila se valida y procesa de forma independiente. Las filas válidas se guardan aunque otras sean rechazadas. Un DNI existente actualiza los datos personales permitidos sin reemplazar la cuenta, la contraseña, el rol ni las matrículas; un correo duplicado de otra cuenta o un cambio de rol se rechaza. La carga sincroniza el correo con `Persona`, y para alumnos crea o actualiza el vínculo familiar existente. Los campos opcionales vacíos conservan el valor previo de una persona existente. Las personas sin cuenta reciben una nueva cuenta activa y una contraseña temporal que solo se devuelve en el resultado de esa carga.
+Cada fila se valida y procesa de forma independiente. Las filas válidas se guardan aunque otras sean rechazadas. Un DNI existente actualiza los datos personales permitidos sin reemplazar la cuenta, la contraseña, el rol ni las matrículas; un username/correo duplicado de otra cuenta o un cambio de rol se rechaza. La carga sincroniza el correo con `Persona`, y para alumnos crea o actualiza el vínculo familiar existente. Los campos opcionales vacíos conservan el valor previo de una persona existente. Las personas sin cuenta reciben una nueva cuenta activa y una contraseña temporal que solo se devuelve en el resultado de esa carga.
 
 La respuesta contiene `totalFilas`, `usuariosCreados`, `usuariosActualizados`, `usuariosVinculados`, `usuariosSinCambios`, `filasRechazadas`, `cuentas` (incluye contraseñas temporales solo para cuentas nuevas), `resultados` y `errores` con número de fila, campo y motivo. Responde `201` si todas las filas se procesaron y se crearon cuentas; `200` si hubo procesamiento parcial o solo actualizaciones/vínculos; `422` si ninguna fila pudo procesarse o el archivo no tiene estructura válida. Los cambios de cada fila se confirman en una transacción independiente.
 
@@ -202,7 +202,8 @@ Ejemplo de `PUT /api/v1/cuentas-usuario/12`:
   "nombre": "Ana",
   "apellidoPaterno": "Pérez",
   "apellidoMaterno": "Díaz",
-  "username": "ana.perez@colegio.edu.pe"
+  "username": "ana.perez",
+  "correo": "ana@colegio.edu.pe"
 }
 ```
 
@@ -608,7 +609,7 @@ El proyecto cuenta con pruebas unitarias y de integración para autenticación y
 | US-3.5 Áreas y competencias | CRUD y desactivación lógica implementados. La protección basada en notas queda pendiente hasta implementar notas. |
 | US-4.3 Bloques y franjas horarias | Implementada en backend: plantillas por turno con bloques pedagógicos y recreos calculados, validación del rango horario y administración de estado. La integración con interfaz de usuario queda pendiente. |
 | US-5.1 Activar/desactivar cuentas (extra) | Implementada: cambio de estado de cuentas; cuentas inactivas no pueden iniciar sesión ni usar tokens existentes. |
-| US-5.2 Roles y permisos | Implementada para las rutas existentes: roles estrictos `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` y `APODERADO`; las funciones administrativas de los módulos están protegidas para `ADMINISTRADOR`. Cuentas permiten alta, consulta y edición acotada de correo y datos personales. |
+| US-5.2 Roles y permisos | Implementada para las rutas existentes: roles estrictos `ADMINISTRADOR`, `DOCENTE`, `ALUMNO` y `APODERADO`; las funciones administrativas de los módulos están protegidas para `ADMINISTRADOR`. Cuentas permiten alta, consulta y edición acotada de username, correo de contacto y datos personales. |
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
 | US-5.9 Carga masiva CSV | Implementada en backend: carga CSV protegida para administrador, procesamiento parcial por fila, actualización de personas/cuentas existentes sin cambiar contraseña o rol, creación de perfiles/vínculos y reporte de resultados. La interfaz de usuario aún está pendiente. |

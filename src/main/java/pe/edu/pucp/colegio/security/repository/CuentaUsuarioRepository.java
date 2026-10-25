@@ -15,7 +15,11 @@ public interface CuentaUsuarioRepository extends JpaRepository<CuentaUsuario, In
 
   List<CuentaUsuario> findAllByPersonaCorreoIgnoreCaseAndActiveTrue(String correo);
 
+  List<CuentaUsuario> findAllByPersonaCorreoIgnoreCase(String correo);
+
   boolean existsByUsername(String username);
+
+  boolean existsByUsernameIgnoreCase(String username);
 
   boolean existsByUsernameAndIdNot(String username, Integer id);
 

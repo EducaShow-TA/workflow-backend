@@ -1762,7 +1762,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dni\": \"8{{$timestamp}}\",\n  \"nombre\": \"Docente Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"postman.docente.{{$timestamp}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"rol\": \"DOCENTE\"\n}",
+              "raw": "{\n  \"dni\": \"8{{$timestamp}}\",\n  \"nombre\": \"Docente Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"postman.docente.{{$timestamp}}@example.test\",\n  \"correo\": \"contacto.docente.{{$timestamp}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"rol\": \"DOCENTE\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1792,7 +1792,9 @@
                   "pm.environment.set('cuentaUsuarioId', cuenta.id);",
                   "pm.environment.set('cuentaUsuarioUsername', cuenta.username);",
                   "pm.environment.set('cuentaUsuarioUsernameEditado', cuenta.username.replace('postman.docente.', 'postman.editado.'));",
-                  "pm.environment.set('cuentaUsuarioDni', cuenta.dni);"
+                  "pm.environment.set('cuentaUsuarioDni', cuenta.dni);",
+                  "pm.environment.set('cuentaUsuarioCorreo', cuenta.correo);",
+                  "pm.test('Usuario y correo de contacto son independientes', () => pm.expect(cuenta.correo).not.to.eql(cuenta.username));"
                 ]
               }
             }
@@ -1810,7 +1812,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Docente Editado\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"{{cuentaUsuarioUsernameEditado}}\"\n}",
+              "raw": "{\n  \"nombre\": \"Docente Editado\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"{{cuentaUsuarioUsernameEditado}}\",\n  \"correo\": \"{{cuentaUsuarioCorreo}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1841,6 +1843,7 @@
                   "pm.test('Actualiza datos y conserva DNI/rol', () => {",
                   "  pm.expect(cuenta.nombre).to.eql('Docente Editado');",
                   "  pm.expect(cuenta.username).to.eql(pm.environment.get('cuentaUsuarioUsernameEditado'));",
+                  "  pm.expect(cuenta.correo).to.eql(pm.environment.get('cuentaUsuarioCorreo'));",
                   "  pm.expect(cuenta.dni).to.eql(pm.environment.get('cuentaUsuarioDni'));",
                   "  pm.expect(cuenta.rol).to.eql('DOCENTE');",
                   "});"
@@ -2208,10 +2211,10 @@
                   "pm.environment.set(\"csvSuffix\", suffix);",
                   "pm.environment.set(\"csvBoundary\", boundary);",
                   "pm.environment.set(\"csvContenido\", [",
-                  "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,telefono,fecha_nacimiento,dni_apoderado,parentesco\",",
-                  "  `APODERADO,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,987654321,,,`,",
-                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,,2011-05-14,4${suffix},MADRE`,",
-                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,,,,`",
+                  "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,parentesco\",",
+                  "  `APODERADO,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,rosa.${suffix},987654321,,,`,",
+                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,luis.${suffix},,2011-05-14,4${suffix},MADRE`,",
+                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,carlos.${suffix},,,,`",
                   "].join(\"\\r\\n\"));"
                 ]
               }
