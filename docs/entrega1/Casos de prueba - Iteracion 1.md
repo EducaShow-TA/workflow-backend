@@ -37,6 +37,23 @@ Estados: **Aprobado** = ejecución reportada satisfactoria; **No aprobado** = de
 | BE-14 | US-5.5 Log de errores | Consultar registros y detalle; comprobar persistencia de un error interno controlado y no exposición de stack trace al cliente. | **Aprobado en pruebas automatizadas/Postman según el registro del proyecto; la revisión manual de la pantalla no está confirmada.** Adjuntar respuesta del listado/detalle y log redactado. |
 | BE-15 | Reglas transversales de API | Repetir solicitudes con campos inválidos, permisos insuficientes, recursos inexistentes y conflictos. | **Aprobado en suites automatizadas y colección, excepto cambios recientes de recuperación que quedan pendientes.** Adjuntar resultados y códigos esperados/recibidos. |
 
+### Escenarios negativos independientes requeridos por la retroalimentación
+
+En esta tabla, “Evidencia” identifica el artefacto que debe guardarse al ejecutar el caso. Los estados permanecen **Pendiente de ejecución/evidencia** hasta adjuntar el resultado de la versión entregada.
+
+| ID | HU asociada | Datos de entrada concretos / precondición | Resultado esperado verificable | Evidencia |
+| --- | --- | --- | --- | --- |
+| BE-01a | US-5.6 | Usuario `admin01` activo y contraseña correcta; `POST /api/v1/auth/login`. | HTTP 200; respuesta contiene JWT Bearer y perfil ADMINISTRADOR. | Postman: guardar respuesta 200 con JWT oculto; captura del caso en Runner. |
+| BE-01b | US-5.6 | Usuario inexistente `no-existe-qa-2026`, contraseña `Prueba!234`; login. | HTTP 401; mensaje `No encontramos una cuenta con ese usuario o correo.`; no se emite token. | Postman: guardar cuerpo/status 401 y captura de `/login` con el mensaje. |
+| BE-01c | US-5.1 / US-5.6 | Cuenta `qa.inactivo`, precreada y desactivada por administrador; enviar su contraseña correcta. | HTTP 401; mensaje `Tu cuenta está desactivada. Contacta al administrador del colegio.`; no se emite token. | Postman: evidencia del estado inactivo y respuesta 401; captura del mensaje en `/login`. |
+| BE-01d | US-5.6 / US-5.7 | Cuenta activa; enviar contraseña incorrecta hasta alcanzar el límite configurado y luego enviar la correcta durante el bloqueo. | HTTP 401 en ambos intentos; el segundo mensaje indica bloqueo temporal; no se emite token. | Postman/AuthIntegrationTest: respuestas de intentos y captura de mensaje de bloqueo. |
+| BE-09a | US-1.1 | `POST /api/v1/periodos-matricula`, hoy a hoy + 10 días (fechas calculadas al ejecutar). | HTTP 201; mensaje de éxito y `estado=VIGENTE`; retorna ID. | Postman: request/response de `Configurar ventana de matrícula vigente`; captura Runner. |
+| BE-09b | US-1.1 | `POST`; `fechaInicio=2099-01-10`, `fechaLimite=2099-01-09`. | HTTP 422; mensaje `La fecha límite debe ser posterior a la fecha de inicio`; no crea registro. | Postman: guardar cuerpo enviado y respuesta 422; evidencia de que el periodo no aparece al listar. |
+| BE-09c | US-1.1 | `POST`; `fechaInicio` = ayer y `fechaLimite` = hoy + 10 días (fechas calculadas al ejecutar). | HTTP 422; mensaje `La fecha de inicio no puede ser anterior a hoy`; no crea registro. | Postman: guardar request/response 422 y captura del Runner. |
+| BE-09d | US-1.1 | Crear periodo A: hoy + 5 a hoy + 15. Enviar periodo B: hoy + 10 a hoy + 20. | HTTP 409; mensaje identifica cruce con el periodo A; solo A queda registrado. | Postman: respuestas de ambos POST y listado que evidencia un solo periodo. |
+
+La evidencia de cada ejecución debe incluir request, status y cuerpo de respuesta, sin contraseñas, JWT ni datos personales reales. Para los casos de interfaz, capturar el mensaje completo y el formulario sin credenciales.
+
 ## 3. Casos de interfaz
 
 | ID | Historia / escenario | Pasos y resultado esperado | Resultado / evidencia |
