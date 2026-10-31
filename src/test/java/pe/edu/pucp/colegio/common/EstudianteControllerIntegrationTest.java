@@ -39,7 +39,7 @@ class EstudianteControllerIntegrationTest {
   @Test
   void crearDaDeAltaCuentaConRolAlumnoYPerfilEstudiante() throws Exception {
     String suffix = UUID.randomUUID().toString().substring(0, 8);
-    String username = "alumno-" + suffix;
+    String username = "alumno" + suffix;
     String dni =
         String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
     String dniApoderado =
@@ -47,14 +47,19 @@ class EstudianteControllerIntegrationTest {
     String dniSegundoApoderado =
         String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
 
+    String cuerpo =
+        """
+        {"username":"%s","password":"ClaveSegura123","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
+        """
+            .formatted(username, dni, suffix, dniApoderado, dniSegundoApoderado);
+
     mvc.perform(
             post("/api/v1/estudiantes")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    {"username":"%s","password":"ClaveSegura123","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
-                    """
-                        .formatted(username, dni, suffix, dniApoderado, dniSegundoApoderado)))
+                .content(cuerpo.replace(username, "alumno" + suffix + "@ejemplo.edu.pe")))
+        .andExpect(status().isBadRequest());
+
+    mvc.perform(post("/api/v1/estudiantes").contentType(MediaType.APPLICATION_JSON).content(cuerpo))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.username").value(username))
         .andExpect(jsonPath("$.rol").value("ALUMNO"))

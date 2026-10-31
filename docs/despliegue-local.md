@@ -168,7 +168,7 @@ Comprobar el API (con la contraseña del administrador inicial, que te dará el 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin@educore.edu.pe","password":"<contrasenia>"}'
+  -d '{"username":"admin01","password":"<contrasenia>"}'
 ```
 
 Responde `200` con `token` y `usuario`.

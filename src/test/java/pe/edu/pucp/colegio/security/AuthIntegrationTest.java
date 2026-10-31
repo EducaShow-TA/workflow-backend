@@ -24,6 +24,7 @@ class AuthIntegrationTest {
 
   @Test
   void loginDelAdministradorRetornaJwtYPerfil() throws Exception {
+    assertEquals("admin01", cuentas.findById(1).orElseThrow().getUsername());
     assertEquals("admin@educore.edu.pe", personas.findByDni("00000000").orElseThrow().getCorreo());
 
     mvc.perform(
@@ -33,7 +34,15 @@ class AuthIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.token").isNotEmpty())
         .andExpect(jsonPath("$.tokenType").value("Bearer"))
-        .andExpect(jsonPath("$.usuario.rol").value("ADMINISTRADOR"));
+        .andExpect(jsonPath("$.usuario.rol").value("ADMINISTRADOR"))
+        .andExpect(jsonPath("$.usuario.username").value("admin01"));
+
+    mvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"admin01\",\"password\":\"Admin2026!\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.usuario.username").value("admin01"));
   }
 
   @Test
@@ -53,7 +62,7 @@ class AuthIntegrationTest {
 
   @Test
   void tercerIntentoFallidoPersisteBloqueoYRechazaClaveCorrecta() throws Exception {
-    CuentaUsuario admin = cuentas.findByUsername("admin@educore.edu.pe").orElseThrow();
+    CuentaUsuario admin = cuentas.findById(1).orElseThrow();
     admin.reiniciarIntentos();
     cuentas.save(admin);
     try {

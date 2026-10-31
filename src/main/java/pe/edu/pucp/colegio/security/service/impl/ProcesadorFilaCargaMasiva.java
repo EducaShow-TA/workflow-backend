@@ -16,6 +16,7 @@ import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
+import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.security.dto.FilaUsuarioCsv;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -102,7 +103,9 @@ public class ProcesadorFilaCargaMasiva {
     boolean cuentaCreada = cuenta == null;
     String username =
         fila.username() == null
-            ? (cuenta == null ? correo : cuenta.getUsername())
+            ? (cuenta == null
+                ? UsernamePolicy.generarDesdeDocumento(fila.dni())
+                : cuenta.getUsername())
             : fila.username().trim();
     String contrasenhaTemporal = null;
     if (cuentaCreada) {

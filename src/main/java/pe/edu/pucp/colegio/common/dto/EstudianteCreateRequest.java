@@ -7,9 +7,15 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
+import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 
 public record EstudianteCreateRequest(
-    @NotBlank @Size(max = 50) String username,
+    @NotBlank
+        @Pattern(
+            regexp = UsernamePolicy.PATRON,
+            message = "El usuario solo puede contener letras y números")
+        @Size(max = 50)
+        String username,
     @NotBlank @Size(min = 8, max = 72) String password,
     @NotBlank @Pattern(regexp = "DNI|PASAPORTE") String tipoDocumento,
     @NotBlank @Size(max = 15) String numeroDocumento,

@@ -84,7 +84,7 @@ class CargaMasivaUsuariosServiceImplTest {
     when(procesador.procesar(any(FilaUsuarioCsv.class)))
         .thenReturn(
             new ResultadoProcesamientoFila(
-                Rol.DOCENTE, "12345678", "ana@colegio.edu.pe", true, false, false, "TmpClave123"));
+                Rol.DOCENTE, "12345678", "usuario12345678", true, false, false, "TmpClave123"));
 
     CargaMasivaResultadoDTO resultado = servicio.cargar(new byte[0], "admin@educore.edu.pe");
 
@@ -150,13 +150,13 @@ class CargaMasivaUsuariosServiceImplTest {
     when(procesador.procesar(any(FilaUsuarioCsv.class)))
         .thenReturn(
             new ResultadoProcesamientoFila(
-                Rol.DOCENTE, "12345678", "ana@colegio.edu.pe", true, false, false, "TmpClave123"));
+                Rol.DOCENTE, "12345678", "usuario12345678", true, false, false, "TmpClave123"));
 
     CargaMasivaResultadoDTO resultado = servicio.cargar(new byte[0], "admin@educore.edu.pe");
 
     assertTrue(resultado.exitoso());
     assertEquals(1, resultado.cuentas().size());
-    assertEquals("ana@colegio.edu.pe", resultado.cuentas().get(0).username());
+    assertEquals("usuario12345678", resultado.cuentas().get(0).username());
     assertEquals("TmpClave123", resultado.cuentas().get(0).contrasenhaTemporal());
     verify(procesador).procesar(any(FilaUsuarioCsv.class));
     verify(auditorias).save(any(RegistroAuditoria.class));

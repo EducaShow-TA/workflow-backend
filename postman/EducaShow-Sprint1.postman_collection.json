@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "41c99ff6-f2b9-450b-b43b-4bab3c084801",
     "name": "EducaShow - Sprint 1 Backend",
-    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Usuario semilla local: admin@educore.edu.pe / Admin2026! (cámbialo solo si la clave de tu base fue rotada).\n\nCobertura: US-1.1 ventana de matrícula, US-1.2 estudiantes y matrícula, US-1.7 Vacantes por sección, US-3.5 Catálogo curricular, US-4.3 plantillas horarias, US-5.1 estado de cuentas, US-5.2 roles y permisos, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.9 carga CSV. Consulta postman/README.md para la preparación y los límites de las pruebas de correo.",
+    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Cuenta semilla local: username admin01, correo admin@educore.edu.pe y contraseña Admin2026! (cámbiala solo si la clave de tu base fue rotada).\n\nCobertura: US-1.1 ventana de matrícula, US-1.2 estudiantes y matrícula, US-1.7 Vacantes por sección, US-3.5 Catálogo curricular, US-4.3 plantillas horarias, US-5.1 estado de cuentas, US-5.2 roles y permisos, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.9 carga CSV. Consulta postman/README.md para la preparación y los límites de las pruebas de correo.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -41,7 +41,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{adminUser}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -120,7 +120,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"correo\": \"{{adminUser}}\"\n}",
+              "raw": "{\n  \"correo\": \"{{adminEmail}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1203,7 +1203,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"postman.alumno.{{studentSuffix}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"tipoDocumento\": \"DNI\",\n  \"numeroDocumento\": \"9{{studentSuffix}}\",\n  \"nombres\": \"Ana Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-05-10\",\n  \"celular\": \"999111222\",\n  \"genero\": \"FEMENINO\",\n  \"correoElectronico\": \"ana.{{studentSuffix}}@example.test\",\n  \"nacionalidad\": \"PERUANA\",\n  \"direccion\": \"Av. de prueba 123\",\n  \"apoderados\": [{\n    \"tipoDocumento\": \"DNI\",\n    \"numeroDocumento\": \"4{{studentSuffix}}\",\n    \"nombres\": \"Rosa Postman\",\n    \"apellidoPaterno\": \"Prueba\",\n    \"apellidoMaterno\": \"Local\",\n    \"celular\": \"987654321\",\n    \"correoElectronico\": \"rosa.{{studentSuffix}}@example.test\",\n    \"parentesco\": \"MADRE\",\n    \"esPrincipal\": true\n  }]\n}",
+              "raw": "{\n  \"username\": \"postmanAlumno{{studentSuffix}}\",\n  \"password\": \"Temporal123!\",\n  \"tipoDocumento\": \"DNI\",\n  \"numeroDocumento\": \"9{{studentSuffix}}\",\n  \"nombres\": \"Ana Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-05-10\",\n  \"celular\": \"999111222\",\n  \"genero\": \"FEMENINO\",\n  \"correoElectronico\": \"ana.{{studentSuffix}}@example.test\",\n  \"nacionalidad\": \"PERUANA\",\n  \"direccion\": \"Av. de prueba 123\",\n  \"apoderados\": [{\n    \"tipoDocumento\": \"DNI\",\n    \"numeroDocumento\": \"4{{studentSuffix}}\",\n    \"nombres\": \"Rosa Postman\",\n    \"apellidoPaterno\": \"Prueba\",\n    \"apellidoMaterno\": \"Local\",\n    \"celular\": \"987654321\",\n    \"correoElectronico\": \"rosa.{{studentSuffix}}@example.test\",\n    \"parentesco\": \"MADRE\",\n    \"esPrincipal\": true\n  }]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1256,7 +1256,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"postman.alumno.{{studentSuffix}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"tipoDocumento\": \"DNI\",\n  \"numeroDocumento\": \"9{{studentSuffix}}\",\n  \"nombres\": \"Luis Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-06-11\",\n  \"celular\": \"999111223\",\n  \"genero\": \"MASCULINO\",\n  \"apoderados\": [{\n    \"tipoDocumento\": \"DNI\",\n    \"numeroDocumento\": \"4{{studentSuffix}}\",\n    \"nombres\": \"Rosa Postman\",\n    \"apellidoPaterno\": \"Prueba\",\n    \"apellidoMaterno\": \"Local\",\n    \"celular\": \"987654321\",\n    \"parentesco\": \"MADRE\",\n    \"esPrincipal\": true\n  }]\n}",
+              "raw": "{\n  \"username\": \"postmanAlumno{{studentSuffix}}\",\n  \"password\": \"Temporal123!\",\n  \"tipoDocumento\": \"DNI\",\n  \"numeroDocumento\": \"9{{studentSuffix}}\",\n  \"nombres\": \"Luis Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"fechaNacimiento\": \"2012-06-11\",\n  \"celular\": \"999111223\",\n  \"genero\": \"MASCULINO\",\n  \"apoderados\": [{\n    \"tipoDocumento\": \"DNI\",\n    \"numeroDocumento\": \"4{{studentSuffix}}\",\n    \"nombres\": \"Rosa Postman\",\n    \"apellidoPaterno\": \"Prueba\",\n    \"apellidoMaterno\": \"Local\",\n    \"celular\": \"987654321\",\n    \"parentesco\": \"MADRE\",\n    \"esPrincipal\": true\n  }]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1762,7 +1762,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dni\": \"8{{$timestamp}}\",\n  \"nombre\": \"Docente Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"postman.docente.{{$timestamp}}@example.test\",\n  \"correo\": \"contacto.docente.{{$timestamp}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"rol\": \"DOCENTE\"\n}",
+              "raw": "{\n  \"dni\": \"8{{$timestamp}}\",\n  \"nombre\": \"Docente Postman\",\n  \"apellidoPaterno\": \"Prueba\",\n  \"apellidoMaterno\": \"Local\",\n  \"username\": \"postmanDocente{{$timestamp}}\",\n  \"correo\": \"contacto.docente.{{$timestamp}}@example.test\",\n  \"password\": \"Temporal123!\",\n  \"rol\": \"DOCENTE\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1791,7 +1791,7 @@
                   "const cuenta = pm.response.json();",
                   "pm.environment.set('cuentaUsuarioId', cuenta.id);",
                   "pm.environment.set('cuentaUsuarioUsername', cuenta.username);",
-                  "pm.environment.set('cuentaUsuarioUsernameEditado', cuenta.username.replace('postman.docente.', 'postman.editado.'));",
+                  "pm.environment.set('cuentaUsuarioUsernameEditado', cuenta.username.replace('postmanDocente', 'postmanEditado'));",
                   "pm.environment.set('cuentaUsuarioDni', cuenta.dni);",
                   "pm.environment.set('cuentaUsuarioCorreo', cuenta.correo);",
                   "pm.test('Usuario y correo de contacto son independientes', () => pm.expect(cuenta.correo).not.to.eql(cuenta.username));"
@@ -2212,9 +2212,9 @@
                   "pm.environment.set(\"csvBoundary\", boundary);",
                   "pm.environment.set(\"csvContenido\", [",
                   "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,parentesco\",",
-                  "  `APODERADO,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,rosa.${suffix},987654321,,,`,",
-                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,luis.${suffix},,2011-05-14,4${suffix},MADRE`,",
-                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,carlos.${suffix},,,,`",
+                  "  `APODERADO,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,rosa${suffix},987654321,,,`,",
+                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,luis${suffix},,2011-05-14,4${suffix},MADRE`,",
+                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,carlos${suffix},,,,`",
                   "].join(\"\\r\\n\"));"
                 ]
               }
