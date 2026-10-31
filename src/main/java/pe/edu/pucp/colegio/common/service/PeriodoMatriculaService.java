@@ -83,6 +83,10 @@ public class PeriodoMatriculaService {
     if (request.fechaInicio().isBefore(LocalDate.now())) {
       throw new BusinessException("La fecha de inicio no puede ser anterior a hoy");
     }
+    if (request.fechaInicio().getYear() < request.fechaLimite().getYear() - 1) {
+      throw new BusinessException(
+          "El inicio del período no puede ser más de un año calendario anterior al año escolar de la fecha límite");
+    }
     if (!request.fechaLimite().isAfter(request.fechaInicio())) {
       throw new BusinessException("La fecha límite debe ser posterior a la fecha de inicio");
     }
