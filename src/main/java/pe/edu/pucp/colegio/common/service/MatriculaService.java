@@ -1,6 +1,8 @@
 package pe.edu.pucp.colegio.common.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -88,6 +90,19 @@ public class MatriculaService {
     return respuesta(matricula);
   }
 
+  @Transactional(isolation = Isolation.READ_COMMITTED)
+  public List<MatriculaResponse> crearMasivamente(Integer periodoId, List<Integer> estudianteIds) {
+    List<Integer> ids = estudianteIds.stream().distinct().toList();
+    if (ids.isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
+    }
+    List<MatriculaResponse> resultados = new ArrayList<>();
+    for (Integer estudianteId : ids) {
+      resultados.add(crear(periodoId, new MatriculaCreateRequest(estudianteId)));
+    }
+    return resultados;
+  }
+
   @Transactional
   public MatriculaResponse confirmar(Integer periodoId, Integer estudianteId) {
     Periodo periodo = buscarPeriodo(periodoId);
@@ -107,6 +122,31 @@ public class MatriculaService {
     }
     matricula.setEstado(EstadoMatricula.CONFIRMADA);
     return respuesta(matriculas.save(matricula));
+  }
+
+  @Transactional
+  public List<MatriculaResponse> confirmarMasivamente(Integer periodoId, List<Integer> estudianteIds) {
+    Periodo periodo = buscarPeriodo(periodoId);
+    secciones.findByIdForUpdate(periodo.getSeccion().getId())
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sección"));
+    List<Integer> ids = estudianteIds.stream().distinct().toList();
+    if (ids.isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
+    }
+    List<Matricula> pendientes = new ArrayList<>();
+    for (Integer estudianteId : ids) {
+      Matricula matricula = matriculas.findByPeriodoIdAndEstudianteId(periodoId, estudianteId)
+          .filter(m -> Boolean.TRUE.equals(m.getActive()))
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+              "No existe la matrícula del estudiante " + estudianteId));
+      if (matricula.getEstado() != EstadoMatricula.EN_REGISTRO) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+            "La matrícula del estudiante " + estudianteId + " no está en registro");
+      }
+      pendientes.add(matricula);
+    }
+    pendientes.forEach(m -> m.setEstado(EstadoMatricula.CONFIRMADA));
+    return matriculas.saveAll(pendientes).stream().map(this::respuesta).toList();
   }
 
   @Transactional

@@ -47,12 +47,22 @@ public class AuthServiceImpl implements AuthService {
     CuentaUsuario user = users.findByUsernameIgnoreCase(identificador).orElse(null);
     if (user == null) {
       List<CuentaUsuario> coincidencias =
-          users.findAllByPersonaCorreoIgnoreCaseAndActiveTrue(identificador);
+          users.findAllByPersonaCorreoIgnoreCase(identificador);
       user = coincidencias.size() == 1 ? coincidencias.getFirst() : null;
     }
-    if (user == null || !Boolean.TRUE.equals(user.getActive()) || user.estaBloqueada()) {
+    if (user == null) {
       encoder.matches(request.getPassword(), hashPasswordDummy);
-      throw new UnauthorizedException("Credenciales inválidas");
+      throw new UnauthorizedException("No encontramos una cuenta con ese usuario o correo.");
+    }
+    if (!Boolean.TRUE.equals(user.getActive())) {
+      if (!encoder.matches(request.getPassword(), user.getPassword())) {
+        throw new UnauthorizedException("Credenciales inválidas");
+      }
+      throw new UnauthorizedException("Esta cuenta se encuentra desactivada. Contacta al administrador del colegio.");
+    }
+    if (user.estaBloqueada()) {
+      encoder.matches(request.getPassword(), hashPasswordDummy);
+      throw new UnauthorizedException("Tu cuenta está bloqueada temporalmente. Intenta más tarde.");
     }
     if (user.bloqueoVencido()) {
       user.reiniciarIntentos();

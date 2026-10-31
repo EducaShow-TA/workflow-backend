@@ -892,7 +892,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "const ahora = new Date();",
-                  "const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1);",
+                  "const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());",
                   "const limite = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 30);",
                   "const fecha = d => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');",
                   "pm.environment.set('fechaInicioMatricula', fecha(inicio));",
@@ -972,7 +972,7 @@
           }
         },
         {
-          "name": "Estado VENCIDO después de la fecha límite",
+          "name": "Rechazar ventana con fecha de inicio pasada",
           "event": [
             {
               "listen": "prerequest",
@@ -991,9 +991,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Ventana vencida creada', () => pm.response.to.have.status(201));",
-                  "pm.expect(pm.response.json().estado).to.eql('VENCIDO');",
-                  "pm.environment.set('ventanaMatriculaVencidaId', String(pm.response.json().id));"
+                  "pm.test('No permite crear una ventana con fechas pasadas', () => pm.response.to.have.status(422));"
                 ]
               }
             }
@@ -1020,7 +1018,7 @@
             "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"2026-01-01\",\n  \"fechaLimite\": \"2026-01-01\"\n}",
+              "raw": "{\n  \"fechaInicio\": \"2099-01-01\",\n  \"fechaLimite\": \"2099-01-01\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -1609,7 +1607,7 @@
           ]
         },
         {
-          "name": "Cerrar la ventana para probar bloqueo de matrícula",
+          "name": "Rechazar actualización de ventana a fechas pasadas",
           "event": [
             {
               "listen": "prerequest",
@@ -1628,8 +1626,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Ventana queda vencida', () => pm.response.to.have.status(200));",
-                  "pm.expect(pm.response.json().estado).to.eql('VENCIDO');"
+                  "pm.test('No permite actualizar la ventana a fechas pasadas', () => pm.response.to.have.status(422));"
                 ]
               }
             }
@@ -1650,19 +1647,13 @@
           }
         },
         {
-          "name": "Rechazar nueva matrícula cuando la ventana venció",
+          "name": "La ventana conserva vigencia tras rechazar el cambio",
           "request": {
-            "method": "POST",
-            "header": [ { "key": "Content-Type", "value": "application/json" } ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"estudianteId\": {{estudianteId}}\n}",
-              "options": { "raw": { "language": "json" } }
-            },
+            "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas",
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
               "host": [ "{{baseUrl}}" ],
-              "path": [ "api", "v1", "periodos", "{{periodoId}}", "matriculas" ]
+              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaId}}" ]
             }
           },
           "event": [
@@ -1671,8 +1662,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('No permite nuevas matrículas fuera de vigencia', () => pm.response.to.have.status(409));",
-                  "pm.expect(pm.response.json().message).to.include('periodo de matrícula vigente');"
+                  "pm.test('La ventana sigue vigente', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');"
                 ]
               }
             }
@@ -1717,28 +1708,6 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Ventana pendiente desactivada', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Desactivar ventana vencida creada en esta ejecución",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaVencidaId}}",
-              "host": [ "{{baseUrl}}" ],
-              "path": [ "api", "v1", "periodos-matricula", "{{ventanaMatriculaVencidaId}}" ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Ventana vencida desactivada', () => pm.response.to.have.status(204));"
                 ]
               }
             }

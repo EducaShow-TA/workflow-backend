@@ -119,6 +119,31 @@ public class PeriodoService {
     return creados;
   }
 
+  @Transactional
+  public List<VacantesPeriodoResponse> actualizarAnhio(AperturaAnhioRequest request) {
+    int anhio = request.anhio();
+    if (request.fechaInicio().getYear() != anhio || !request.fechaFin().isAfter(request.fechaInicio())) {
+      throw new BusinessException("Las fechas del periodo deben ser válidas y corresponder al año escolar");
+    }
+    LocalDate desde = LocalDate.of(anhio, 1, 1);
+    LocalDate hasta = LocalDate.of(anhio, 12, 31);
+    List<Periodo> existentes = periodos.buscar(desde, hasta, null, null);
+    if (existentes.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El año escolar no está abierto");
+    List<Integer> ids = existentes.stream().map(Periodo::getId).toList();
+    for (Periodo periodo : existentes) {
+      List<Periodo> cruces = periodos.buscarCruces(periodo.getSeccion().getId(), request.fechaInicio(), request.fechaFin());
+      if (cruces.stream().anyMatch(cruce -> !ids.contains(cruce.getId()))) {
+        throw new ConflictException("Las fechas se cruzan con otro periodo de la sección " + periodo.getSeccion().getCodigo());
+      }
+    }
+    existentes.forEach(periodo -> {
+      periodo.setFechaInicio(request.fechaInicio());
+      periodo.setFechaFin(request.fechaFin());
+      periodo.setEstado(periodo.calcularEstado(LocalDate.now()));
+    });
+    return periodos.saveAll(existentes).stream().map(vacantes::describir).toList();
+  }
+
   private void validarCruces(Seccion seccion, LocalDate fechaInicio, LocalDate fechaFin) {
     List<Periodo> cruces = periodos.buscarCruces(seccion.getId(), fechaInicio, fechaFin);
     if (!cruces.isEmpty()) {
