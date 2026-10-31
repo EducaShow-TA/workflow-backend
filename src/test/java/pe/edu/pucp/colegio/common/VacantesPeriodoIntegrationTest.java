@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.common;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -125,6 +126,32 @@ class VacantesPeriodoIntegrationTest {
         .andExpect(jsonPath("$.matriculasActivas").value(0))
         .andExpect(jsonPath("$.vacantesDisponibles").value(6))
         .andExpect(jsonPath("$.hayVacantes").value(true));
+  }
+
+  @Test
+  void editarAnhioEscolarActualizaFechasDeSusPeriodos() throws Exception {
+    Seccion seccion = crearSeccion(12);
+    int anhio = LocalDate.now().getYear() + 2;
+    Periodo periodo = crearPeriodo(seccion, LocalDate.of(anhio, 3, 1), LocalDate.of(anhio, 12, 20));
+    entityManager.flush();
+
+    mvc.perform(put("/api/v1/periodos/anhio").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"anhio\":" + anhio + ",\"fechaInicio\":\"" + anhio + "-03-15\",\"fechaFin\":\"" + anhio + "-12-15\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].periodoId").value(periodo.getId()))
+        .andExpect(jsonPath("$[0].fechaInicio").value(anhio + "-03-15"))
+        .andExpect(jsonPath("$[0].fechaFin").value(anhio + "-12-15"));
+  }
+
+  @Test
+  void editarAnhioEscolarRechazaFechasDeOtroAnhioYFechasInvertidas() throws Exception {
+    int anhio = LocalDate.now().getYear() + 2;
+    mvc.perform(put("/api/v1/periodos/anhio").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"anhio\":" + anhio + ",\"fechaInicio\":\"" + (anhio + 1) + "-03-15\",\"fechaFin\":\"" + (anhio + 1) + "-12-15\"}"))
+        .andExpect(status().isUnprocessableEntity());
+    mvc.perform(put("/api/v1/periodos/anhio").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"anhio\":" + anhio + ",\"fechaInicio\":\"" + anhio + "-12-15\",\"fechaFin\":\"" + anhio + "-03-15\"}"))
+        .andExpect(status().isUnprocessableEntity());
   }
 
   @Test
