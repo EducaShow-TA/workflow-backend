@@ -80,6 +80,9 @@ public class PeriodoMatriculaService {
   }
 
   private void validar(PeriodoMatriculaRequest request, Integer idEnEdicion) {
+    if (request.fechaInicio().isBefore(LocalDate.now())) {
+      throw new BusinessException("La fecha de inicio no puede ser anterior a hoy");
+    }
     if (!request.fechaLimite().isAfter(request.fechaInicio())) {
       throw new BusinessException("La fecha límite debe ser posterior a la fecha de inicio");
     }

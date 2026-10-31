@@ -37,22 +37,25 @@ class PeriodoMatriculaIntegrationTest {
     crear(LocalDate.now().plusDays(3), LocalDate.now().plusDays(7))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.estado").value("PENDIENTE"));
-    crear(LocalDate.now().minusDays(2), LocalDate.now().plusDays(2))
+    crear(LocalDate.now(), LocalDate.now().plusDays(2))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.estado").value("VIGENTE"));
-    crear(LocalDate.now().minusDays(7), LocalDate.now().minusDays(3))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.estado").value("VENCIDO"));
 
     mvc.perform(get("/api/v1/periodos-matricula"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(ventanasAntes + 3));
+        .andExpect(jsonPath("$.length()").value(ventanasAntes + 2));
   }
 
   @Test
   void rechazaLimiteIgualOAnteriorAlInicio() throws Exception {
     crear(LocalDate.now(), LocalDate.now()).andExpect(status().isUnprocessableEntity());
     crear(LocalDate.now().plusDays(2), LocalDate.now().plusDays(1))
+        .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void rechazaFechaDeInicioAnteriorAHoy() throws Exception {
+    crear(LocalDate.now().minusDays(1), LocalDate.now().plusDays(2))
         .andExpect(status().isUnprocessableEntity());
   }
 
@@ -72,7 +75,7 @@ class PeriodoMatriculaIntegrationTest {
   @Test
   void desactivarVentanaLaRetiraDelListadoYConsulta() throws Exception {
     String body =
-        crear(LocalDate.now().minusDays(1), LocalDate.now().plusDays(1))
+        crear(LocalDate.now(), LocalDate.now().plusDays(1))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()

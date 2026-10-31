@@ -51,6 +51,11 @@ public class PeriodoController {
     return ResponseEntity.status(201).body(periodos.abrirAnhio(request));
   }
 
+  @org.springframework.web.bind.annotation.PutMapping("/anhio")
+  public List<VacantesPeriodoResponse> actualizarAnhio(@Valid @RequestBody AperturaAnhioRequest request) {
+    return periodos.actualizarAnhio(request);
+  }
+
   @GetMapping("/{periodoId}/vacantes")
   public VacantesPeriodoResponse consultarVacantes(@PathVariable Integer periodoId) {
     return vacantes.consultar(periodoId);
