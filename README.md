@@ -145,7 +145,7 @@ Público. Recibe `username` y `password`, ambos obligatorios y no vacíos. Valid
 
 ```json
 {
-  "username": "usuario@ejemplo.edu.pe",
+  "username": "usuario01",
   "password": "contraseña"
 }
 ```
@@ -159,7 +159,7 @@ Respuesta `200`:
   "expiresIn": 86400,
   "usuario": {
     "id": 12,
-    "username": "usuario@ejemplo.edu.pe",
+    "username": "usuario01",
     "rol": "ADMINISTRADOR",
     "nombreCompleto": "Nombre Apellido",
     "dni": "12345678"
@@ -175,19 +175,19 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 
 #### Recuperación de contraseña
 
-`POST /api/v1/auth/forgot-password` es público y recibe `{ "correo": "persona@ejemplo.edu.pe" }`. Busca una cuenta activa por el correo de contacto de `Persona`, aunque el `username` sea distinto. Si no encuentra exactamente una cuenta activa asociada a ese correo, no envía el mensaje; la respuesta se mantiene genérica para no revelar cuentas registradas. Si corresponde, envía un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). La migración V20 completa el correo de contacto del administrador semilla local; para probar la entrega se necesita configurar SMTP y un buzón accesible.
+`POST /api/v1/auth/forgot-password` es público y recibe `{ "correo": "persona@ejemplo.edu.pe" }`. Busca una cuenta activa por el correo de contacto de `Persona`, aunque el `username` sea distinto. Si no encuentra exactamente una cuenta activa asociada a ese correo, no envía el mensaje; la respuesta se mantiene genérica para no revelar cuentas registradas. Si corresponde, envía un token aleatorio; en la base se almacena su hash y tiene expiración configurable mediante `PASSWORD_RESET_EXPIRATION_MINUTES` (15 minutos por defecto). Las migraciones V20 y V21 completan el correo de contacto del administrador semilla y cambian su username a `admin01`; para probar la entrega se necesita configurar SMTP y un buzón accesible.
 
 `POST /api/v1/auth/reset-password` es público y recibe `{ "token": "<token-recibido-por-correo>", "password": "nueva-clave-segura" }`. El token es de un solo uso y la contraseña se almacena con BCrypt.
 
 ### Cuentas de usuario
 
-`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombres, `username` (identificador de acceso, máximo 50 caracteres), `correo` (correo de contacto, obligatorio y válido), contraseña y rol. El username no tiene que ser un correo y debe ser único sin distinguir mayúsculas; el correo de contacto también debe ser único entre cuentas. La contraseña debe tener entre 8 y 72 caracteres. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve separados `username` y `correo`, datos personales y estado activo. La actualización permite cambiar datos personales, username y correo por separado; conserva DNI, rol y contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. La carga CSV corresponde a US-5.9.
+`POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombres, `username` (identificador de acceso, máximo 50 caracteres y solo letras ASCII/números), `correo` (correo de contacto, obligatorio y válido), contraseña y rol. El username no puede contener símbolos, espacios ni formato de correo y debe ser único sin distinguir mayúsculas; el correo de contacto también debe ser único entre cuentas. La contraseña debe tener entre 8 y 72 caracteres. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve separados `username` y `correo`, datos personales y estado activo. La actualización permite cambiar datos personales, username y correo por separado; conserva DNI, rol y contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. La carga CSV corresponde a US-5.9.
 
 El login público recibe `{ "username": "identificador", "password": "..." }` y admite como identificador el username o el correo de contacto. Si un correo está asociado a más de una cuenta, no se usa como identificador alternativo. El filtro JWT sigue identificando el token por username. El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactivación surte efecto también para tokens emitidos previamente.
 
 #### Carga masiva de usuarios (US-5.9)
 
-`GET /api/v1/cuentas-usuario/carga-masiva/plantilla` descarga un ejemplo. `POST /api/v1/cuentas-usuario/carga-masiva` recibe una parte `multipart/form-data` llamada `archivo` con extensión `.csv`. Ambas rutas requieren rol `ADMINISTRADOR`. La cabecera requiere `rol`, `dni`, `nombres`, `apellido_paterno`, `apellido_materno` y `correo`; `username`, `telefono`, `fecha_nacimiento`, `dni_apoderado` y `parentesco` son opcionales. `correo` es el correo de contacto. Si se omite `username`, una cuenta nueva usa el correo como username y una cuenta existente conserva su username actual. El archivo admite comas o punto y coma y hasta 500 filas. Los roles permitidos son `DOCENTE`, `ALUMNO` y `APODERADO`; los alumnos requieren DNI de apoderado y parentesco.
+`GET /api/v1/cuentas-usuario/carga-masiva/plantilla` descarga un ejemplo. `POST /api/v1/cuentas-usuario/carga-masiva` recibe una parte `multipart/form-data` llamada `archivo` con extensión `.csv`. Ambas rutas requieren rol `ADMINISTRADOR`. La cabecera requiere `rol`, `dni`, `nombres`, `apellido_paterno`, `apellido_materno` y `correo`; `username`, `telefono`, `fecha_nacimiento`, `dni_apoderado` y `parentesco` son opcionales. `correo` es el correo de contacto. El username explícito solo admite letras ASCII y números. Si se omite, una cuenta nueva recibe `usuario` más su documento como username y una cuenta existente conserva su username actual. El archivo admite comas o punto y coma y hasta 500 filas. Los roles permitidos son `DOCENTE`, `ALUMNO` y `APODERADO`; los alumnos requieren DNI de apoderado y parentesco.
 
 La carga acepta CSV UTF-8 y Windows-1252 (formato común al exportar desde Excel en Windows), de hasta 10 MB por archivo. Antes de guardar en Excel, importa la columna `dni` como texto para evitar que se eliminen ceros iniciales; una vez eliminados al exportar, el backend no puede reconstruirlos. El DNI se conserva como texto y admite letras para documentos alternativos. La respuesta de carga usa `Cache-Control: no-store` porque incluye contraseñas temporales de cuentas nuevas. Los archivos que superan el límite se responden con `413` y mensaje estándar.
 
@@ -202,7 +202,7 @@ Ejemplo de `PUT /api/v1/cuentas-usuario/12`:
   "nombre": "Ana",
   "apellidoPaterno": "Pérez",
   "apellidoMaterno": "Díaz",
-  "username": "ana.perez",
+  "username": "anaperez",
   "correo": "ana@colegio.edu.pe"
 }
 ```
@@ -578,7 +578,7 @@ Para probar el login en un entorno local recién inicializado:
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin@educore.edu.pe","password":"<contrasenia-local>"}'
+  -d '{"username":"admin01","password":"<contrasenia-local>"}'
 ```
 
 Usa el valor `token` de la respuesta:

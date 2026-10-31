@@ -2,7 +2,9 @@ package pe.edu.pucp.colegio.security.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.security.model.Rol;
 
 public record CrearCuentaRequestDTO(
@@ -12,6 +14,9 @@ public record CrearCuentaRequestDTO(
     @NotBlank(message = "El apellido paterno es obligatorio") String apellidoPaterno,
     @NotBlank(message = "El apellido materno es obligatorio") String apellidoMaterno,
     @NotBlank(message = "El usuario es obligatorio")
+        @Pattern(
+            regexp = UsernamePolicy.PATRON,
+            message = "El usuario solo puede contener letras y números")
         @Size(max = 50, message = "El usuario es muy largo")
         String username,
     @NotBlank(message = "El correo es obligatorio")

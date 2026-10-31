@@ -79,10 +79,11 @@ class CargaMasivaUsuariosIntegrationTest {
     String s = sufijo();
     String dniApoderado = dniAleatorio();
     String dniDocente = dniAleatorio();
+    String dniAlumno = dniAleatorio();
     String csv =
         CABECERA
             + "ALUMNO,"
-            + dniAleatorio()
+            + dniAlumno
             + ",Luis,Torres,Quispe,al"
             + s
             + "@colegio.edu.pe,,2011-05-14,"
@@ -111,14 +112,17 @@ class CargaMasivaUsuariosIntegrationTest {
             .getContentAsString();
 
     String contrasenhaDocente = null;
+    String usernameDocente = null;
     for (JsonNode cuenta : json.readTree(cuerpo).get("cuentas")) {
       if ("DOCENTE".equals(cuenta.get("rol").asText())) {
         contrasenhaDocente = cuenta.get("contrasenhaTemporal").asText();
+        usernameDocente = cuenta.get("username").asText();
       }
     }
     assertNotNull(contrasenhaDocente);
+    assertEquals("usuario" + dniDocente, usernameDocente);
 
-    String docente = login("do" + s + "@colegio.edu.pe", contrasenhaDocente);
+    String docente = login(usernameDocente, contrasenhaDocente);
     mvc.perform(multipart(URL).file(archivo(csv)).header("Authorization", "Bearer " + docente))
         .andExpect(status().isForbidden());
   }
@@ -127,7 +131,7 @@ class CargaMasivaUsuariosIntegrationTest {
   void cargaSeparaUsernameDeCorreoYPermiteLoginConAmbos() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String sufijo = sufijo();
-    String username = "docente-" + sufijo;
+    String username = "docente" + sufijo;
     String correo = "contacto-" + sufijo + "@colegio.edu.pe";
     String dni = dniAleatorio();
     String csv =
@@ -158,6 +162,25 @@ class CargaMasivaUsuariosIntegrationTest {
   }
 
   @Test
+  void cargaRechazaUsernameConFormatoDeCorreo() throws Exception {
+    String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String dni = dniAleatorio();
+    String csv =
+        "rol,dni,nombres,apellido_paterno,apellido_materno,correo,telefono,fecha_nacimiento,"
+            + "dni_apoderado,parentesco,username\n"
+            + "DOCENTE,"
+            + dni
+            + ",Ana,Perez,Diaz,contacto"
+            + sufijo()
+            + "@colegio.edu.pe,,,,,usuario@ejemplo.com\n";
+
+    mvc.perform(multipart(URL).file(archivo(csv)).header("Authorization", "Bearer " + admin))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.errores[0].campo").value("username"));
+    assertFalse(cuentas.findByPersonaDni(dni).isPresent());
+  }
+
+  @Test
   void cargaConDniRepetido_procesaLaFilaValidaYRechazaLaDuplicada() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String s = sufijo();
@@ -183,8 +206,7 @@ class CargaMasivaUsuariosIntegrationTest {
         .andExpect(jsonPath("$.errores[0].fila").value(2))
         .andExpect(jsonPath("$.errores[0].campo").value("dni"));
 
-    assertTrue(cuentas.existsByUsername("uno" + s + "@colegio.edu.pe"));
-    assertFalse(cuentas.existsByUsername("dos" + s + "@colegio.edu.pe"));
+    assertTrue(cuentas.existsByUsername("usuario" + dni));
   }
 
   @Test
@@ -207,7 +229,8 @@ class CargaMasivaUsuariosIntegrationTest {
             .getContentAsString();
     String contrasenhaTemporal =
         json.readTree(cuerpoOriginal).get("cuentas").get(0).get("contrasenhaTemporal").asText();
-    CuentaUsuario cuentaOriginal = cuentas.findByUsernameIgnoreCase(correoOriginal).orElseThrow();
+    CuentaUsuario cuentaOriginal = cuentas.findByPersonaDni(dni).orElseThrow();
+    assertEquals("usuario" + dni, cuentaOriginal.getUsername());
     Integer cuentaId = cuentaOriginal.getId();
     String hashOriginal = cuentaOriginal.getPassword();
 
@@ -232,6 +255,7 @@ class CargaMasivaUsuariosIntegrationTest {
     assertEquals(hashOriginal, cuentaActualizada.getPassword());
     assertEquals("Andrea", personas.findByDni(dni).orElseThrow().getNombre());
     assertEquals(correoActualizado, personas.findByDni(dni).orElseThrow().getCorreo());
+    assertEquals("usuario" + dni, cuentaActualizada.getUsername());
     login(correoActualizado, contrasenhaTemporal);
   }
 

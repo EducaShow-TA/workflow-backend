@@ -136,6 +136,18 @@ class CuentaUsuarioIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     "{\"nombre\":\"Andrea\",\"apellidoPaterno\":\"Lopez\","
+                        + "\"apellidoMaterno\":\"Rojas\",\"username\":\"correo@ejemplo.com\","
+                        + "\"correo\":\"actualizada"
+                        + sufijo
+                        + "@contacto.edu.pe\"}"))
+        .andExpect(status().isBadRequest());
+
+    mvc.perform(
+            put("/api/v1/cuentas-usuario/{id}", id)
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"nombre\":\"Andrea\",\"apellidoPaterno\":\"Lopez\","
                         + "\"apellidoMaterno\":\"Rojas\",\"username\":\"actualizada"
                         + sufijo
                         + "\",\"correo\":\"actualizada"
@@ -224,7 +236,7 @@ class CuentaUsuarioIntegrationTest {
   @Test
   void administradorNoPuedeDesactivarSuPropiaCuenta() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
-    int id = cuentas.findByUsername("admin@educore.edu.pe").orElseThrow().getId();
+    int id = cuentas.findById(1).orElseThrow().getId();
 
     mvc.perform(
             patch("/api/v1/cuentas-usuario/{id}/estado", id)
@@ -235,9 +247,20 @@ class CuentaUsuarioIntegrationTest {
   }
 
   @Test
-  void permiteUsernameQueNoEsCorreoYRechazaPasswordMayorAlLimiteBcrypt() throws Exception {
+  void exigeUsernameAlfanumericoYRechazaPasswordMayorAlLimiteBcrypt() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
     String suffix = UUID.randomUUID().toString().substring(0, 8);
+
+    mvc.perform(
+            post("/api/v1/cuentas-usuario")
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    cuenta(suffix, "dni" + suffix, "DOCENTE")
+                        .replace(
+                            "\"username\":\"u" + suffix + "\"",
+                            "\"username\":\"usuario@ejemplo.com\"")))
+        .andExpect(status().isBadRequest());
 
     String respuesta =
         mvc.perform(
@@ -248,13 +271,13 @@ class CuentaUsuarioIntegrationTest {
                         cuenta(suffix, "dni" + suffix, "DOCENTE")
                             .replace(
                                 "\"username\":\"u" + suffix + "\"",
-                                "\"username\":\"username-invalido\"")))
+                                "\"username\":\"usernameinvalido\"")))
             .andExpect(status().isCreated())
             .andReturn()
             .getResponse()
             .getContentAsString();
     org.junit.jupiter.api.Assertions.assertEquals(
-        "username-invalido", json.readTree(respuesta).get("username").asText());
+        "usernameinvalido", json.readTree(respuesta).get("username").asText());
 
     mvc.perform(
             post("/api/v1/cuentas-usuario")

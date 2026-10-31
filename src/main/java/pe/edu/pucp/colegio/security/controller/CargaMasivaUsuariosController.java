@@ -29,9 +29,9 @@ public class CargaMasivaUsuariosController {
   private static final String PLANTILLA =
       """
             rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,parentesco
-            APODERADO,40111222,Rosa,Quispe,Mamani,rosa.quispe@correo.com,rosa.quispe,987654321,,,
-            ALUMNO,70333444,Luis,Torres,Quispe,luis.torres@colegio.edu.pe,luis.torres,,2011-05-14,40111222,MADRE
-            DOCENTE,10555666,Carlos,Vega,Rios,carlos.vega@colegio.edu.pe,carlos.vega,,,,
+            APODERADO,40111222,Rosa,Quispe,Mamani,rosa.quispe@correo.com,rosaquispe,987654321,,,
+            ALUMNO,70333444,Luis,Torres,Quispe,luis.torres@colegio.edu.pe,luistorres,,2011-05-14,40111222,MADRE
+            DOCENTE,10555666,Carlos,Vega,Rios,carlos.vega@colegio.edu.pe,carlosvega,,,,
             """;
 
   private final CargaMasivaUsuariosService servicio;

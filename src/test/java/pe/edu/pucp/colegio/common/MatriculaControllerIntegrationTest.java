@@ -232,7 +232,7 @@ class MatriculaControllerIntegrationTest {
         String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
     EstudianteCreateRequest request =
         new EstudianteCreateRequest(
-            "alumno-" + suffix,
+            "alumno" + suffix,
             "ClaveSegura123",
             "DNI",
             dni,

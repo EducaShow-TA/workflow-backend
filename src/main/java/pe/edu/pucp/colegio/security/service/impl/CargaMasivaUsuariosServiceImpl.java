@@ -21,6 +21,7 @@ import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.security.dto.CargaMasivaResultadoDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaCargadaDTO;
 import pe.edu.pucp.colegio.security.dto.ErrorFilaDTO;
@@ -268,14 +269,12 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
         fila.dni() == null ? null : cuentas.findByPersonaDni(fila.dni()).orElse(null);
     String usernameEfectivo =
         fila.username() == null
-            ? (cuentaExistente == null ? fila.correo() : cuentaExistente.getUsername())
+            ? (cuentaExistente == null
+                ? UsernamePolicy.generarDesdeDocumento(fila.dni())
+                : cuentaExistente.getUsername())
             : fila.username();
-    if (fila.username() == null
-        && cuentaExistente == null
-        && usernameEfectivo != null
-        && usernameEfectivo.length() > 50) {
-      agregar(
-          errores, fila.fila(), "username", "El correo usado como usuario supera 50 caracteres");
+    if (fila.username() != null && !UsernamePolicy.esValido(fila.username().trim())) {
+      agregar(errores, fila.fila(), "username", "Use solo letras y números en el usuario");
     }
     if (usernameEfectivo != null
         && !usernamesVistos.add(usernameEfectivo.trim().toLowerCase(Locale.ROOT))) {

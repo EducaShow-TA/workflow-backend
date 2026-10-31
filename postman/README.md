@@ -21,12 +21,15 @@ La colección usa el administrador semilla local:
 
 | Variable | Valor inicial |
 | --- | --- |
-| `adminUser` | `admin@educore.edu.pe` |
+| `adminUsername` | `admin01` |
+| `adminEmail` | `admin@educore.edu.pe` |
 | `adminPassword` | `Admin2026!` |
 
 Son credenciales exclusivamente de desarrollo. Si la contraseña fue cambiada en esa base, actualiza `adminPassword` en el environment.
 
 La dirección del administrador es un correo de prueba, no un buzón real supervisado. `Solicitar recuperación` envía el campo `correo` y valida la respuesta genérica, pero **no se espera recibir un correo ni completar el restablecimiento** en la configuración local predeterminada. La solicitud `Restablecer contraseña` se omite automáticamente mientras `resetToken` conserve el valor de marcador. Solo reemplázalo por un token real cuando hayas configurado correo saliente y puedas leer el mensaje recibido.
+
+El campo `adminUsername` se usa para probar el inicio de sesión con username; el endpoint también acepta el correo de contacto como identificador. El campo de recuperación usa siempre `adminEmail`.
 
 ## Qué ejecuta la colección
 
