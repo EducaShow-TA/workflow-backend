@@ -14,6 +14,7 @@ import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
 import pe.edu.pucp.colegio.common.dto.ConfirmacionMasivaMatriculaRequest;
 import pe.edu.pucp.colegio.common.dto.MatriculaMasivaCreateRequest;
+import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.service.MatriculaService;
 
 /** Expone las operaciones de matrícula de estudiantes en periodos académicos. */
@@ -42,14 +43,15 @@ public class MatriculaController {
 
   @PatchMapping("/{estudianteId}/confirmar")
   public ResponseEntity<MatriculaResponse> confirmar(
-      @PathVariable Integer periodoId, @PathVariable Integer estudianteId) {
-    return ResponseEntity.ok(matriculas.confirmar(periodoId, estudianteId));
+      @PathVariable Integer periodoId, @PathVariable Integer estudianteId,
+      @Valid @RequestBody CompromisoPagoRequest compromiso) {
+    return ResponseEntity.ok(matriculas.confirmar(periodoId, estudianteId, compromiso));
   }
 
   @PatchMapping("/confirmar-masivo")
   public ResponseEntity<java.util.List<MatriculaResponse>> confirmarMasivamente(
       @PathVariable Integer periodoId, @Valid @RequestBody ConfirmacionMasivaMatriculaRequest request) {
-    return ResponseEntity.ok(matriculas.confirmarMasivamente(periodoId, request.estudianteIds()));
+    return ResponseEntity.ok(matriculas.confirmarMasivamente(periodoId, request));
   }
 
   @DeleteMapping("/{estudianteId}")
