@@ -4,5 +4,7 @@ public enum AccionAuditoria {
   INICIAR_SESION,
   CREAR,
   ACTUALIZAR,
-  ELIMINAR
+  ELIMINAR,
+  GENERAR_BOLETA,
+  REGISTRAR_PAGO
 }

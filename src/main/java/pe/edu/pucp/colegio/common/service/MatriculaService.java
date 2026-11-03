@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
+import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
+import pe.edu.pucp.colegio.common.dto.ConfirmacionMasivaMatriculaRequest;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
@@ -29,6 +31,7 @@ public class MatriculaService {
   private final VacantesService vacantes;
   private final SeccionRepository secciones;
   private final PeriodoMatriculaService periodosMatricula;
+  private final FinanzasService finanzas;
 
   public MatriculaService(
       MatriculaRepository matriculas,
@@ -36,13 +39,15 @@ public class MatriculaService {
       PeriodoRepository periodos,
       VacantesService vacantes,
       SeccionRepository secciones,
-      PeriodoMatriculaService periodosMatricula) {
+      PeriodoMatriculaService periodosMatricula,
+      FinanzasService finanzas) {
     this.matriculas = matriculas;
     this.estudiantes = estudiantes;
     this.periodos = periodos;
     this.vacantes = vacantes;
     this.secciones = secciones;
     this.periodosMatricula = periodosMatricula;
+    this.finanzas = finanzas;
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -104,7 +109,7 @@ public class MatriculaService {
   }
 
   @Transactional
-  public MatriculaResponse confirmar(Integer periodoId, Integer estudianteId) {
+  public MatriculaResponse confirmar(Integer periodoId, Integer estudianteId, CompromisoPagoRequest compromisoRequest) {
     Periodo periodo = buscarPeriodo(periodoId);
     secciones
         .findByIdForUpdate(periodo.getSeccion().getId())
@@ -121,15 +126,17 @@ public class MatriculaService {
           HttpStatus.CONFLICT, "Solo se puede confirmar una matrícula en registro");
     }
     matricula.setEstado(EstadoMatricula.CONFIRMADA);
-    return respuesta(matriculas.save(matricula));
+    matricula = matriculas.save(matricula);
+    finanzas.crearCompromiso(matricula, compromisoRequest);
+    return respuesta(matricula);
   }
 
   @Transactional
-  public List<MatriculaResponse> confirmarMasivamente(Integer periodoId, List<Integer> estudianteIds) {
+  public List<MatriculaResponse> confirmarMasivamente(Integer periodoId, ConfirmacionMasivaMatriculaRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
     secciones.findByIdForUpdate(periodo.getSeccion().getId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sección"));
-    List<Integer> ids = estudianteIds.stream().distinct().toList();
+    List<Integer> ids = request.estudianteIds().stream().distinct().toList();
     if (ids.isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
     }
@@ -146,7 +153,10 @@ public class MatriculaService {
       pendientes.add(matricula);
     }
     pendientes.forEach(m -> m.setEstado(EstadoMatricula.CONFIRMADA));
-    return matriculas.saveAll(pendientes).stream().map(this::respuesta).toList();
+    List<Matricula> confirmadas = matriculas.saveAll(pendientes);
+    CompromisoPagoRequest terminos = request.compromiso();
+    confirmadas.forEach(m -> finanzas.crearCompromiso(m, terminos));
+    return confirmadas.stream().map(this::respuesta).toList();
   }
 
   @Transactional

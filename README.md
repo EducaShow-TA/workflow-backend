@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, ventanas de matrícula, periodos académicos, matrículas, vacantes, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -25,7 +25,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 - Para las rutas protegidas, enviar `Authorization: Bearer <token>`.
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
 - Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
-- Todas las rutas protegidas requieren autenticación. Las operaciones de cuentas, matrícula, estudiantes, períodos, vacantes, catálogo curricular, secciones, plantillas horarias y logs están restringidas al rol `ADMINISTRADOR` mediante autorización a nivel de controlador. `GET /api/v1/auth/me` está disponible para cualquier usuario autenticado; login y recuperación son públicos.
+- Todas las rutas protegidas requieren autenticación. Las operaciones de cuentas, matrícula, estudiantes, períodos, vacantes, catálogo curricular, secciones, pensiones, plantillas horarias y logs están restringidas al rol `ADMINISTRADOR` mediante autorización a nivel de controlador. `GET /api/v1/auth/me` está disponible para cualquier usuario autenticado; login y recuperación son públicos.
 - La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; el catálogo de grados se inicializa con los grados 1.º a 5.º de secundaria mediante Flyway.
 
 #### Resumen de rutas
@@ -75,7 +75,16 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/periodos/{periodoId}/vacantes` | Consultar vacantes de un periodo |
 | `POST` | `/api/v1/periodos/{periodoId}/matriculas` | Registrar una matrícula |
 | `PATCH` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar` | Confirmar una matrícula en registro |
+| `PATCH` | `/api/v1/periodos/{periodoId}/matriculas/confirmar-masivo` | Confirmar matrículas y crear compromisos de pago en lote |
 | `DELETE` | `/api/v1/periodos/{periodoId}/matriculas/{estudianteId}` | Eliminar una matrícula |
+| `GET` | `/api/v1/compromisos-pago` | Listar compromisos, opcionalmente por estudiante |
+| `GET` | `/api/v1/compromisos-pago/{id}` | Consultar un compromiso |
+| `GET` | `/api/v1/boletas-pension` | Listar boletas por alumno, periodo, mes o estado |
+| `GET` | `/api/v1/boletas-pension/{id}` | Consultar una boleta |
+| `POST` | `/api/v1/boletas-pension/manual` | Generar manualmente una boleta del cronograma |
+| `POST` | `/api/v1/boletas-pension/{id}/pagos` | Registrar pago verificado y emitir comprobante |
+| `GET` | `/api/v1/boletas-pension/{id}/comprobantes` | Consultar comprobantes de una boleta |
+| `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 
@@ -378,7 +387,38 @@ Periodo o estudiante inexistente responde `404`; falta de vacantes o matrícula 
 
 #### `PATCH /api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar`
 
-Confirma la matrícula activa del estudiante en el periodo. No recibe cuerpo y devuelve `200` con la matrícula en estado `CONFIRMADA`. Solo se puede confirmar desde `EN_REGISTRO`; una segunda confirmación o un estado distinto responde `409`. Si no existe la matrícula activa, responde `404`.
+Confirma la matrícula activa y crea, dentro de la misma transacción, un compromiso de pago y la primera boleta automática. El estudiante debe tener un apoderado principal. Ejemplo de cuerpo:
+
+```json
+{
+  "concepto": "Pensión escolar",
+  "montoTotal": 1200.00,
+  "numeroCuotas": 12,
+  "primerVencimiento": "2026-12-10",
+  "diaVencimiento": 10
+}
+```
+
+`numeroCuotas` admite de 1 a 24; el primer vencimiento no puede estar en el pasado y debe coincidir con `diaVencimiento` (de 1 a 28). Responde `200` con la matrícula confirmada. Una segunda confirmación responde `409`; si el estudiante no tiene apoderado principal o los términos no son válidos, responde `422`. La creación del compromiso y la boleta se revierte si falla la confirmación.
+
+#### `PATCH /api/v1/periodos/{periodoId}/matriculas/confirmar-masivo`
+
+Confirma en una sola transacción a los estudiantes indicados y crea un compromiso por cada matrícula. El cuerpo comparte los mismos términos de pago para el lote:
+
+```json
+{
+  "estudianteIds": [31, 32],
+  "compromiso": {
+    "concepto": "Pensión escolar",
+    "montoTotal": 1200.00,
+    "numeroCuotas": 12,
+    "primerVencimiento": "2026-12-10",
+    "diaVencimiento": 10
+  }
+}
+```
+
+Si una matrícula no está en registro, no existe o no tiene apoderado principal, se revierte todo el lote.
 
 #### `DELETE /api/v1/periodos/{periodoId}/matriculas/{estudianteId}`
 
@@ -387,6 +427,32 @@ Confirma la matrícula activa del estudiante en el periodo. No recibe cuerpo y d
 ### Logs de errores
 
 `GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
+
+### Pensiones y cobranza (US-1.3–US-1.6, US-1.10, US-1.12)
+
+Todas las rutas de este módulo requieren rol `ADMINISTRADOR`. La confirmación de matrícula crea el compromiso asociado a la matrícula y una primera boleta automática. Las cuotas dividen el monto total en partes de dos decimales; cualquier residuo de redondeo se asigna a la última cuota. Las siguientes boletas se generan con el proceso diario, que también marca como `EN_MORA` las boletas `PENDIENTE` cuyo vencimiento ya pasó. La mora no agrega recargo monetario porque no hay una regla de penalidad configurada.
+
+`GET /api/v1/compromisos-pago?estudianteId=31` lista compromisos; `GET /api/v1/compromisos-pago/{id}` consulta uno. Las boletas se consultan mediante `GET /api/v1/boletas-pension` con filtros opcionales `estudianteId`, `periodoId`, `mes` (`YYYY-MM`) y `estado` (`PENDIENTE`, `PAGADA`, `EN_MORA`). `GET /api/v1/boletas-pension/{id}` consulta el detalle.
+
+Para generar una boleta manual dentro del cronograma, enviar `POST /api/v1/boletas-pension/manual`:
+
+```json
+{ "matriculaId": 55, "mesCobro": "2027-01" }
+```
+
+El sistema rechaza el mes fuera del compromiso o una boleta ya existente con `409`. La generación automática y manual guarda mecanismo, fecha/hora y auditoría.
+
+`POST /api/v1/boletas-pension/{id}/pagos` registra un pago verificado por administración. El monto debe coincidir con el total de la boleta y no se admite un segundo pago:
+
+```json
+{ "monto": 100.00, "medioPago": "PRESENCIAL", "referencia": "REC-2026-001" }
+```
+
+Al aceptar el pago, la boleta pasa a `PAGADA` y se crea un comprobante. Un monto distinto responde `422`; pago duplicado o referencia de comprobante repetida responde `409`. `GET /api/v1/boletas-pension/{id}/comprobantes` devuelve los comprobantes asociados.
+
+El reporte `GET /api/v1/reportes/boletas-pension` admite `gradoId`, `seccionId`, `estado`, `vencimientoDesde` y `vencimientoHasta` (`YYYY-MM-DD`). Devuelve las boletas filtradas, `montoPendiente` y la cantidad de `familiasMorosas` distintas incluidas en el resultado. Un rango de fechas invertido responde `422`.
+
+US-1.12 queda cubierto como registro del pago y emisión del comprobante. Este backend no integra una pasarela externa; el pago `VIRTUAL` registrado por esta ruta se considera verificado por el administrador.
 
 ## Estructura
 
@@ -599,7 +665,7 @@ El proyecto cuenta con pruebas unitarias y de integración para autenticación y
 ./mvnw verify     # pruebas, formato y umbral de cobertura
 ```
 
-## Avance del Sprint 1 y pendientes
+## Avance del Sprint 1 y Sprint 2
 
 | Historia | Avance del backend |
 | --- | --- |
@@ -613,6 +679,12 @@ El proyecto cuenta con pruebas unitarias y de integración para autenticación y
 | US-5.5 Log de errores | Implementada: captura, persistencia y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Login y recuperar contraseña | Implementada en backend con BCrypt, bloqueo y token temporal. La entrega por correo requiere un destinatario/servicio accesible. |
 | US-5.9 Carga masiva CSV | Implementada en backend: carga CSV protegida para administrador, procesamiento parcial por fila, actualización de personas/cuentas existentes sin cambiar contraseña o rol, creación de perfiles/vínculos y reporte de resultados. La interfaz de usuario aún está pendiente. |
+| US-1.3 Compromiso de pago | Implementada: se crea al confirmar una matrícula, con monto total, número de cuotas, primer vencimiento y día mensual. |
+| US-1.4 Boletas de pensión | Implementada: primera boleta al confirmar, generación mensual automática y generación manual idempotente con auditoría. |
+| US-1.5 Boletas y estados | Implementada: consulta por estudiante/periodo/mes/estado; el registro de un pago verificado cambia la boleta a `PAGADA` y emite comprobante. |
+| US-1.6 Morosidad | Implementada: proceso diario marca vencidas impagas como `EN_MORA`; no se calcula recargo monetario. |
+| US-1.10 Reporte de cobranza | Implementada: filtros por grado, sección, estado y rango de vencimiento; incluye total pendiente y familias morosas distintas. |
+| US-1.12 Pago en línea | Parcial: el backend registra pago y comprobante; integración con pasarela externa pendiente de definición del equipo. |
 
 El estado actual de las historias se describe en la tabla anterior. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 
