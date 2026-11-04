@@ -18,8 +18,11 @@ import pe.edu.pucp.colegio.common.dto.BoletaPensionReporteResponse;
 import pe.edu.pucp.colegio.common.dto.BoletaPensionResponse;
 import pe.edu.pucp.colegio.common.dto.ComprobantePagoResponse;
 import pe.edu.pucp.colegio.common.dto.CompromisoPagoResponse;
+import pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse;
 import pe.edu.pucp.colegio.common.dto.GenerarBoletaManualRequest;
+import pe.edu.pucp.colegio.common.dto.PaginaBoletasResponse;
 import pe.edu.pucp.colegio.common.dto.RegistrarPagoRequest;
+import pe.edu.pucp.colegio.common.dto.ReporteBoletasPaginadoResponse;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.service.FinanzasService;
 
@@ -63,7 +66,8 @@ public class FinanzasController {
   @PostMapping("/boletas-pension/manual")
   public ResponseEntity<BoletaPensionResponse> generarBoletaManual(
       @Valid @RequestBody GenerarBoletaManualRequest request) {
-    return ResponseEntity.status(201).body(finanzas.generarManual(request.matriculaId(), request.mesCobro()));
+    return ResponseEntity.status(201)
+        .body(finanzas.generarManual(request.matriculaId(), request.mesCobro()));
   }
 
   @PostMapping("/boletas-pension/{id}/pagos")
@@ -82,8 +86,42 @@ public class FinanzasController {
       @RequestParam(required = false) Integer gradoId,
       @RequestParam(required = false) Integer seccionId,
       @RequestParam(required = false) EstadoBoleta estado,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimientoDesde,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimientoHasta) {
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate vencimientoDesde,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate vencimientoHasta) {
     return finanzas.reporte(gradoId, seccionId, estado, vencimientoDesde, vencimientoHasta);
+  }
+
+  /** Ruta nueva: conserva el contrato de lista de /boletas-pension para otros clientes. */
+  @GetMapping("/boletas-pension/pagina")
+  public PaginaBoletasResponse paginaBoletas(
+      @RequestParam(required = false) Integer estudianteId,
+      @RequestParam(required = false) Integer periodoId,
+      @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth mes,
+      @RequestParam(required = false) EstadoBoleta estado,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return finanzas.paginaBoletas(estudianteId, periodoId, mes, estado, page, size);
+  }
+
+  @GetMapping("/boletas-pension/estudiantes")
+  public List<EstudianteConBoletasResponse> estudiantesConBoletas() {
+    return finanzas.estudiantesConBoletas();
+  }
+
+  @GetMapping("/reportes/boletas-pension/pagina")
+  public ReporteBoletasPaginadoResponse paginaReporte(
+      @RequestParam(required = false) Integer gradoId,
+      @RequestParam(required = false) Integer seccionId,
+      @RequestParam(required = false) EstadoBoleta estado,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate vencimientoDesde,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate vencimientoHasta,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return finanzas.paginaReporte(
+        gradoId, seccionId, estado, vencimientoDesde, vencimientoHasta, page, size);
   }
 }
