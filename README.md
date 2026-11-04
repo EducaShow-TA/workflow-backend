@@ -495,7 +495,7 @@ Flyway crea las tablas de seguridad, catálogo curricular, ventanas globales de 
 
 El repositorio incluye Maven Wrapper, configurado para Maven 3.9.16. Se requiere un JDK 25. La primera ejecución necesita conexión a internet para descargar Maven; las siguientes reutilizan la copia guardada en la caché del usuario.
 
-Para instalar los requisitos y levantar MySQL, backend y frontend en tu máquina, sigue [`docs/despliegue-local.md`](docs/despliegue-local.md). El flujo de ramas y Pull Requests está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
+Para instalar los requisitos y levantar MySQL, backend y frontend en tu máquina, sigue [`docs/despliegue-local.md`](docs/despliegue-local.md). El despliegue en AWS para las demos se describe en [`docs/despliegue-produccion.md`](docs/despliegue-produccion.md). El flujo de ramas y Pull Requests está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
 ### Usar Maven Wrapper
 
@@ -688,7 +688,7 @@ El proyecto cuenta con pruebas unitarias y de integración para autenticación y
 
 El estado actual de las historias se describe en la tabla anterior. Las instrucciones de la colección de Postman están en [`postman/README.md`](postman/README.md).
 
-La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue planeado en AWS. El despliegue en AWS no está configurado en este repositorio.
+La arquitectura objetivo se describe en el Documento de Arquitectura del proyecto: aplicación Spring Boot monolítica modular, MySQL con migraciones Flyway, frontend SPA independiente y despliegue en AWS. El despliegue en AWS (EC2, RDS y S3) y el workflow que publica desde `main` se describen en [`docs/despliegue-produccion.md`](docs/despliegue-produccion.md).
 
 ## Referencias
 
