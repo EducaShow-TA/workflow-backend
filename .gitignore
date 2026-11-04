@@ -90,6 +90,7 @@ Desktop.ini
 
 # --- Local / project specific ---
 data/
+uploads/evidencias/
 localResources/
 READMELOCAL.md
 .notes/
