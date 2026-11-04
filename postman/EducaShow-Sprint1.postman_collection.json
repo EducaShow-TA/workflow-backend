@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "41c99ff6-f2b9-450b-b43b-4bab3c084801",
     "name": "EducaShow - Backend Sprint 1 y Pensiones Sprint 2",
-    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Cuenta semilla local: username admin01, correo admin@educore.edu.pe y contraseña Admin2026! (cámbiala solo si la clave de tu base fue rotada).\n\nCobertura: US-1.1 ventana de matrícula, US-1.2 estudiantes y matrícula, US-1.7 Vacantes por sección, US-3.5 Catálogo curricular, US-4.3 plantillas horarias, US-5.1 estado de cuentas, US-5.2 roles y permisos, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.9 carga CSV. Consulta postman/README.md para la preparación y los límites de las pruebas de correo.\n\nCobertura de pensiones Sprint 2: compromiso automático al confirmar matrícula, primera boleta automática, generación manual y rechazo de duplicados, registro de pago/comprobante, estados y reporte consolidado. La pasarela externa y la transición a mora no tienen un caso Postman determinista; consulta postman/README.md.",
+    "description": "Colección ejecutable en local para las APIs implementadas del Sprint 1. Importa también el environment 'EducaShow - Local', selecciónalo y ejecuta Run en orden. El login obtiene y guarda el JWT; la colección crea IDs de prueba y los reutiliza. Cuenta semilla local: username admin01, correo admin@educore.edu.pe y contraseña Admin2026! (cámbiala solo si la clave de tu base fue rotada).\n\nCobertura: US-1.1 ventana de matrícula, US-1.2 estudiantes y matrícula, US-1.7 Vacantes por sección, US-3.5 Catálogo curricular, US-3.7 tareas y seguimiento, US-3.8 calificaciones con evidencia, US-4.3 plantillas horarias, US-5.1 estado de cuentas, US-5.2 roles y permisos, US-5.5 Logs, US-5.6 login/solicitud de recuperación y US-5.9 carga CSV. Consulta postman/README.md para la preparación y los límites de las pruebas de correo y carga manual de archivos.\n\nCobertura de pensiones Sprint 2: compromiso automático al confirmar matrícula, primera boleta automática, generación manual y rechazo de duplicados, registro de pago/comprobante, estados y reporte consolidado. La pasarela externa y la transición a mora no tienen un caso Postman determinista; consulta postman/README.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -252,7 +252,8 @@
                 "exec": [
                   "pm.test('Competencia independiente creada', () => pm.response.to.have.status(201));",
                   "pm.expect(pm.response.json().codigo).to.be.a('string').and.not.empty;",
-                  "pm.environment.set('competenciaIndependienteCodigo', pm.response.json().codigo);"
+                  "pm.environment.set('competenciaIndependienteCodigo', pm.response.json().codigo);",
+                  "pm.environment.set('competenciaIndependienteId', String(pm.response.json().id));"
                 ]
               }
             }
@@ -740,6 +741,26 @@
               }
             }
           ]
+        },
+        {
+          "name": "Reactivar competencia independiente para US-3.7/3.8",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"activo\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/competencias/{{competenciaIndependienteId}}/estado",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "competencias", "{{competenciaIndependienteId}}", "estado"]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Competencia reactivada para tareas y calificaciones', () => pm.response.to.have.status(200));",
+              "pm.expect(pm.response.json().activo).to.eql(true);"
+            ] }
+          }]
         },
         {
           "name": "Desactivar área por DELETE",
@@ -1711,6 +1732,288 @@
           ]
         },
         {
+          "name": "Crear tarea de prueba y guardar tareaId (US-3.7)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodoId\": {{periodoId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Tarea Postman {{$guid}}\",\n  \"descripcion\": \"Tarea creada para probar seguimiento de entregas\",\n  \"fechaLimite\": \"2026-11-28T23:59:00\",\n  \"ponderacion\": 15\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tareas"]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Crea la tarea', () => pm.response.to.have.status(200));",
+              "const tarea = pm.response.json();",
+              "pm.expect(tarea.ponderacion).to.eql(15);",
+              "const entrega = tarea.entregas.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
+              "pm.expect(entrega, 'la matrícula confirmada aparece en el seguimiento').to.exist;",
+              "pm.expect(entrega.cumplida).to.eql(false);",
+              "pm.environment.set('tareaId', String(tarea.id));"
+            ] }
+          }]
+        },
+        {
+          "name": "Crear tarea sin ponderación opcional (US-3.7)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodoId\": {{periodoId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Tarea sin ponderación {{$guid}}\",\n  \"descripcion\": \"La ponderación es opcional\",\n  \"fechaLimite\": \"2026-11-28T23:59:00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tareas", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tareas"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Crea tarea con ponderación opcional ausente', () => pm.response.to.have.status(200));",
+              "pm.expect(pm.response.json().ponderacion).to.eql(null);"
+            ] }
+          }]
+        },
+        {
+          "name": "Consultar tareas del periodo y comprobar seguimiento (US-3.7)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas?periodoId={{periodoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tareas"],
+              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Lista las tareas del periodo', () => pm.response.to.have.status(200));",
+              "const tarea = pm.response.json().find(x => String(x.id) === pm.environment.get('tareaId'));",
+              "pm.expect(tarea, 'la tarea creada se devuelve en el periodo').to.exist;",
+              "pm.expect(tarea.entregas).to.be.an('array').and.not.empty;"
+            ] }
+          }]
+        },
+        {
+          "name": "Marcar entrega cumplida (US-3.7)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cumplida\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}/entregas/{{matriculaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tareas", "{{tareaId}}", "entregas", "{{matriculaId}}"]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Actualiza el cumplimiento de la matrícula', () => pm.response.to.have.status(200));",
+              "const entrega = pm.response.json().entregas.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
+              "pm.expect(entrega.cumplida).to.eql(true);",
+              "pm.expect(entrega.fechaCumplimiento).to.be.a('string').and.not.empty;"
+            ] }
+          }]
+        },
+        {
+          "name": "Registrar calificación con evidencia URL (US-3.8)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{
+                "key": "datos",
+                "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"AD\",\"observacion\":\"Evidencia de prueba Postman\",\"evidenciaUrl\":\"https://example.org/evidencia-postman\"}",
+                "contentType": "application/json",
+                "type": "text"
+              }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calificaciones",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "calificaciones"]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Registra calificación con URL', () => pm.response.to.have.status(200));",
+              "const calificacion = pm.response.json();",
+              "pm.expect(calificacion.nota).to.eql('AD');",
+              "pm.expect(calificacion.evidenciaTipo).to.eql('URL');",
+              "pm.expect(calificacion.evidenciaUrl).to.eql('https://example.org/evidencia-postman');",
+              "pm.environment.set('calificacionId', String(calificacion.id));"
+            ] }
+          }]
+        },
+        {
+          "name": "Ver evidencia en seguimiento de competencia (US-3.8)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "seguimiento", "competencias", "{{competenciaIndependienteCodigo}}"],
+              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Consulta seguimiento por competencia', () => pm.response.to.have.status(200));",
+              "const calificacion = pm.response.json().find(x => String(x.id) === pm.environment.get('calificacionId'));",
+              "pm.expect(calificacion, 'la calificación aparece en la ficha').to.exist;",
+              "pm.expect(calificacion.nota).to.eql('AD');",
+              "pm.expect(calificacion.evidenciaUrl).to.eql('https://example.org/evidencia-postman');"
+            ] }
+          }]
+        },
+        {
+          "name": "Rechazar ponderación mayor a 100 (US-3.7)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodoId\": {{periodoId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Ponderación inválida\",\n  \"descripcion\": \"Debe rechazarse\",\n  \"fechaLimite\": \"2026-11-28T23:59:00\",\n  \"ponderacion\": 101\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tareas", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tareas"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Rechaza ponderación fuera del rango 0–100', () => pm.response.to.have.status(400));"
+            ] }
+          }]
+        },
+        {
+          "name": "Rechazar evidencia URL con protocolo no permitido (US-3.8)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{
+                "key": "datos",
+                "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"evidenciaUrl\":\"ftp://example.org/evidencia\"}",
+                "contentType": "application/json",
+                "type": "text"
+              }]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/calificaciones", "host": ["{{baseUrl}}"], "path": ["api", "v1", "calificaciones"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Rechaza URL que no use HTTP/HTTPS', () => pm.response.to.have.status(422));"
+            ] }
+          }]
+        },
+        {
+          "name": "Registrar calificación con archivo (manual; US-3.8)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "datos",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"observacion\":\"Archivo adjunto desde Postman\",\"evidenciaUrl\":null}",
+                  "contentType": "application/json",
+                  "type": "text"
+                },
+                { "key": "archivo", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/calificaciones", "host": ["{{baseUrl}}"], "path": ["api", "v1", "calificaciones"] }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "type": "text/javascript", "exec": [
+                "if (pm.environment.get('runFileEvidencePostman') !== 'true') pm.execution.skipRequest();"
+              ] }
+            },
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": [
+                "pm.test('Registra archivo de evidencia', () => pm.response.to.have.status(200));",
+                "const evidencia = pm.response.json();",
+                "pm.expect(evidencia.evidenciaTipo).to.eql('ARCHIVO');",
+                "pm.expect(evidencia.evidenciaUrl).to.include('/api/v1/evidencias/');",
+                "pm.environment.set('evidenciaArchivoUrl', evidencia.evidenciaUrl);"
+              ] }
+            }
+          ]
+        },
+        {
+          "name": "Descargar archivo adjunto (manual; US-3.8)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{evidenciaArchivoUrl}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "evidencias", "{{calificacionId}}", "archivo"] }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "type": "text/javascript", "exec": [
+                "if (pm.environment.get('runFileEvidencePostman') !== 'true') pm.execution.skipRequest();"
+              ] }
+            },
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": [
+                "pm.test('Descarga el archivo de evidencia', () => pm.response.to.have.status(200));",
+                "pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');"
+              ] }
+            }
+          ]
+        },
+        {
+          "name": "Rechazar archivo de evidencia mayor a 10 MB (manual; US-3.8)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "datos",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"evidenciaUrl\":null}",
+                  "contentType": "application/json",
+                  "type": "text"
+                },
+                { "key": "archivo", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/calificaciones", "host": ["{{baseUrl}}"], "path": ["api", "v1", "calificaciones"] }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "type": "text/javascript", "exec": [
+                "if (pm.environment.get('runOversizeEvidencePostman') !== 'true') pm.execution.skipRequest();"
+              ] }
+            },
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": [
+                "pm.test('Rechaza archivo que supera 10 MB', () => pm.response.to.have.status(413));"
+              ] }
+            }
+          ]
+        },
+        {
           "name": "Rechazar doble confirmación de matrícula",
           "request": {
             "method": "PATCH",
@@ -2589,6 +2892,54 @@
               }
             }
           ]
+        },
+        {
+          "name": "Docente puede consultar tareas del periodo (US-3.7)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{docenteToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas?periodoId={{periodoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tareas"],
+              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('DOCENTE tiene acceso al seguimiento de tareas', () => pm.response.to.have.status(200));",
+              "pm.expect(pm.response.json().some(x => String(x.id) === pm.environment.get('tareaId'))).to.eql(true);"
+            ] }
+          }]
+        },
+        {
+          "name": "Docente puede ver evidencia en ficha de competencia (US-3.8)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{docenteToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "seguimiento", "competencias", "{{competenciaIndependienteCodigo}}"],
+              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('DOCENTE puede consultar la ficha de competencia', () => pm.response.to.have.status(200));",
+              "const calificacion = pm.response.json().find(x => String(x.id) === pm.environment.get('calificacionId'));",
+              "pm.expect(calificacion, 'la calificación con evidencia sigue disponible').to.exist;",
+              "pm.expect(calificacion.evidenciaTipo).to.eql('URL');"
+            ] }
+          }]
         },
         {
           "name": "Docente no puede listar cuentas (403)",

@@ -39,6 +39,12 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/auth/**")
                     .authenticated()
+                    .requestMatchers(
+                        "/api/v1/tareas/**",
+                        "/api/v1/calificaciones/**",
+                        "/api/v1/seguimiento/**",
+                        "/api/v1/evidencias/**")
+                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                     .requestMatchers("/api/v1/**")
                     .hasRole("ADMINISTRADOR")
                     .anyRequest()
