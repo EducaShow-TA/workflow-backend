@@ -16,6 +16,10 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
 
   Optional<Matricula> findByPeriodoIdAndEstudianteId(Integer periodoId, Integer estudianteId);
 
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"estudiante", "estudiante.persona"})
+  List<Matricula> findAllByPeriodoIdAndActiveTrueAndEstadoIn(
+      Integer periodoId, List<pe.edu.pucp.colegio.common.model.EstadoMatricula> estados);
+
   @Query(
       "select count(distinct m.estudiante.id) from Matricula m "
           + "where m.periodo.seccion.id = :seccionId and m.active = true "
