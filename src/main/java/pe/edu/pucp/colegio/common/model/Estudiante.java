@@ -18,6 +18,9 @@ public class Estudiante extends EntidadBase {
   @OneToMany(mappedBy = "estudiante")
   private Set<VinculoFamiliar> vinculosFamiliares = new LinkedHashSet<>();
 
+  @OneToMany(mappedBy = "estudiante")
+  private Set<AsistenciaEstudiante> asistencias = new LinkedHashSet<>();
+
   public Persona getPersona() {
     return persona;
   }
@@ -48,5 +51,16 @@ public class Estudiante extends EntidadBase {
     }
     matriculas.add(matricula);
     matricula.setEstudiante(this);
+  }
+
+  public Set<AsistenciaEstudiante> getAsistencias() {
+    return asistencias;
+  }
+
+  public void agregarAsistencia(AsistenciaEstudiante asistencia) {
+    if (asistencia == null) {
+      throw new IllegalArgumentException("La asistencia del estudiante no puede ser nula");
+    }
+    asistencia.setEstudiante(this);
   }
 }

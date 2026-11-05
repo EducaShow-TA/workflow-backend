@@ -1,14 +1,17 @@
 package pe.edu.pucp.colegio.common.dto;
 
-import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 public record SesionClaseResponse(
     Integer id,
-    Integer bloqueId,
-    DayOfWeek dia,
+    Integer seccionId,
+    String seccionCodigo,
+    Integer gradoNumero,
     String areaCodigo,
     String areaNombre,
     Integer docenteId,
     String docenteNombre,
-    Integer aulaId,
-    String aulaCodigo) {}
+    LocalDate fecha,
+    LocalTime horaInicio,
+    LocalTime horaFin) {}

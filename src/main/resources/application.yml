@@ -53,6 +53,10 @@ app:
     password-reset:
       frontend-url: ${FRONTEND_PASSWORD_RESET_URL:http://localhost:3000/restablecer-contrasena}
       expiration-minutes: ${PASSWORD_RESET_EXPIRATION_MINUTES:15}
+    asistencia:
+      ventana-marcado-antes-minutos: ${ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS:15}
+      ventana-marcado-despues-minutos: ${ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS:30}
+      tolerancia-docente-minutos: ${ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS:10}
 logging:
     level:
         root: INFO

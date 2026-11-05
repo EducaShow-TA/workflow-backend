@@ -2,11 +2,14 @@ package pe.edu.pucp.colegio.common.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.time.DayOfWeek;
+import jakarta.validation.constraints.Size;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 public record SesionClaseRequest(
-    @NotNull Integer bloqueId,
-    @NotNull DayOfWeek dia,
-    @NotBlank String areaCodigo,
+    @NotNull Integer seccionId,
+    @NotBlank @Size(max = 50) String areaCodigo,
     @NotNull Integer docenteId,
-    @NotNull Integer aulaId) {}
+    @NotNull LocalDate fecha,
+    @NotNull LocalTime horaInicio,
+    @NotNull LocalTime horaFin) {}

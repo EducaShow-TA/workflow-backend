@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, asistencia por sesión, historial y justificación de asistencia, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -57,6 +57,19 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
+| `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
+| `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
+| `GET` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion/documento` | Descargar el documento de sustento (con acceso al historial) |
+| `POST` | `/api/v1/sesiones-clase` | Crear una sesión (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/sesiones-clase?fecha=&seccionId=` | Consultar sesiones (DOCENTE o ADMINISTRADOR) |
+| `GET` | `/api/v1/sesiones-clase/{sesionId}` | Consultar una sesión |
+| `POST` | `/api/v1/sesiones-clase/{sesionId}/asistencias` | Registrar asistencia de un alumno |
+| `GET` | `/api/v1/sesiones-clase/{sesionId}/asistencias` | Listar asistencias de una sesión |
+| `PATCH` | `/api/v1/sesiones-clase/{sesionId}/asistencias/{estudianteId}` | Ajustar el estado de asistencia de un alumno |
+| `POST` | `/api/v1/asistencias-docentes` | Registrar asistencia de cualquier docente (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/asistencias-docentes?fecha=&docenteId=` | Consultar asistencias de docentes (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/asistencias-docentes/{asistenciaId}` | Consultar una asistencia docente (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/asistencias-docentes/{asistenciaId}` | Ajustar asistencia docente con motivo (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/secciones` | Listar secciones y resumen de vacantes (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/secciones` | Crear sección (solo ADMINISTRADOR) |
 | `PATCH` | `/api/v1/secciones/{id}` | Actualizar capacidad de sección (solo ADMINISTRADOR) |
@@ -87,6 +100,35 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
+
+### Asistencia de alumnos y docentes (US-2.4, US-2.7, US-2.8 y US-2.9)
+
+Las sesiones se crean con sección, área, docente, fecha y horas. Un alumno solo puede tener un registro por sesión. DOCENTE y ADMINISTRADOR pueden registrar y ajustar estados (`PRESENTE`, `AUSENTE`, `TARDANZA`, `JUSTIFICADA` o `PENDIENTE_MARCAJE`). La creación de sesiones está restringida a ADMINISTRADOR.
+
+Para registrar una asistencia, envía `POST /api/v1/sesiones-clase/{sesionId}/asistencias` con:
+
+```json
+{
+  "estudianteId": 42,
+  "estado": "PRESENTE"
+}
+```
+
+El historial se consulta con `GET /api/v1/asistencias-estudiantes/{estudianteId}/historial`, opcionalmente con `desde=YYYY-MM-DD` y `hasta=YYYY-MM-DD`. Un alumno solo puede consultar su propio historial; un apoderado, el de los alumnos con quienes tiene un vínculo familiar activo. DOCENTE y ADMINISTRADOR pueden consultar cualquier historial.
+
+Para justificar una inasistencia registrada como `AUSENTE`, alumno o apoderado envía `PATCH /api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` como `multipart/form-data`, con las partes `motivo` y `documento`. El archivo se guarda usando el almacenamiento de evidencias (`app.storage.evidence-dir`, máximo 10 MB); el historial devuelve la URL para descargarlo. La justificación cambia el estado a `JUSTIFICADA`.
+
+La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
+
+La ventana para marcar asistencia de alumnos y la tolerancia docente se configuran en `application.yml` o mediante estas variables de entorno:
+
+| Variable | Predeterminado | Uso |
+| --- | ---: | --- |
+| `ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS` | `15` | Minutos antes del inicio de sesión en que se abre el marcaje |
+| `ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS` | `30` | Minutos después del inicio en que se cierra el marcaje |
+| `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
+
+Los límites de apertura y cierre del marcaje son inclusivos. Un administrador puede ajustar una asistencia ya registrada fuera de esa ventana.
 
 ### Secciones y vacantes (US-1.7)
 

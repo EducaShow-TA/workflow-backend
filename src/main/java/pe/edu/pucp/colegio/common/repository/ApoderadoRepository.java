@@ -9,4 +9,6 @@ public interface ApoderadoRepository extends JpaRepository<Apoderado, Integer> {
   boolean existsByPersonaDni(String dni);
 
   Optional<Apoderado> findByPersonaDni(String dni);
+
+  Optional<Apoderado> findByPersonaIdAndActiveTrue(Integer personaId);
 }

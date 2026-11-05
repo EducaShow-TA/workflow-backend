@@ -2,106 +2,121 @@ package pe.edu.pucp.colegio.common.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.time.DayOfWeek;
-import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
-/** Celda de la grilla: qué área dicta qué docente, en qué aula, en un día y bloque. */
 @Entity
 @Table(
-        name = "sesiones_clase",
-        uniqueConstraints =
+    name = "sesiones_clase",
+    uniqueConstraints =
         @UniqueConstraint(
-                name = "uk_sesion_horario_bloque_dia",
-                columnNames = {"horario_id", "bloque_id", "dia"}))
-public class SesionClase {
+            name = "uk_sesion_clase_seccion_area_fecha_inicio",
+            columnNames = {"seccion_id", "area_codigo", "fecha", "hora_inicio"}))
+public class SesionClase extends EntidadBase {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "seccion_id", nullable = false)
+  private Seccion seccion;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "horario_id", nullable = false)
-    private HorarioSeccion horario;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "area_codigo", nullable = false)
+  private Area area;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "bloque_id", nullable = false)
-    private BloqueHorario bloque;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "docente_id", nullable = false)
+  private Docente docente;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 15)
-    private DayOfWeek dia;
+  @Column(nullable = false)
+  private LocalDate fecha;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "area_codigo", nullable = false)
-    private Area area;
+  @Column(name = "hora_inicio", nullable = false)
+  private LocalTime horaInicio;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "docente_id", nullable = false)
-    private CuentaUsuario docente;
+  @Column(name = "hora_fin", nullable = false)
+  private LocalTime horaFin;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "aula_id", nullable = false)
-    private Aula aula;
+  @OneToMany(mappedBy = "sesionClase")
+  private Set<AsistenciaEstudiante> asistenciasEstudiantes = new LinkedHashSet<>();
 
-    public Integer getId() {
-        return id;
+  public Seccion getSeccion() {
+    return seccion;
+  }
+
+  public void setSeccion(Seccion seccion) {
+    this.seccion = seccion;
+  }
+
+  public Area getArea() {
+    return area;
+  }
+
+  public void setArea(Area area) {
+    this.area = area;
+  }
+
+  public Docente getDocente() {
+    return docente;
+  }
+
+  public void setDocente(Docente docente) {
+    if (this.docente == docente) {
+      return;
     }
-
-    public HorarioSeccion getHorario() {
-        return horario;
+    if (this.docente != null) {
+      this.docente.getSesionesClase().remove(this);
     }
-
-    public void setHorario(HorarioSeccion horario) {
-        this.horario = horario;
+    this.docente = docente;
+    if (docente != null) {
+      docente.getSesionesClase().add(this);
     }
+  }
 
-    public BloqueHorario getBloque() {
-        return bloque;
-    }
+  public LocalDate getFecha() {
+    return fecha;
+  }
 
-    public void setBloque(BloqueHorario bloque) {
-        this.bloque = bloque;
-    }
+  public void setFecha(LocalDate fecha) {
+    this.fecha = fecha;
+  }
 
-    public DayOfWeek getDia() {
-        return dia;
-    }
+  public LocalTime getHoraInicio() {
+    return horaInicio;
+  }
 
-    public void setDia(DayOfWeek dia) {
-        this.dia = dia;
+  public void setHoraInicio(LocalTime horaInicio) {
+    if (horaFin != null && horaInicio != null && !horaFin.isAfter(horaInicio)) {
+      throw new IllegalArgumentException("La hora de fin debe ser posterior a la hora de inicio");
     }
+    this.horaInicio = horaInicio;
+  }
 
-    public Area getArea() {
-        return area;
-    }
+  public LocalTime getHoraFin() {
+    return horaFin;
+  }
 
-    public void setArea(Area area) {
-        this.area = area;
+  public void setHoraFin(LocalTime horaFin) {
+    if (horaInicio != null && horaFin != null && !horaFin.isAfter(horaInicio)) {
+      throw new IllegalArgumentException("La hora de fin debe ser posterior a la hora de inicio");
     }
+    this.horaFin = horaFin;
+  }
 
-    public CuentaUsuario getDocente() {
-        return docente;
-    }
+  public Set<AsistenciaEstudiante> getAsistenciasEstudiantes() {
+    return asistenciasEstudiantes;
+  }
 
-    public void setDocente(CuentaUsuario docente) {
-        this.docente = docente;
+  public void agregarAsistenciaEstudiante(AsistenciaEstudiante asistencia) {
+    if (asistencia == null) {
+      throw new IllegalArgumentException("La asistencia del estudiante no puede ser nula");
     }
-
-    public Aula getAula() {
-        return aula;
-    }
-
-    public void setAula(Aula aula) {
-        this.aula = aula;
-    }
+    asistencia.setSesionClase(this);
+  }
 }
