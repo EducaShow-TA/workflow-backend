@@ -12,8 +12,11 @@ public interface VinculoFamiliarRepository extends JpaRepository<VinculoFamiliar
 
   List<VinculoFamiliar> findAllByEstudianteId(Integer estudianteId);
 
-  java.util.Optional<VinculoFamiliar> findFirstByEstudianteIdAndEsPrincipalTrueAndActiveTrueOrderByIdAsc(
-      Integer estudianteId);
+  java.util.Optional<VinculoFamiliar>
+      findFirstByEstudianteIdAndEsPrincipalTrueAndActiveTrueOrderByIdAsc(Integer estudianteId);
 
   long countByEstudianteId(Integer estudianteId);
+
+  boolean existsByEstudianteIdAndApoderadoIdAndActiveTrue(
+      Integer estudianteId, Integer apoderadoId);
 }
