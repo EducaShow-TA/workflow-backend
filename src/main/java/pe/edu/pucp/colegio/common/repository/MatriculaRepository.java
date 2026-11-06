@@ -16,7 +16,8 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
 
   Optional<Matricula> findByPeriodoIdAndEstudianteId(Integer periodoId, Integer estudianteId);
 
-  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"estudiante", "estudiante.persona"})
+  @org.springframework.data.jpa.repository.EntityGraph(
+      attributePaths = {"estudiante", "estudiante.persona"})
   List<Matricula> findAllByPeriodoIdAndActiveTrueAndEstadoIn(
       Integer periodoId, List<pe.edu.pucp.colegio.common.model.EstadoMatricula> estados);
 
@@ -37,4 +38,15 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
   }
 
   boolean existsByActiveTrueAndFechaMatriculaBetween(LocalDate desde, LocalDate hasta);
+
+  /** Alumnos con matrícula confirmada en la sección durante el periodo que incluye la fecha. */
+  @org.springframework.data.jpa.repository.EntityGraph(
+      attributePaths = {"estudiante", "estudiante.persona"})
+  @Query(
+      "select m from Matricula m where m.active = true "
+          + "and m.estado = pe.edu.pucp.colegio.common.model.EstadoMatricula.CONFIRMADA "
+          + "and m.periodo.seccion.id = :seccionId "
+          + "and m.periodo.fechaInicio <= :fecha and m.periodo.fechaFin >= :fecha")
+  List<Matricula> buscarConfirmadasEnSeccion(
+      @Param("seccionId") Integer seccionId, @Param("fecha") LocalDate fecha);
 }

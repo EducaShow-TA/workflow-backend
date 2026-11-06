@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
@@ -45,6 +46,18 @@ public class AsistenciaEstudiante extends EntidadBase {
 
   @Column(name = "documento_justificacion_tamanio")
   private Long documentoJustificacionTamanio;
+
+  @Column(name = "registrada_en")
+  private LocalDateTime registradaEn;
+
+  @Column(name = "registrada_por", length = 100)
+  private String registradaPor;
+
+  @Column(name = "corregida_en")
+  private LocalDateTime corregidaEn;
+
+  @Column(name = "corregida_por", length = 100)
+  private String corregidaPor;
 
   public Estudiante getEstudiante() {
     return estudiante;
@@ -148,6 +161,32 @@ public class AsistenciaEstudiante extends EntidadBase {
         archivoJustificacion == null || archivoJustificacion.isBlank()
             ? null
             : archivoJustificacion.trim();
+  }
+
+  public LocalDateTime getRegistradaEn() {
+    return registradaEn;
+  }
+
+  public String getRegistradaPor() {
+    return registradaPor;
+  }
+
+  public LocalDateTime getCorregidaEn() {
+    return corregidaEn;
+  }
+
+  public String getCorregidaPor() {
+    return corregidaPor;
+  }
+
+  public void anotarRegistro(String usuario, LocalDateTime momento) {
+    registradaPor = usuario;
+    registradaEn = momento;
+  }
+
+  public void anotarCorreccion(String usuario, LocalDateTime momento) {
+    corregidaPor = usuario;
+    corregidaEn = momento;
   }
 
   private void limpiarJustificacion() {
