@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -44,6 +45,8 @@ import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.model.SesionClase;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -242,6 +245,69 @@ class AsistenciaRestIntegrationTest {
             .andExpect(jsonPath("$.estado").value("INASISTENCIA"));
   }
 
+  @Test
+  void marcarEntradaYSalida_docenteAutenticado_registraHoraDelServidor() throws Exception {
+    Fixture f = crearFixture();
+    String usuario = crearCuentaDocente(f);
+
+    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
+        .andExpect(jsonPath("$.fecha").value(FECHA_FIJA.toString()))
+        .andExpect(jsonPath("$.horaEntrada").value("10:05:00"))
+        .andExpect(jsonPath("$.estado").value("PRESENTE"));
+
+    mvc.perform(post("/api/v1/docentes/mis-asistencias/salida").with(user(usuario).roles("DOCENTE")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.horaSalida").value("10:05:00"));
+
+    mvc.perform(
+            get("/api/v1/docentes/mis-asistencias")
+                .param("desde", FECHA_FIJA.toString())
+                .param("hasta", FECHA_FIJA.toString())
+                .with(user(usuario).roles("DOCENTE")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].docenteId").value(f.docenteId()));
+  }
+
+  @Test
+  void marcarEntrada_dosVecesElMismoDia_devuelveConflicto() throws Exception {
+    Fixture f = crearFixture();
+    String usuario = crearCuentaDocente(f);
+    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
+        .andExpect(status().isCreated());
+
+    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void marcarEntrada_comoAdministrador_devuelveProhibido() throws Exception {
+    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada")).andExpect(status().isForbidden());
+  }
+
+  @Test
+  void registrarAsistenciaDeOtroDocente_comoDocente_devuelveProhibido() throws Exception {
+    Fixture f = crearFixture();
+    String usuario = crearCuentaDocente(f);
+
+    mvc.perform(
+            post("/api/v1/asistencias-docentes")
+                .with(user(usuario).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    json(
+                        new AsistenciaDocenteCreateRequest(
+                            f.docenteId(),
+                            f.fecha(),
+                            EstadoAsistenciaDocente.PRESENTE,
+                            LocalTime.of(8, 0),
+                            null,
+                            null))))
+        .andExpect(status().isForbidden());
+  }
+
   private Fixture crearFixture() {
     String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     Persona personaEstudiante = new Persona(suffix, "Ana", "Prueba", "Alumno");
@@ -287,6 +353,14 @@ class AsistenciaRestIntegrationTest {
             seccion.getId(),
             sesion.getId(),
             FECHA_FIJA);
+  }
+
+  private String crearCuentaDocente(Fixture f) {
+    Docente docente = entityManager.find(Docente.class, f.docenteId());
+    String usuario = "doc" + docente.getPersona().getDni().toLowerCase();
+    entityManager.persist(new CuentaUsuario(usuario, "hash", Rol.DOCENTE, docente.getPersona()));
+    entityManager.flush();
+    return usuario;
   }
 
   private void registrarAsistencia(Fixture f, AsistenciaEstudianteRequest request)

@@ -47,7 +47,8 @@ public class SecurityConfig {
                     .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                     .requestMatchers("/api/v1/sesiones-clase/**")
                     .hasAnyRole("DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers("/api/v1/docentes/mis-clases/**")
+                    .requestMatchers(
+                        "/api/v1/docentes/mis-clases/**", "/api/v1/docentes/mis-asistencias/**")
                     .hasRole("DOCENTE")
                     .requestMatchers("/api/v1/asistencias-docentes/**")
                     .hasRole("ADMINISTRADOR")
