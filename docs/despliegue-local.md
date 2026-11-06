@@ -23,11 +23,14 @@ peticiones al backend, igual que Nginx lo hará en producción. Por eso el backe
 | Git | cualquiera reciente | Clonar los repositorios |
 | JDK | **25** (el proyecto es Java 25) | Compilar y ejecutar el backend |
 | Maven | 3.9 o superior | Build del backend |
-| Node.js + npm | Node 22 LTS | Frontend (Nuxt 4) |
+| Node.js + npm | Node 22 LTS + **npm 11** (o superior) | Frontend (Nuxt 4) |
 | Docker | Engine o Desktop | Base de datos MySQL 8.4 |
 
 > **Usa JDK 25, no uno más nuevo.** Con JDK 27, Spotless falla con `NoSuchFieldError ... endPositions`.
 > Si tienes varios JDK, apunta `JAVA_HOME` al 25 antes de usar Maven.
+
+> **Usa npm 11 o superior.** Node 22 trae npm 10, que no acepta el `package-lock.json` del frontend
+> (`Missing: crossws@... from lock file`). Actualízalo con `npm install -g npm@11` (el equipo y el CI usan 11.16.0).
 
 ### Arch Linux / CachyOS
 
@@ -49,10 +52,11 @@ curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 sdk install java 25-tem
 
-# Node 22 con nvm
+# Node 22 con nvm, y npm 11
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
 source ~/.bashrc
 nvm install 22
+npm install -g npm@11
 ```
 
 ### Windows (PowerShell)
@@ -62,6 +66,7 @@ winget install Git.Git
 winget install EclipseAdoptium.Temurin.25.JDK
 winget install OpenJS.NodeJS.LTS
 winget install Docker.DockerDesktop
+npm install -g npm@11      # en una terminal nueva, después de instalar Node
 ```
 
 Maven: descarga el binario de <https://maven.apache.org/download.cgi>, descomprímelo y agrega su carpeta `bin` al
@@ -74,7 +79,7 @@ git --version
 java -version      # debe decir 25
 mvn -v             # "Java version: 25..."
 node -v            # v22.x
-npm -v
+npm -v             # 11.x o superior
 docker --version
 ```
 
@@ -259,6 +264,7 @@ Antes de compartir la URL:
 | Docker: `port is already allocated` (3306) | Ya tienes otro MySQL/MariaDB en ese puerto. Apágalo o usa `-p 3307:3306` y cambia el puerto en `DB_URL`. |
 | La cuenta queda bloqueada al iniciar sesión | Tras 3 intentos fallidos la cuenta se bloquea 15 minutos (US-5.6). Espera o recrea la base. |
 | Al iniciar sesión el botón se queda esperando y no pasa nada | El backend está apagado: el `devProxy` no responde mientras `:8080` no esté escuchando. Arráncalo (`mvn spring-boot:run`). |
+| `npm ci`: `Missing: crossws@... from lock file` o `EBADENGINE ... Required: {"npm":">=11"}` | Tienes npm 10 (el que trae Node 22). Actualízalo con `npm install -g npm@11` y repite `npm ci`. No ejecutes `npm install` con npm 10: reescribe el `package-lock.json`. |
 | `npm warn install-scripts ... blocked` | npm 12 bloquea scripts de instalación de dependencias (`esbuild`, `unrs-resolver`). El proyecto funciona igual; se puede ignorar. |
 | Flyway: `MySQL 8.4 is newer than this version of Flyway` | Solo es una advertencia: la versión de Flyway de Spring Boot 3.5 no prueba oficialmente MySQL 8.4. Las migraciones se aplican bien. |
 | Maven: `Could not transfer metadata ... flyway-community-db-support ... 401` | Solo es una advertencia: un POM de Flyway declara un repositorio de GitHub Packages que exige autenticación. Las dependencias se descargan de Maven Central y el build no se afecta. |
