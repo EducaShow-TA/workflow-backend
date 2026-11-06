@@ -66,6 +66,12 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/sesiones-clase/{sesionId}/asistencias` | Registrar asistencia de un alumno |
 | `GET` | `/api/v1/sesiones-clase/{sesionId}/asistencias` | Listar asistencias de una sesión |
 | `PATCH` | `/api/v1/sesiones-clase/{sesionId}/asistencias/{estudianteId}` | Ajustar el estado de asistencia de un alumno |
+| `GET` | `/api/v1/sesiones-clase/mias?fecha=` | Sesiones del docente que inicia sesión (solo DOCENTE) |
+| `GET` | `/api/v1/sesiones-clase/{sesionId}/lista` | Lista de asistencia de la sesión con todos los alumnos matriculados |
+| `PUT` | `/api/v1/sesiones-clase/{sesionId}/asistencias` | Guardar en bloque la asistencia de la sesión dentro de la ventana de marcaje |
+| `GET` | `/api/v1/docentes` | Listar docentes activos (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/docentes/mis-clases` | Secciones y áreas del docente con sus competencias activas (solo DOCENTE) |
+| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/alumnos` | Alumnos confirmados de una de sus clases, para calificar (solo DOCENTE) |
 | `POST` | `/api/v1/asistencias-docentes` | Registrar asistencia de cualquier docente (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes?fecha=&docenteId=` | Consultar asistencias de docentes (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes/{asistenciaId}` | Consultar una asistencia docente (solo ADMINISTRADOR) |
