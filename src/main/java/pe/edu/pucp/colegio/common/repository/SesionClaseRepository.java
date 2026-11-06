@@ -22,6 +22,14 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Intege
           + "order by s.fecha desc, s.horaInicio desc")
   List<SesionClase> buscar(@Param("fecha") LocalDate fecha, @Param("seccionId") Integer seccionId);
 
+  /** Pares (sección, área) que dicta el docente: cada par es una de sus clases. */
+  @Query(
+      "select distinct s.seccion.id, s.area.codigo from SesionClase s"
+          + " where s.active = true and s.docente.id = :docenteId")
+  List<Object[]> buscarClasesDelDocente(@Param("docenteId") Integer docenteId);
+
+  boolean existsByDocenteIdAndSeccionIdAndActiveTrue(Integer docenteId, Integer seccionId);
+
   @EntityGraph(attributePaths = {"seccion", "seccion.grado", "area", "docente", "docente.persona"})
   List<SesionClase> findAllByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(
       Integer docenteId, LocalDate fecha);
