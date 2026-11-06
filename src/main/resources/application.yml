@@ -57,6 +57,7 @@ app:
       ventana-marcado-antes-minutos: ${ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS:15}
       ventana-marcado-despues-minutos: ${ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS:30}
       tolerancia-docente-minutos: ${ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS:10}
+      ventana-docente-antes-minutos: ${ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS:30}
 logging:
     level:
         root: INFO

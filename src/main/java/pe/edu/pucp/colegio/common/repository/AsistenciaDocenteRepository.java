@@ -24,4 +24,19 @@ public interface AsistenciaDocenteRepository extends JpaRepository<AsistenciaDoc
       @Param("fecha") LocalDate fecha, @Param("docenteId") Integer docenteId);
 
   boolean existsByDocenteIdAndFechaAndActiveTrue(Integer docenteId, LocalDate fecha);
+
+  @EntityGraph(attributePaths = {"docente", "docente.persona"})
+  Optional<AsistenciaDocente> findByDocenteIdAndFechaAndActiveTrue(
+      Integer docenteId, LocalDate fecha);
+
+  @EntityGraph(attributePaths = {"docente", "docente.persona"})
+  @Query(
+      "select a from AsistenciaDocente a where a.active = true and a.docente.id = :docenteId "
+          + "and (:desde is null or a.fecha >= :desde) "
+          + "and (:hasta is null or a.fecha <= :hasta) "
+          + "order by a.fecha desc")
+  List<AsistenciaDocente> buscarDelDocente(
+      @Param("docenteId") Integer docenteId,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta);
 }
