@@ -3,10 +3,13 @@ package pe.edu.pucp.colegio.common.repository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.Periodo;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import pe.edu.pucp.colegio.common.model.Matricula;
 
 public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
 
@@ -15,6 +18,29 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
   List<Matricula> findAllByEstudianteIdIn(List<Integer> estudianteIds);
 
   Optional<Matricula> findByPeriodoIdAndEstudianteId(Integer periodoId, Integer estudianteId);
+
+  @EntityGraph(
+      attributePaths = {
+        "estudiante",
+        "estudiante.persona",
+        "periodo",
+        "periodo.grado",
+        "periodo.seccion"
+      })
+  @Query(
+      "select m from Matricula m where m.estudiante.id = :estudianteId "
+          + "and m.active = true and m.estado = :estado and m.periodo.active = true "
+          + "and m.periodo.fechaInicio between :desde and :hasta "
+          + "and m.periodo.fechaInicio <= :fechaCorte "
+          + "and (m.periodo.id = :periodoId or m.periodo.actasCerradas = true) "
+          + "order by m.periodo.fechaInicio, m.periodo.id")
+  List<Matricula> buscarParaLibreta(
+      @Param("estudianteId") Integer estudianteId,
+      @Param("periodoId") Integer periodoId,
+      @Param("estado") EstadoMatricula estado,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta,
+      @Param("fechaCorte") LocalDate fechaCorte);
 
   @org.springframework.data.jpa.repository.EntityGraph(
       attributePaths = {"estudiante", "estudiante.persona"})

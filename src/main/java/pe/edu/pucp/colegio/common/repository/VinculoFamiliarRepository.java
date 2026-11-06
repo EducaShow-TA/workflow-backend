@@ -19,4 +19,7 @@ public interface VinculoFamiliarRepository extends JpaRepository<VinculoFamiliar
 
   boolean existsByEstudianteIdAndApoderadoIdAndActiveTrue(
       Integer estudianteId, Integer apoderadoId);
+
+  boolean existsByEstudianteIdAndApoderadoIdAndActiveTrueAndApoderadoActiveTrue(
+      Integer estudianteId, Integer apoderadoId);
 }

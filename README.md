@@ -63,6 +63,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/logros/recalculo` | Recalcular logros por periodo, grado o sección (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos/{id}/cierre-actas` | Cerrar actas del período (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/periodos/{id}/cierre-actas` | Consultar estado del cierre de actas (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}` | Descargar PDF oficial tras cierre de actas o informe preliminar con marca de borrador (ADMINISTRADOR, DOCENTE, apoderado vinculado) |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
