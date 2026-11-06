@@ -2,12 +2,17 @@ package pe.edu.pucp.colegio.security.repository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
 
 public interface CuentaUsuarioRepository extends JpaRepository<CuentaUsuario, Integer> {
 
   Optional<CuentaUsuario> findByUsername(String username);
+
+  @EntityGraph(attributePaths = "persona")
+  List<CuentaUsuario> findAllByRolAndActiveTrue(Rol rol);
 
   Optional<CuentaUsuario> findByUsernameIgnoreCase(String username);
 

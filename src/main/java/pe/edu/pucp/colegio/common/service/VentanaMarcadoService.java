@@ -21,15 +21,24 @@ public class VentanaMarcadoService {
     this.clock = clock;
   }
 
-  public void validar(LocalDate fechaSesion, LocalTime horaInicio) {
+  public LocalDateTime apertura(LocalDate fechaSesion, LocalTime horaInicio) {
+    return LocalDateTime.of(fechaSesion, horaInicio)
+        .minusMinutes(properties.getVentanaMarcadoAntesMinutos());
+  }
+
+  public LocalDateTime cierre(LocalDate fechaSesion, LocalTime horaInicio) {
+    return LocalDateTime.of(fechaSesion, horaInicio)
+        .plusMinutes(properties.getVentanaMarcadoDespuesMinutos());
+  }
+
+  public boolean estaAbierta(LocalDate fechaSesion, LocalTime horaInicio) {
     LocalDateTime ahora = LocalDateTime.now(clock);
-    LocalDateTime apertura =
-        LocalDateTime.of(fechaSesion, horaInicio)
-            .minusMinutes(properties.getVentanaMarcadoAntesMinutos());
-    LocalDateTime cierre =
-        LocalDateTime.of(fechaSesion, horaInicio)
-            .plusMinutes(properties.getVentanaMarcadoDespuesMinutos());
-    if (ahora.isBefore(apertura) || ahora.isAfter(cierre)) {
+    return !ahora.isBefore(apertura(fechaSesion, horaInicio))
+        && !ahora.isAfter(cierre(fechaSesion, horaInicio));
+  }
+
+  public void validar(LocalDate fechaSesion, LocalTime horaInicio) {
+    if (!estaAbierta(fechaSesion, horaInicio)) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "El marcaje está fuera de la ventana permitida para esta sesión");
     }
