@@ -31,15 +31,18 @@ public class ConsolidacionLogroController {
   @PutMapping("/api/v1/competencias/{codigo}/regla-consolidacion")
   @PreAuthorize("hasRole('ADMINISTRADOR')")
   public ReglaConsolidacionResponse actualizarRegla(
-      @PathVariable String codigo, @Valid @RequestBody ReglaConsolidacionRequest request) {
-    return consolidacion.actualizarRegla(codigo, request);
+      @PathVariable String codigo,
+      @Valid @RequestBody ReglaConsolidacionRequest request,
+      Authentication authentication) {
+    return consolidacion.actualizarRegla(codigo, request, authentication.getName());
   }
 
   @PostMapping("/api/v1/evaluaciones-parciales")
   @PreAuthorize("hasRole('ADMINISTRADOR')")
   public ResponseEntity<EvaluacionParcialResponse> crearEvaluacion(
-      @Valid @RequestBody EvaluacionParcialRequest request) {
-    return ResponseEntity.status(201).body(consolidacion.crearEvaluacion(request));
+      @Valid @RequestBody EvaluacionParcialRequest request, Authentication authentication) {
+    return ResponseEntity.status(201)
+        .body(consolidacion.crearEvaluacion(request, authentication.getName()));
   }
 
   @GetMapping("/api/v1/evaluaciones-parciales")
@@ -56,14 +59,16 @@ public class ConsolidacionLogroController {
   @PreAuthorize("hasRole('ADMINISTRADOR')")
   public EvaluacionParcialResponse actualizarEvaluacion(
       @PathVariable Integer evaluacionId,
-      @Valid @RequestBody EvaluacionParcialActualizacionRequest request) {
-    return consolidacion.actualizarEvaluacion(evaluacionId, request);
+      @Valid @RequestBody EvaluacionParcialActualizacionRequest request,
+      Authentication authentication) {
+    return consolidacion.actualizarEvaluacion(evaluacionId, request, authentication.getName());
   }
 
   @DeleteMapping("/api/v1/evaluaciones-parciales/{evaluacionId}")
   @PreAuthorize("hasRole('ADMINISTRADOR')")
-  public ResponseEntity<Void> eliminarEvaluacion(@PathVariable Integer evaluacionId) {
-    consolidacion.eliminarEvaluacion(evaluacionId);
+  public ResponseEntity<Void> eliminarEvaluacion(
+      @PathVariable Integer evaluacionId, Authentication authentication) {
+    consolidacion.eliminarEvaluacion(evaluacionId, authentication.getName());
     return ResponseEntity.noContent().build();
   }
 
@@ -126,8 +131,9 @@ public class ConsolidacionLogroController {
 
   @PostMapping("/api/v1/logros/recalculo")
   @PreAuthorize("hasRole('ADMINISTRADOR')")
-  public RecalculoLogrosResponse recalcular(@RequestBody RecalculoLogrosRequest request) {
-    return consolidacion.recalcular(request);
+  public RecalculoLogrosResponse recalcular(
+      @RequestBody RecalculoLogrosRequest request, Authentication authentication) {
+    return consolidacion.recalcular(request, authentication.getName());
   }
 
   @PostMapping("/api/v1/periodos/{periodoId}/cierre-actas")

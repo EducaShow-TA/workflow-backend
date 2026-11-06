@@ -4,13 +4,15 @@ import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.*;
 import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.service.EvidenciaStorageService;
@@ -46,8 +48,18 @@ public class SeguimientoAcademicoController {
   @PostMapping(value = "/api/v1/calificaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<CalificacionResponse> registrarCalificacion(
       @Valid @RequestPart("datos") CalificacionRequest request,
-      @RequestPart(value = "archivo", required = false) MultipartFile archivo) {
-    return ResponseEntity.ok(service.registrarCalificacion(request, archivo));
+      @RequestPart(value = "archivo", required = false) MultipartFile archivo,
+      Authentication authentication) {
+    String rol =
+        authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .filter(autoridad -> autoridad.startsWith("ROLE_"))
+            .map(autoridad -> autoridad.substring("ROLE_".length()))
+            .findFirst()
+            .orElseThrow(
+                () -> new IllegalStateException("La cuenta autenticada no tiene un rol asignado"));
+    return ResponseEntity.ok(
+        service.registrarCalificacion(request, archivo, authentication.getName(), rol));
   }
 
   @GetMapping("/api/v1/seguimiento/competencias/{codigo}")

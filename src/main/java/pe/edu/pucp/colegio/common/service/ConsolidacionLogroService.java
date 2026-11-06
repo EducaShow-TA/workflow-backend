@@ -43,6 +43,7 @@ public class ConsolidacionLogroService {
   private final MatriculaRepository matriculas;
   private final CuentaUsuarioRepository usuarios;
   private final RegistroAuditoriaRepository auditoria;
+  private final AuditoriaCalificacionService auditoriaCalificaciones;
   private final DocenteService docentes;
   private final SesionClaseRepository sesiones;
   private final EvidenciaStorageService storage;
@@ -57,6 +58,7 @@ public class ConsolidacionLogroService {
       MatriculaRepository matriculas,
       CuentaUsuarioRepository usuarios,
       RegistroAuditoriaRepository auditoria,
+      AuditoriaCalificacionService auditoriaCalificaciones,
       DocenteService docentes,
       SesionClaseRepository sesiones,
       EvidenciaStorageService storage) {
@@ -69,6 +71,7 @@ public class ConsolidacionLogroService {
     this.matriculas = matriculas;
     this.usuarios = usuarios;
     this.auditoria = auditoria;
+    this.auditoriaCalificaciones = auditoriaCalificaciones;
     this.docentes = docentes;
     this.sesiones = sesiones;
     this.storage = storage;
@@ -95,7 +98,7 @@ public class ConsolidacionLogroService {
 
   @Transactional
   public ReglaConsolidacionResponse actualizarRegla(
-      String competenciaCodigo, ReglaConsolidacionRequest request) {
+      String competenciaCodigo, ReglaConsolidacionRequest request, String username) {
     buscarCompetencia(competenciaCodigo);
     validarUmbrales(request.umbralB(), request.umbralA(), request.umbralAd());
 
@@ -111,14 +114,16 @@ public class ConsolidacionLogroService {
         evaluaciones.findDistinctPeriodoIdsByCompetenciaCodigo(competenciaCodigo)) {
       Periodo periodo = periodos.findByIdAndActiveTrueForUpdate(periodoId).orElse(null);
       if (periodo != null && !Boolean.TRUE.equals(periodo.getActasCerradas())) {
-        recalcularCompetencia(periodo, competenciaCodigo, false);
+        recalcularCompetencia(
+            periodo, competenciaCodigo, false, username, "ADMINISTRADOR", "RECALCULAR_REGLA");
       }
     }
     return respuestaRegla(regla);
   }
 
   @Transactional
-  public EvaluacionParcialResponse crearEvaluacion(EvaluacionParcialRequest request) {
+  public EvaluacionParcialResponse crearEvaluacion(
+      EvaluacionParcialRequest request, String username) {
     Periodo periodo = periodoAbierto(request.periodoId());
     Competencia competencia = buscarCompetencia(request.competenciaCodigo());
     validarCompetenciaActiva(competencia);
@@ -129,13 +134,19 @@ public class ConsolidacionLogroService {
     evaluacion.setDescripcion(limpiar(request.descripcion()));
     evaluacion.setPonderacion(request.ponderacion());
     evaluacion = evaluaciones.save(evaluacion);
-    recalcularCompetencia(periodo, competencia.getCodigo(), false);
+    recalcularCompetencia(
+        periodo,
+        competencia.getCodigo(),
+        false,
+        username,
+        "ADMINISTRADOR",
+        "RECALCULAR_EVALUACION");
     return respuestaEvaluacion(evaluacion);
   }
 
   @Transactional
   public EvaluacionParcialResponse actualizarEvaluacion(
-      Integer evaluacionId, EvaluacionParcialActualizacionRequest request) {
+      Integer evaluacionId, EvaluacionParcialActualizacionRequest request, String username) {
     EvaluacionParcial evaluacion = evaluacionActiva(evaluacionId);
     Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
     evaluacion = evaluacionActiva(evaluacionId);
@@ -144,12 +155,18 @@ public class ConsolidacionLogroService {
     evaluacion.setDescripcion(limpiar(request.descripcion()));
     evaluacion.setPonderacion(request.ponderacion());
     evaluacion = evaluaciones.save(evaluacion);
-    recalcularCompetencia(periodo, evaluacion.getCompetencia().getCodigo(), false);
+    recalcularCompetencia(
+        periodo,
+        evaluacion.getCompetencia().getCodigo(),
+        false,
+        username,
+        "ADMINISTRADOR",
+        "RECALCULAR_EVALUACION");
     return respuestaEvaluacion(evaluacion);
   }
 
   @Transactional
-  public void eliminarEvaluacion(Integer evaluacionId) {
+  public void eliminarEvaluacion(Integer evaluacionId, String username) {
     EvaluacionParcial evaluacion = evaluacionActiva(evaluacionId);
     Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
     evaluacion = evaluacionActiva(evaluacionId);
@@ -157,9 +174,20 @@ public class ConsolidacionLogroService {
     evaluaciones.save(evaluacion);
     List<CalificacionParcial> notas =
         notasParciales.findAllByEvaluacionIdAndActiveTrueOrderByMatriculaId(evaluacionId);
-    notas.forEach(nota -> nota.setActive(false));
+    for (CalificacionParcial nota : notas) {
+      var anterior = auditoriaCalificaciones.capturarParcial(nota);
+      nota.setActive(false);
+      auditoriaCalificaciones.registrarParcial(
+          username, "ADMINISTRADOR", "DESACTIVAR_EVALUACION", anterior, nota);
+    }
     notasParciales.saveAll(notas);
-    recalcularCompetencia(periodo, evaluacion.getCompetencia().getCodigo(), false);
+    recalcularCompetencia(
+        periodo,
+        evaluacion.getCompetencia().getCodigo(),
+        false,
+        username,
+        "ADMINISTRADOR",
+        "RECALCULAR_EVALUACION");
   }
 
   @Transactional(readOnly = true)
@@ -246,6 +274,7 @@ public class ConsolidacionLogroService {
         notasParciales
             .findByEvaluacionIdAndMatriculaIdAndActiveTrue(evaluacionId, matriculaId)
             .orElseGet(CalificacionParcial::new);
+    var notaAnterior = auditoriaCalificaciones.capturarParcial(nota);
     nota.setEvaluacion(evaluacion);
     nota.setMatricula(matricula);
     nota.setNota(request.nota());
@@ -266,7 +295,19 @@ public class ConsolidacionLogroService {
     }
     nota.setFechaRegistro(LocalDateTime.now());
     nota = notasParciales.save(nota);
-    recalcularCompetencia(periodo, evaluacion.getCompetencia().getCodigo(), false);
+    auditoriaCalificaciones.registrarParcial(
+        username,
+        administrador ? "ADMINISTRADOR" : "DOCENTE",
+        "REGISTRAR_O_ACTUALIZAR",
+        notaAnterior,
+        nota);
+    recalcularCompetencia(
+        periodo,
+        evaluacion.getCompetencia().getCodigo(),
+        false,
+        username,
+        administrador ? "ADMINISTRADOR" : "DOCENTE",
+        "RECALCULAR_NOTA_PARCIAL");
     return respuestaNotaParcial(matricula, nota);
   }
 
@@ -289,7 +330,7 @@ public class ConsolidacionLogroService {
   }
 
   @Transactional
-  public RecalculoLogrosResponse recalcular(RecalculoLogrosRequest request) {
+  public RecalculoLogrosResponse recalcular(RecalculoLogrosRequest request, String username) {
     int filtros =
         (request.periodoId() == null ? 0 : 1)
             + (request.gradoId() == null ? 0 : 1)
@@ -316,7 +357,9 @@ public class ConsolidacionLogroService {
       procesados++;
       for (String codigo :
           evaluaciones.findDistinctCompetenciaCodigosByPeriodoId(periodo.getId())) {
-        actualizados += recalcularCompetencia(periodo, codigo, false);
+        actualizados +=
+            recalcularCompetencia(
+                periodo, codigo, false, username, "ADMINISTRADOR", "RECALCULO_MANUAL");
       }
     }
     return new RecalculoLogrosResponse(procesados, actualizados);
@@ -332,7 +375,7 @@ public class ConsolidacionLogroService {
       throw new BusinessException("Las actas del período ya están cerradas");
     }
     for (String codigo : evaluaciones.findDistinctCompetenciaCodigosByPeriodoId(periodoId)) {
-      recalcularCompetencia(periodo, codigo, true);
+      recalcularCompetencia(periodo, codigo, true, username, "ADMINISTRADOR", "CIERRE_ACTAS");
     }
     LocalDateTime fechaCierre = LocalDateTime.now();
     periodo.setActasCerradas(true);
@@ -361,7 +404,13 @@ public class ConsolidacionLogroService {
         periodo.getUsuarioCierreActas());
   }
 
-  private int recalcularCompetencia(Periodo periodo, String codigo, boolean cerrar) {
+  private int recalcularCompetencia(
+      Periodo periodo,
+      String codigo,
+      boolean cerrar,
+      String username,
+      String rolUsuario,
+      String accionAuditoria) {
     List<EvaluacionParcial> evaluacionesActivas =
         evaluaciones.findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrueOrderById(
             periodo.getId(), codigo);
@@ -372,8 +421,11 @@ public class ConsolidacionLogroService {
           .filter(c -> Boolean.TRUE.equals(c.getConsolidada()))
           .forEach(
               c -> {
+                var anterior = auditoriaCalificaciones.capturarFinal(c);
                 c.setActive(false);
                 calificaciones.save(c);
+                auditoriaCalificaciones.registrarFinal(
+                    username, rolUsuario, accionAuditoria, anterior, c);
               });
       return 0;
     }
@@ -392,6 +444,8 @@ public class ConsolidacionLogroService {
 
     if (cerrar) {
       List<CalificacionParcial> completar = new ArrayList<>();
+      Map<CalificacionParcial, AuditoriaCalificacionService.ParcialAnterior> anteriores =
+          new java.util.IdentityHashMap<>();
       for (EvaluacionParcial evaluacion : evaluacionesActivas) {
         for (Matricula matricula : roster) {
           String key = clave(evaluacion.getId(), matricula.getId());
@@ -407,16 +461,22 @@ public class ConsolidacionLogroService {
             existentes.add(nota);
             cambio = true;
           }
+          var notaAnterior = auditoriaCalificaciones.capturarParcial(nota);
           if (!Boolean.TRUE.equals(nota.getJustificada()) && nota.getNota() == null) {
             nota.setNota("C");
             cambio = true;
           }
           if (cambio) {
+            anteriores.put(nota, notaAnterior);
             completar.add(nota);
           }
         }
       }
-      notasParciales.saveAll(completar);
+      List<CalificacionParcial> guardadas = notasParciales.saveAll(completar);
+      for (CalificacionParcial nota : guardadas) {
+        auditoriaCalificaciones.registrarParcial(
+            username, rolUsuario, "COMPLETAR_FALTANTE_CIERRE_ACTAS", anteriores.get(nota), nota);
+      }
     }
 
     ReglaConsolidacionResponse regla = obtenerRegla(codigo);
@@ -436,6 +496,8 @@ public class ConsolidacionLogroService {
 
     int actualizados = 0;
     List<Calificacion> finalesAGuardar = new ArrayList<>();
+    Map<Calificacion, AuditoriaCalificacionService.FinalAnterior> anterioresFinales =
+        new java.util.IdentityHashMap<>();
     for (Matricula matricula : roster) {
       List<CalificacionParcial> notas = porMatricula.getOrDefault(matricula.getId(), List.of());
       BigDecimal ponderacionTotal = BigDecimal.ZERO;
@@ -459,6 +521,8 @@ public class ConsolidacionLogroService {
       if (ponderacionTotal.signum() == 0) {
         if (calificacionExistente != null
             && Boolean.TRUE.equals(calificacionExistente.getActive())) {
+          anterioresFinales.put(
+              calificacionExistente, auditoriaCalificaciones.capturarFinal(calificacionExistente));
           calificacionExistente.setActive(false);
           finalesAGuardar.add(calificacionExistente);
         }
@@ -469,6 +533,8 @@ public class ConsolidacionLogroService {
       BigDecimal puntaje = puntajeSinRedondear.setScale(4, RoundingMode.HALF_UP);
       Calificacion calificacion =
           calificacionExistente == null ? new Calificacion() : calificacionExistente;
+      anterioresFinales.put(
+          calificacion, auditoriaCalificaciones.capturarFinal(calificacionExistente));
       calificacion.setPeriodo(periodo);
       calificacion.setMatricula(matricula);
       calificacion.setCompetencia(buscarCompetencia(codigo));
@@ -486,7 +552,11 @@ public class ConsolidacionLogroService {
       finalesAGuardar.add(calificacion);
       actualizados++;
     }
-    calificaciones.saveAll(finalesAGuardar);
+    List<Calificacion> guardadas = calificaciones.saveAll(finalesAGuardar);
+    for (Calificacion calificacion : guardadas) {
+      auditoriaCalificaciones.registrarFinal(
+          username, rolUsuario, accionAuditoria, anterioresFinales.get(calificacion), calificacion);
+    }
     return actualizados;
   }
 

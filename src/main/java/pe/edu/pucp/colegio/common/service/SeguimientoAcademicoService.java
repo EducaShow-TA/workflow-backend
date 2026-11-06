@@ -21,16 +21,18 @@ public class SeguimientoAcademicoService {
   private final CompetenciaRepository competencias;
   private final MatriculaRepository matriculas;
   private final EvidenciaStorageService storage;
+  private final AuditoriaCalificacionService auditoriaCalificaciones;
 
   public SeguimientoAcademicoService(TareaRepository tareas, EntregaTareaRepository entregas,
       CalificacionRepository calificaciones, PeriodoRepository periodos,
       CompetenciaRepository competencias, MatriculaRepository matriculas,
-  EvaluacionParcialRepository evaluaciones,
-  EvidenciaStorageService storage) {
+      EvaluacionParcialRepository evaluaciones, EvidenciaStorageService storage,
+      AuditoriaCalificacionService auditoriaCalificaciones) {
     this.tareas = tareas; this.entregas = entregas; this.calificaciones = calificaciones;
     this.periodos = periodos; this.competencias = competencias; this.matriculas = matriculas;
     this.evaluaciones = evaluaciones;
     this.storage = storage;
+    this.auditoriaCalificaciones = auditoriaCalificaciones;
   }
 
   @Transactional
@@ -67,7 +69,8 @@ public class SeguimientoAcademicoService {
   }
 
   @Transactional
-  public CalificacionResponse registrarCalificacion(CalificacionRequest request, MultipartFile archivo) {
+  public CalificacionResponse registrarCalificacion(
+      CalificacionRequest request, MultipartFile archivo, String username, String rol) {
     Periodo periodo =
         periodos.findByIdAndActiveTrueForUpdate(request.periodoId())
             .orElseThrow(() -> new BusinessException("Período no encontrado"));
@@ -92,6 +95,7 @@ public class SeguimientoAcademicoService {
     validarUrl(request.evidenciaUrl(), archivo);
     Calificacion calificacion = calificaciones.findByPeriodoIdAndMatriculaIdAndCompetenciaCodigo(
         periodo.getId(), matricula.getId(), competencia.getCodigo()).orElseGet(Calificacion::new);
+    var calificacionAnterior = auditoriaCalificaciones.capturarFinal(calificacion);
     calificacion.setPeriodo(periodo); calificacion.setMatricula(matricula); calificacion.setCompetencia(competencia);
     calificacion.setNota(request.nota()); calificacion.setObservacion(request.observacion());
     calificacion.setPuntajeConsolidado(null); calificacion.setConsolidada(false);
@@ -107,7 +111,10 @@ public class SeguimientoAcademicoService {
       calificacion.setEvidenciaTipo(null); calificacion.setEvidenciaTamanio(null);
       calificacion.setEvidenciaUrl(request.evidenciaUrl().trim());
     }
-    return calificacionResponse(calificaciones.save(calificacion));
+    Calificacion guardada = calificaciones.save(calificacion);
+    auditoriaCalificaciones.registrarFinal(
+        username, rol, "REGISTRAR_O_ACTUALIZAR", calificacionAnterior, guardada);
+    return calificacionResponse(guardada);
   }
 
   @Transactional(readOnly = true)

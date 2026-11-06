@@ -117,6 +117,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
 
 ### Asistencia de alumnos y docentes (US-2.4, US-2.7, US-2.8 y US-2.9)
 
@@ -486,6 +487,12 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 ### Logs de errores
 
 `GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
+
+### Auditoría de cambios de calificaciones
+
+`GET /api/v1/logs/calificaciones` está restringido a `ADMINISTRADOR` y devuelve los cambios más recientes primero, paginados (20 por página por defecto). Admite filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo` y `tipo` (`FINAL` o `PARCIAL`).
+
+Cada registro identifica usuario, rol, fecha/hora, acción y los valores anteriores/nuevos. En calificaciones finales se guardan nota, puntaje consolidado, indicador de consolidación y observación; en las parciales, nota y estado de justificación. También se auditan los resultados recalculados, la materialización de faltantes al cerrar actas y las calificaciones parciales desactivadas junto con una evaluación. Los eventos se conservan en `auditoria_calificaciones`, separada de las tablas académicas y sin una operación de edición o borrado expuesta por la API.
 
 ### Pensiones y cobranza (US-1.3–US-1.6, US-1.10, US-1.12)
 

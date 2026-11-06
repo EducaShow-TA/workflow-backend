@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -134,6 +135,56 @@ class SeguimientoAcademicoIntegrationTest {
         .andExpect(jsonPath("$[0].estudiante").value("Ana Pérez Pérez"))
         .andExpect(jsonPath("$[0].nota").value("AD"))
         .andExpect(jsonPath("$[0].evidenciaUrl").value("https://example.org/evidencia"));
+  }
+
+  @Test
+  void registraAuditoriaDeCreacionYActualizacionDeCalificacionFinal() throws Exception {
+    mvc.perform(
+            multipart("/api/v1/calificaciones")
+                .part(
+                    partJson(
+                        "datos",
+                        objectMapper.writeValueAsBytes(
+                            new CalificacionRequestBody(
+                                periodoId,
+                                matriculaId,
+                                competenciaCodigo,
+                                "AD",
+                                "Primera observación",
+                                "https://example.org/evidencia")))))
+        .andExpect(status().isOk());
+
+    mvc.perform(
+            multipart("/api/v1/calificaciones")
+                .part(
+                    partJson(
+                        "datos",
+                        objectMapper.writeValueAsBytes(
+                            new CalificacionRequestBody(
+                                periodoId,
+                                matriculaId,
+                                competenciaCodigo,
+                                "A",
+                                "Observación actualizada",
+                                "https://example.org/evidencia")))))
+        .andExpect(status().isOk());
+
+    mvc.perform(
+            get("/api/v1/logs/calificaciones")
+                .with(user("admin-auditoria-test").roles("ADMINISTRADOR"))
+                .param("periodoId", periodoId.toString())
+                .param("matriculaId", matriculaId.toString())
+                .param("tipo", "FINAL"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page.totalElements").value(2))
+        .andExpect(jsonPath("$.content[0].usuario").value("docente-seguimiento-test"))
+        .andExpect(jsonPath("$.content[0].rolUsuario").value("DOCENTE"))
+        .andExpect(jsonPath("$.content[0].notaAnterior").value("AD"))
+        .andExpect(jsonPath("$.content[0].notaNueva").value("A"))
+        .andExpect(jsonPath("$.content[0].observacionAnterior").value("Primera observación"))
+        .andExpect(jsonPath("$.content[0].observacionNueva").value("Observación actualizada"))
+        .andExpect(jsonPath("$.content[1].notaAnterior").doesNotExist())
+        .andExpect(jsonPath("$.content[1].notaNueva").value("AD"));
   }
 
   @Test

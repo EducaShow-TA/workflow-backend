@@ -257,6 +257,48 @@ class ConsolidacionLogroIntegrationTest {
                 .bytes("evidencia".getBytes()));
   }
 
+  @Test
+  void registraCambiosParcialesYConsolidadosYPermiteConsultarlosComoAdministrador()
+      throws Exception {
+    int evaluacionId = crearEvaluacion("100.00");
+    guardarNota(evaluacionId, "B", false);
+    guardarNota(evaluacionId, "AD", false);
+
+    mvc.perform(
+            get("/api/v1/logs/calificaciones")
+                .param("periodoId", periodoId.toString())
+                .param("matriculaId", matriculaId.toString())
+                .param("competenciaCodigo", competenciaCodigo)
+                .param("tipo", "PARCIAL"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page.totalElements").value(2))
+        .andExpect(jsonPath("$.content[0].usuario").value("admin-consolidacion-test"))
+        .andExpect(jsonPath("$.content[0].accion").value("REGISTRAR_O_ACTUALIZAR"))
+        .andExpect(jsonPath("$.content[0].notaAnterior").value("B"))
+        .andExpect(jsonPath("$.content[0].notaNueva").value("AD"))
+        .andExpect(jsonPath("$.content[0].justificadaAnterior").value(false))
+        .andExpect(jsonPath("$.content[0].justificadaNueva").value(false))
+        .andExpect(jsonPath("$.content[0].evaluacionId").value(evaluacionId));
+
+    mvc.perform(
+            get("/api/v1/logs/calificaciones")
+                .param("periodoId", periodoId.toString())
+                .param("matriculaId", matriculaId.toString())
+                .param("tipo", "FINAL"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page.totalElements").value(2))
+        .andExpect(jsonPath("$.content[0].notaAnterior").value("B"))
+        .andExpect(jsonPath("$.content[0].notaNueva").value("AD"))
+        .andExpect(jsonPath("$.content[0].consolidadaAnterior").value(true))
+        .andExpect(jsonPath("$.content[0].consolidadaNueva").value(true));
+  }
+
+  @Test
+  @WithMockUser(username = "docente-sin-permiso", roles = "DOCENTE")
+  void soloAdministradoresPuedenConsultarLosLogsDeCalificaciones() throws Exception {
+    mvc.perform(get("/api/v1/logs/calificaciones")).andExpect(status().isForbidden());
+  }
+
   private int crearEvaluacion(String ponderacion) throws Exception {
     String solicitud =
         """
