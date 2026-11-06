@@ -24,7 +24,7 @@ CREATE TABLE horarios_seccion (
 );
 
 -- Una sesión es una celda de la grilla: día + bloque pedagógico + área + docente + aula
-CREATE TABLE sesiones_clase (
+CREATE TABLE sesiones_horario  (
     id INT AUTO_INCREMENT PRIMARY KEY,
     horario_id INT NOT NULL,
     bloque_id INT NOT NULL,

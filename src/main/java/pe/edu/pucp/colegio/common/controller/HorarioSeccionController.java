@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.edu.pucp.colegio.common.dto.HorarioSeccionCreateRequest;
 import pe.edu.pucp.colegio.common.dto.HorarioSeccionResponse;
-import pe.edu.pucp.colegio.common.dto.SesionClaseRequest;
-import pe.edu.pucp.colegio.common.dto.SesionClaseResponse;
+import pe.edu.pucp.colegio.common.dto.SesionHorarioRequest;
+import pe.edu.pucp.colegio.common.dto.SesionHorarioResponse;
 import pe.edu.pucp.colegio.common.dto.ValidacionSesionResponse;
 import pe.edu.pucp.colegio.common.service.HorarioSeccionService;
 
@@ -34,15 +34,15 @@ public class HorarioSeccionController {
 
   @PostMapping
   public ResponseEntity<HorarioSeccionResponse> crear(
-      @Valid @RequestBody HorarioSeccionCreateRequest request) {
+          @Valid @RequestBody HorarioSeccionCreateRequest request) {
     HorarioSeccionResponse creado = horarios.crear(request);
     return ResponseEntity.created(URI.create("/api/v1/horarios/secciones/" + creado.id()))
-        .body(creado);
+            .body(creado);
   }
 
   @GetMapping
   public HorarioSeccionResponse obtenerPorSeccion(
-      @RequestParam Integer seccionId, @RequestParam Integer anio) {
+          @RequestParam Integer seccionId, @RequestParam Integer anio) {
     return horarios.obtenerPorSeccion(seccionId, anio);
   }
 
@@ -52,37 +52,33 @@ public class HorarioSeccionController {
   }
 
   @PostMapping("/{id}/sesiones")
-  public ResponseEntity<SesionClaseResponse> agregarSesion(
-      @PathVariable Integer id, @Valid @RequestBody SesionClaseRequest request) {
-    SesionClaseResponse creada = horarios.agregarSesion(id, request);
+  public ResponseEntity<SesionHorarioResponse> agregarSesion(
+          @PathVariable Integer id, @Valid @RequestBody SesionHorarioRequest request) {
+    SesionHorarioResponse creada = horarios.agregarSesion(id, request);
     return ResponseEntity.created(
-            URI.create("/api/v1/horarios/secciones/" + id + "/sesiones/" + creada.id()))
-        .body(creada);
+                    URI.create("/api/v1/horarios/secciones/" + id + "/sesiones/" + creada.id()))
+            .body(creada);
   }
 
-  /**
-   * Valida una asignación sin guardarla. El frontend lo llama al elegir celda, docente y aula; con
-   * {@code excluirSesionId} se valida la edición de una sesión existente.
-   */
   @PostMapping("/{id}/sesiones/validar")
   public ValidacionSesionResponse validarSesion(
-      @PathVariable Integer id,
-      @RequestParam(required = false) Integer excluirSesionId,
-      @Valid @RequestBody SesionClaseRequest request) {
+          @PathVariable Integer id,
+          @RequestParam(required = false) Integer excluirSesionId,
+          @Valid @RequestBody SesionHorarioRequest request) {
     return horarios.validarSesion(id, request, excluirSesionId);
   }
 
   @PutMapping("/{id}/sesiones/{sesionId}")
-  public SesionClaseResponse actualizarSesion(
-      @PathVariable Integer id,
-      @PathVariable Integer sesionId,
-      @Valid @RequestBody SesionClaseRequest request) {
+  public SesionHorarioResponse actualizarSesion(
+          @PathVariable Integer id,
+          @PathVariable Integer sesionId,
+          @Valid @RequestBody SesionHorarioRequest request) {
     return horarios.actualizarSesion(id, sesionId, request);
   }
 
   @DeleteMapping("/{id}/sesiones/{sesionId}")
   public ResponseEntity<Void> eliminarSesion(
-      @PathVariable Integer id, @PathVariable Integer sesionId) {
+          @PathVariable Integer id, @PathVariable Integer sesionId) {
     horarios.eliminarSesion(id, sesionId);
     return ResponseEntity.noContent().build();
   }
