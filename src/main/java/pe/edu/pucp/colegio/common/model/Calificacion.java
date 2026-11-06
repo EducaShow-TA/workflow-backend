@@ -21,6 +21,12 @@ public class Calificacion extends EntidadBase {
   @Column(nullable = false, length = 2)
   private String nota;
 
+  @Column(name = "puntaje_consolidado", precision = 6, scale = 4)
+  private java.math.BigDecimal puntajeConsolidado;
+
+  @Column(nullable = false)
+  private Boolean consolidada = false;
+
   @Column(length = 1000)
   private String observacion;
 
@@ -50,6 +56,10 @@ public class Calificacion extends EntidadBase {
   public void setCompetencia(Competencia competencia) { this.competencia = competencia; }
   public String getNota() { return nota; }
   public void setNota(String nota) { this.nota = nota; }
+  public java.math.BigDecimal getPuntajeConsolidado() { return puntajeConsolidado; }
+  public void setPuntajeConsolidado(java.math.BigDecimal puntajeConsolidado) { this.puntajeConsolidado = puntajeConsolidado; }
+  public Boolean getConsolidada() { return consolidada; }
+  public void setConsolidada(Boolean consolidada) { this.consolidada = consolidada; }
   public String getObservacion() { return observacion; }
   public void setObservacion(String observacion) { this.observacion = observacion; }
   public String getEvidenciaUrl() { return evidenciaUrl; }

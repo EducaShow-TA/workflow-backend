@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, asistencia por sesión, historial y justificación de asistencia, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, asistencia por sesión, seguimiento académico con evaluaciones parciales y consolidación automática de logros, historial y justificación de asistencia, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -54,6 +54,17 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `PUT` | `/api/v1/competencias/{idOrCodigo}` | Actualizar una competencia |
 | `PATCH` | `/api/v1/competencias/{id}/estado` | Activar/desactivar competencia |
 | `DELETE` | `/api/v1/competencias/{idOrCodigo}` | Desactivar una competencia |
+| `GET/PUT` | `/api/v1/competencias/{codigo}/regla-consolidacion` | Consultar/configurar umbrales del logro (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/evaluaciones-parciales` | Crear evaluación parcial ponderada (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/evaluaciones-parciales?periodoId=&competenciaCodigo=` | Listar evaluaciones parciales |
+| `PUT/DELETE` | `/api/v1/evaluaciones-parciales/{id}` | Editar/desactivar evaluación parcial (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/evaluaciones-parciales/{id}/calificaciones` | Listar notas de la evaluación |
+| `PUT` | `/api/v1/evaluaciones-parciales/{id}/matriculas/{matriculaId}` | Registrar/editar nota parcial y justificar ausencia |
+| `POST` | `/api/v1/logros/recalculo` | Recalcular logros por periodo, grado o sección (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/periodos/{id}/cierre-actas` | Cerrar actas del período (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/periodos/{id}/cierre-actas` | Consultar estado del cierre de actas (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}` | Descargar PDF oficial tras cierre de actas o informe preliminar con marca de borrador (ADMINISTRADOR, DOCENTE, apoderado vinculado) |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
@@ -106,6 +117,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
 
 ### Asistencia de alumnos y docentes (US-2.4, US-2.7, US-2.8 y US-2.9)
 
@@ -126,6 +138,16 @@ Para justificar una inasistencia registrada como `AUSENTE`, alumno o apoderado e
 
 La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
 
+Cada DOCENTE marca su propia jornada con la fecha y la hora **del servidor** (el cliente no envía cuerpo ni hora):
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/api/v1/docentes/mis-asistencias/entrada` | Marca la entrada de hoy (201). Con clases ese día, se habilita desde `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` antes de la primera sesión (antes: 409); pasada la tolerancia queda como `TARDANZA`. Sin clases, queda `PRESENTE`. Si ya hay entrada o una inasistencia registrada: 409. |
+| `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marca la salida de hoy (200). Exige entrada previa y solo una vez (409 en otro caso). |
+| `GET` | `/api/v1/docentes/mis-asistencias` | Lista las asistencias propias; filtros opcionales `desde` y `hasta` (`YYYY-MM-DD`). |
+
+Si el administrador dejó el día en `PENDIENTE_MARCAJE`, el marcaje del docente completa ese mismo registro.
+
 La ventana para marcar asistencia de alumnos y la tolerancia docente se configuran en `application.yml` o mediante estas variables de entorno:
 
 | Variable | Predeterminado | Uso |
@@ -133,6 +155,7 @@ La ventana para marcar asistencia de alumnos y la tolerancia docente se configur
 | `ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS` | `15` | Minutos antes del inicio de sesión en que se abre el marcaje |
 | `ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS` | `30` | Minutos después del inicio en que se cierra el marcaje |
 | `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
+| `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` | `30` | Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada |
 
 Los límites de apertura y cierre del marcaje son inclusivos. Un administrador puede ajustar una asistencia ya registrada fuera de esa ventana.
 
@@ -475,6 +498,12 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 ### Logs de errores
 
 `GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
+
+### Auditoría de cambios de calificaciones
+
+`GET /api/v1/logs/calificaciones` está restringido a `ADMINISTRADOR` y devuelve los cambios más recientes primero, paginados (20 por página por defecto). Admite filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo` y `tipo` (`FINAL` o `PARCIAL`).
+
+Cada registro identifica usuario, rol, fecha/hora, acción y los valores anteriores/nuevos. En calificaciones finales se guardan nota, puntaje consolidado, indicador de consolidación y observación; en las parciales, nota y estado de justificación. También se auditan los resultados recalculados, la materialización de faltantes al cerrar actas y las calificaciones parciales desactivadas junto con una evaluación. Los eventos se conservan en `auditoria_calificaciones`, separada de las tablas académicas y sin una operación de edición o borrado expuesta por la API.
 
 ### Pensiones y cobranza (US-1.3–US-1.6, US-1.10, US-1.12)
 

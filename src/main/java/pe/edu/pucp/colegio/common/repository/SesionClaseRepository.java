@@ -30,6 +30,14 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Intege
 
   boolean existsByDocenteIdAndSeccionIdAndActiveTrue(Integer docenteId, Integer seccionId);
 
+  @EntityGraph(attributePaths = {"area", "area.competencias"})
+  List<SesionClase> findAllByDocenteIdAndSeccionIdAndActiveTrue(
+      Integer docenteId, Integer seccionId);
+
+  @EntityGraph(attributePaths = {"area", "area.competencias"})
+  List<SesionClase> findAllByDocenteIdAndSeccionIdAndFechaBetweenAndActiveTrue(
+      Integer docenteId, Integer seccionId, LocalDate desde, LocalDate hasta);
+
   @EntityGraph(attributePaths = {"seccion", "seccion.grado", "area", "docente", "docente.persona"})
   List<SesionClase> findAllByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(
       Integer docenteId, LocalDate fecha);

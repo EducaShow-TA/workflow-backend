@@ -16,18 +16,23 @@ public class SeguimientoAcademicoService {
   private final TareaRepository tareas;
   private final EntregaTareaRepository entregas;
   private final CalificacionRepository calificaciones;
+  private final EvaluacionParcialRepository evaluaciones;
   private final PeriodoRepository periodos;
   private final CompetenciaRepository competencias;
   private final MatriculaRepository matriculas;
   private final EvidenciaStorageService storage;
+  private final AuditoriaCalificacionService auditoriaCalificaciones;
 
   public SeguimientoAcademicoService(TareaRepository tareas, EntregaTareaRepository entregas,
       CalificacionRepository calificaciones, PeriodoRepository periodos,
       CompetenciaRepository competencias, MatriculaRepository matriculas,
-      EvidenciaStorageService storage) {
+      EvaluacionParcialRepository evaluaciones, EvidenciaStorageService storage,
+      AuditoriaCalificacionService auditoriaCalificaciones) {
     this.tareas = tareas; this.entregas = entregas; this.calificaciones = calificaciones;
     this.periodos = periodos; this.competencias = competencias; this.matriculas = matriculas;
+    this.evaluaciones = evaluaciones;
     this.storage = storage;
+    this.auditoriaCalificaciones = auditoriaCalificaciones;
   }
 
   @Transactional
@@ -64,9 +69,20 @@ public class SeguimientoAcademicoService {
   }
 
   @Transactional
-  public CalificacionResponse registrarCalificacion(CalificacionRequest request, MultipartFile archivo) {
-    Periodo periodo = periodo(request.periodoId());
+  public CalificacionResponse registrarCalificacion(
+      CalificacionRequest request, MultipartFile archivo, String username, String rol) {
+    Periodo periodo =
+        periodos.findByIdAndActiveTrueForUpdate(request.periodoId())
+            .orElseThrow(() -> new BusinessException("Período no encontrado"));
+    if (Boolean.TRUE.equals(periodo.getActasCerradas())) {
+      throw new BusinessException("No se pueden modificar calificaciones: las actas están cerradas");
+    }
     Competencia competencia = competencia(request.competenciaCodigo());
+    if (evaluaciones.existsByPeriodoIdAndCompetenciaCodigoAndActiveTrue(
+        periodo.getId(), competencia.getCodigo())) {
+      throw new BusinessException(
+          "Esta competencia ya tiene evaluaciones parciales; registre la nota en la evaluación correspondiente");
+    }
     Matricula matricula = matriculas.findById(request.matriculaId())
         .filter(Matricula::getActive)
         .orElseThrow(() -> new BusinessException("Matrícula no encontrada"));
@@ -77,10 +93,13 @@ public class SeguimientoAcademicoService {
       throw new BusinessException("Adjunte un archivo o indique una URL de evidencia");
     }
     validarUrl(request.evidenciaUrl(), archivo);
-    Calificacion calificacion = calificaciones.findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndActiveTrue(
+    Calificacion calificacion = calificaciones.findByPeriodoIdAndMatriculaIdAndCompetenciaCodigo(
         periodo.getId(), matricula.getId(), competencia.getCodigo()).orElseGet(Calificacion::new);
+    var calificacionAnterior = auditoriaCalificaciones.capturarFinal(calificacion);
     calificacion.setPeriodo(periodo); calificacion.setMatricula(matricula); calificacion.setCompetencia(competencia);
     calificacion.setNota(request.nota()); calificacion.setObservacion(request.observacion());
+    calificacion.setPuntajeConsolidado(null); calificacion.setConsolidada(false);
+    calificacion.setActive(true);
     calificacion.setFechaRegistro(LocalDateTime.now());
     if (archivo != null && !archivo.isEmpty()) {
       EvidenciaStorageService.ArchivoGuardado guardado = storage.guardar(archivo);
@@ -92,7 +111,10 @@ public class SeguimientoAcademicoService {
       calificacion.setEvidenciaTipo(null); calificacion.setEvidenciaTamanio(null);
       calificacion.setEvidenciaUrl(request.evidenciaUrl().trim());
     }
-    return calificacionResponse(calificaciones.save(calificacion));
+    Calificacion guardada = calificaciones.save(calificacion);
+    auditoriaCalificaciones.registrarFinal(
+        username, rol, "REGISTRAR_O_ACTUALIZAR", calificacionAnterior, guardada);
+    return calificacionResponse(guardada);
   }
 
   @Transactional(readOnly = true)
@@ -137,7 +159,9 @@ public class SeguimientoAcademicoService {
     String url = c.getEvidenciaArchivo() == null ? c.getEvidenciaUrl() : "/api/v1/evidencias/" + c.getId() + "/archivo";
     return new CalificacionResponse(c.getId(), c.getMatricula().getId(), c.getMatricula().getEstudiante().getId(),
         c.getMatricula().getEstudiante().getPersona().getNombreCompleto(), c.getCompetencia().getCodigo(),
-        c.getNota(), c.getObservacion(), c.getEvidenciaArchivo() == null ? "URL" : "ARCHIVO",
-        c.getEvidenciaNombre(), url, c.getEvidenciaTamanio(), c.getFechaRegistro());
+        c.getNota(), c.getObservacion(),
+        c.getEvidenciaArchivo() != null ? "ARCHIVO" : c.getEvidenciaUrl() != null ? "URL" : null,
+        c.getEvidenciaNombre(), url, c.getEvidenciaTamanio(), c.getPuntajeConsolidado(),
+        Boolean.TRUE.equals(c.getConsolidada()), c.getFechaRegistro());
   }
 }

@@ -17,6 +17,10 @@ public class AsistenciaProperties {
   @Min(0)
   private int toleranciaDocenteMinutos = 10;
 
+  /** Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada. */
+  @Min(0)
+  private int ventanaDocenteAntesMinutos = 30;
+
   public int getVentanaMarcadoAntesMinutos() {
     return ventanaMarcadoAntesMinutos;
   }
@@ -39,5 +43,13 @@ public class AsistenciaProperties {
 
   public void setToleranciaDocenteMinutos(int toleranciaDocenteMinutos) {
     this.toleranciaDocenteMinutos = toleranciaDocenteMinutos;
+  }
+
+  public int getVentanaDocenteAntesMinutos() {
+    return ventanaDocenteAntesMinutos;
+  }
+
+  public void setVentanaDocenteAntesMinutos(int ventanaDocenteAntesMinutos) {
+    this.ventanaDocenteAntesMinutos = ventanaDocenteAntesMinutos;
   }
 }

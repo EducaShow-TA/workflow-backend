@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.common.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -31,6 +32,15 @@ public class Periodo extends EntidadBase {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
   private EstadoPeriodo estado;
+
+  @Column(name = "actas_cerradas", nullable = false)
+  private Boolean actasCerradas = false;
+
+  @Column(name = "fecha_cierre_actas")
+  private LocalDateTime fechaCierreActas;
+
+  @Column(name = "usuario_cierre_actas", length = 100)
+  private String usuarioCierreActas;
 
   @OneToMany(mappedBy = "periodo")
   private Set<Matricula> matriculas = new LinkedHashSet<>();
@@ -73,6 +83,30 @@ public class Periodo extends EntidadBase {
 
   public void setEstado(EstadoPeriodo estado) {
     this.estado = estado;
+  }
+
+  public Boolean getActasCerradas() {
+    return actasCerradas;
+  }
+
+  public void setActasCerradas(Boolean actasCerradas) {
+    this.actasCerradas = actasCerradas;
+  }
+
+  public LocalDateTime getFechaCierreActas() {
+    return fechaCierreActas;
+  }
+
+  public void setFechaCierreActas(LocalDateTime fechaCierreActas) {
+    this.fechaCierreActas = fechaCierreActas;
+  }
+
+  public String getUsuarioCierreActas() {
+    return usuarioCierreActas;
+  }
+
+  public void setUsuarioCierreActas(String usuarioCierreActas) {
+    this.usuarioCierreActas = usuarioCierreActas;
   }
 
   public EstadoPeriodo calcularEstado(LocalDate fecha) {
