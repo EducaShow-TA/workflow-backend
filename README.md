@@ -126,6 +126,16 @@ Para justificar una inasistencia registrada como `AUSENTE`, alumno o apoderado e
 
 La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
 
+Cada DOCENTE marca su propia jornada con la fecha y la hora **del servidor** (el cliente no envía cuerpo ni hora):
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/api/v1/docentes/mis-asistencias/entrada` | Marca la entrada de hoy (201). Con clases ese día, se habilita desde `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` antes de la primera sesión (antes: 409); pasada la tolerancia queda como `TARDANZA`. Sin clases, queda `PRESENTE`. Si ya hay entrada o una inasistencia registrada: 409. |
+| `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marca la salida de hoy (200). Exige entrada previa y solo una vez (409 en otro caso). |
+| `GET` | `/api/v1/docentes/mis-asistencias` | Lista las asistencias propias; filtros opcionales `desde` y `hasta` (`YYYY-MM-DD`). |
+
+Si el administrador dejó el día en `PENDIENTE_MARCAJE`, el marcaje del docente completa ese mismo registro.
+
 La ventana para marcar asistencia de alumnos y la tolerancia docente se configuran en `application.yml` o mediante estas variables de entorno:
 
 | Variable | Predeterminado | Uso |
@@ -133,6 +143,7 @@ La ventana para marcar asistencia de alumnos y la tolerancia docente se configur
 | `ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS` | `15` | Minutos antes del inicio de sesión en que se abre el marcaje |
 | `ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS` | `30` | Minutos después del inicio en que se cierra el marcaje |
 | `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
+| `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` | `30` | Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada |
 
 Los límites de apertura y cierre del marcaje son inclusivos. Un administrador puede ajustar una asistencia ya registrada fuera de esa ventana.
 
