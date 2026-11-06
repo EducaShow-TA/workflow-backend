@@ -1,0 +1,16 @@
+package pe.edu.pucp.colegio.common.dto;
+
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+
+public record EvaluacionParcialRequest(
+    @NotNull Integer periodoId,
+    @NotBlank @Size(max = 50) String competenciaCodigo,
+    @NotBlank @Size(max = 180) String titulo,
+    @Size(max = 1000) String descripcion,
+    @NotNull @DecimalMin(value = "0.0", inclusive = false) @DecimalMax("100.0")
+        BigDecimal ponderacion) {}

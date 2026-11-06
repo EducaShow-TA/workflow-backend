@@ -6,5 +6,6 @@ public enum AccionAuditoria {
   ACTUALIZAR,
   ELIMINAR,
   GENERAR_BOLETA,
-  REGISTRAR_PAGO
+  REGISTRAR_PAGO,
+  CERRAR_ACTAS
 }

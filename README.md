@@ -1,6 +1,6 @@
 # EducaShow — backend del sistema de gestión escolar
 
-Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, asistencia por sesión, historial y justificación de asistencia, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
+Backend REST monolítico modular para el sistema de gestión integral de un colegio. El alcance implementado incluye seguridad y cuentas, catálogo curricular, estudiantes, asistencia por sesión, seguimiento académico con evaluaciones parciales y consolidación automática de logros, historial y justificación de asistencia, ventanas de matrícula, periodos académicos, matrículas, vacantes, pensiones, plantillas horarias y registro de errores. El proyecto se desarrolla por historias de usuario; este README describe las funcionalidades que existen en el backend y no implica que todo el Product Backlog esté terminado.
 
 ## Guía de trabajo
 
@@ -54,6 +54,15 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `PUT` | `/api/v1/competencias/{idOrCodigo}` | Actualizar una competencia |
 | `PATCH` | `/api/v1/competencias/{id}/estado` | Activar/desactivar competencia |
 | `DELETE` | `/api/v1/competencias/{idOrCodigo}` | Desactivar una competencia |
+| `GET/PUT` | `/api/v1/competencias/{codigo}/regla-consolidacion` | Consultar/configurar umbrales del logro (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/evaluaciones-parciales` | Crear evaluación parcial ponderada (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/evaluaciones-parciales?periodoId=&competenciaCodigo=` | Listar evaluaciones parciales |
+| `PUT/DELETE` | `/api/v1/evaluaciones-parciales/{id}` | Editar/desactivar evaluación parcial (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/evaluaciones-parciales/{id}/calificaciones` | Listar notas de la evaluación |
+| `PUT` | `/api/v1/evaluaciones-parciales/{id}/matriculas/{matriculaId}` | Registrar/editar nota parcial y justificar ausencia |
+| `POST` | `/api/v1/logros/recalculo` | Recalcular logros por periodo, grado o sección (solo ADMINISTRADOR) |
+| `POST` | `/api/v1/periodos/{id}/cierre-actas` | Cerrar actas del período (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/periodos/{id}/cierre-actas` | Consultar estado del cierre de actas (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |

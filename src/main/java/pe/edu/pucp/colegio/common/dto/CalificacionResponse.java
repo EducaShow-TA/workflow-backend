@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record CalificacionResponse(
@@ -14,4 +15,6 @@ public record CalificacionResponse(
     String evidenciaNombre,
     String evidenciaUrl,
     Long evidenciaTamanio,
+    BigDecimal puntajeConsolidado,
+    boolean consolidada,
     LocalDateTime fechaRegistro) {}

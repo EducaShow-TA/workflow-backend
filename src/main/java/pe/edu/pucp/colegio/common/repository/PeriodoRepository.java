@@ -3,12 +3,18 @@ package pe.edu.pucp.colegio.common.repository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.edu.pucp.colegio.common.model.Periodo;
 
 public interface PeriodoRepository extends JpaRepository<Periodo, Integer> {
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select p from Periodo p where p.id = :id and p.active = true")
+  Optional<Periodo> findByIdAndActiveTrueForUpdate(@Param("id") Integer id);
 
   @Query(
       "select p from Periodo p where p.active = true and p.seccion.id = :seccionId"
@@ -37,4 +43,10 @@ public interface PeriodoRepository extends JpaRepository<Periodo, Integer> {
       Integer seccionId, LocalDate desde, LocalDate hasta);
 
   List<Periodo> findAllByActiveTrueAndFechaFinGreaterThanEqual(LocalDate fecha);
+
+  List<Periodo> findAllByIdAndActiveTrue(Integer id);
+
+  List<Periodo> findAllByGradoIdAndActiveTrue(Integer gradoId);
+
+  List<Periodo> findAllBySeccionIdAndActiveTrue(Integer seccionId);
 }
