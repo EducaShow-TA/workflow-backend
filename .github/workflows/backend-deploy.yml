@@ -1,0 +1,88 @@
+name: Desplegar backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un solo despliegue a la vez; si hay dos merges seguidos, se despliegan en orden.
+concurrency:
+  group: despliegue-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compilar y probar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Make Maven Wrapper executable
+        run: chmod +x ./mvnw
+
+      - name: Verify formatting, tests, and coverage
+        run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Preparar artefacto
+        run: cp target/colegio-backend-*.jar colegio-backend.jar
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: colegio-backend.jar
+          retention-days: 30
+
+  deploy:
+    name: Desplegar en EC2
+    needs: build
+    runs-on: ubuntu-latest
+    # El entorno solo admite la rama main y guarda la llave SSH y la huella del servidor.
+    environment: produccion
+    env:
+      EC2_HOST: ${{ vars.EC2_HOST }}
+      EC2_USER: ${{ vars.EC2_USER }}
+    steps:
+      - name: Descargar artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+
+      # El servidor solo se enciende para las demos: si esta apagado, se omite el despliegue sin marcar error.
+      - name: Verificar que el servidor este encendido
+        id: servidor
+        run: |
+          if timeout 10 bash -c "</dev/tcp/${EC2_HOST}/22"; then
+            echo "encendido=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Servidor apagado: despliegue omitido. Usa 'Run workflow' cuando lo enciendas."
+            echo "encendido=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configurar SSH
+        if: steps.servidor.outputs.encendido == 'true'
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Enviar y desplegar
+        if: steps.servidor.outputs.encendido == 'true'
+        run: |
+          scp -o BatchMode=yes colegio-backend.jar "${EC2_USER}@${EC2_HOST}:entrantes/backend-${GITHUB_SHA}.jar"
+          ssh -o BatchMode=yes "${EC2_USER}@${EC2_HOST}" "sudo -n /opt/colegio/bin/desplegar-backend.sh ${GITHUB_SHA}"

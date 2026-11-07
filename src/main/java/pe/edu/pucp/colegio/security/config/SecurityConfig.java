@@ -1,0 +1,68 @@
+package pe.edu.pucp.colegio.security.config;
+
+import org.springframework.context.annotation.*;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.*;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import pe.edu.pucp.colegio.security.jwt.*;
+
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfig {
+
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      JwtAuthenticationFilter filter,
+      JwtEntryPoint entryPoint,
+      JwtAccessDeniedHandler accessDeniedHandler)
+      throws Exception {
+    return http.csrf(csrf -> csrf.disable())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            e -> e.authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDeniedHandler))
+        .authorizeHttpRequests(
+            a ->
+                a.requestMatchers(
+                        "/api/v1/auth/login",
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/reset-password")
+                    .permitAll()
+                    .requestMatchers("/api/v1/auth/**")
+                    .authenticated()
+                    .requestMatchers(
+                        "/api/v1/tareas/**",
+                        "/api/v1/calificaciones/**",
+                        "/api/v1/seguimiento/**",
+                        "/api/v1/evidencias/**")
+                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
+                    .requestMatchers("/api/v1/sesiones-clase/**")
+                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
+                    .requestMatchers(
+                        "/api/v1/docentes/mis-clases/**", "/api/v1/docentes/mis-asistencias/**")
+                    .hasRole("DOCENTE")
+                    .requestMatchers("/api/v1/asistencias-docentes/**")
+                    .hasRole("ADMINISTRADOR")
+                    .requestMatchers("/api/v1/asistencias-estudiantes/**")
+                    .hasAnyRole("ALUMNO", "APODERADO", "DOCENTE", "ADMINISTRADOR")
+                    .requestMatchers("/api/v1/estudiantes/*/libreta/pdf")
+                    .hasAnyRole("APODERADO", "DOCENTE", "ADMINISTRADOR")
+                    .requestMatchers("/api/v1/estudiantes/*/libreta")
+                    .hasAnyRole("ALUMNO", "APODERADO", "DOCENTE", "ADMINISTRADOR")
+                    .requestMatchers("/api/v1/**")
+                    .hasRole("ADMINISTRADOR")
+                    .anyRequest()
+                    .authenticated())
+        .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
+        .build();
+  }
+}
