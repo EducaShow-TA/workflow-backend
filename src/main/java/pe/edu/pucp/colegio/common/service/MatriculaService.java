@@ -12,6 +12,8 @@ import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
 import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.dto.ConfirmacionMasivaMatriculaRequest;
+import pe.edu.pucp.colegio.common.dto.IncidenciaConfirmacionMatriculaResponse;
+import pe.edu.pucp.colegio.common.exception.ValidacionConfirmacionMatriculaException;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
@@ -140,23 +142,52 @@ public class MatriculaService {
     if (ids.isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
     }
+    finanzas.validarTerminos(request.compromiso());
     List<Matricula> pendientes = new ArrayList<>();
+    List<IncidenciaConfirmacionMatriculaResponse> incidencias = new ArrayList<>();
     for (Integer estudianteId : ids) {
       Matricula matricula = matriculas.findByPeriodoIdAndEstudianteId(periodoId, estudianteId)
           .filter(m -> Boolean.TRUE.equals(m.getActive()))
-          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-              "No existe la matrícula del estudiante " + estudianteId));
+          .orElse(null);
+      if (matricula == null) {
+        incidencias.add(
+            new IncidenciaConfirmacionMatriculaResponse(
+                null,
+                estudianteId,
+                nombreEstudiante(estudianteId),
+                List.of("No existe una matrícula activa para este estudiante en el período.")));
+        continue;
+      }
+      List<String> problemas = new ArrayList<>();
       if (matricula.getEstado() != EstadoMatricula.EN_REGISTRO) {
-        throw new ResponseStatusException(HttpStatus.CONFLICT,
-            "La matrícula del estudiante " + estudianteId + " no está en registro");
+        problemas.add("La matrícula no está pendiente de confirmación.");
+      }
+      problemas.addAll(finanzas.validarRequisitosCompromiso(matricula));
+      if (!problemas.isEmpty()) {
+        incidencias.add(
+            new IncidenciaConfirmacionMatriculaResponse(
+                matricula.getId(),
+                estudianteId,
+                matricula.getEstudiante().getPersona().getNombreCompleto(),
+                List.copyOf(problemas)));
       }
       pendientes.add(matricula);
+    }
+    if (!incidencias.isEmpty()) {
+      throw new ValidacionConfirmacionMatriculaException(incidencias);
     }
     pendientes.forEach(m -> m.setEstado(EstadoMatricula.CONFIRMADA));
     List<Matricula> confirmadas = matriculas.saveAll(pendientes);
     CompromisoPagoRequest terminos = request.compromiso();
     confirmadas.forEach(m -> finanzas.crearCompromiso(m, terminos));
     return confirmadas.stream().map(this::respuesta).toList();
+  }
+
+  private String nombreEstudiante(Integer estudianteId) {
+    return estudiantes
+        .findById(estudianteId)
+        .map(estudiante -> estudiante.getPersona().getNombreCompleto())
+        .orElse("Estudiante #" + estudianteId);
   }
 
   @Transactional
