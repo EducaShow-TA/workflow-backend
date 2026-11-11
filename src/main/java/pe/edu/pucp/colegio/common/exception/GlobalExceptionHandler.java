@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pe.edu.pucp.colegio.common.audit.NivelLog;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
+import pe.edu.pucp.colegio.common.dto.ErrorConfirmacionMatriculaResponse;
 
 /**
  * Traduce las excepciones a respuestas HTTP con el formato estándar (sección 6.3) y registra las
@@ -45,6 +46,38 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorRespuestaDTO> conflicto(ConflictException e, HttpServletRequest r) {
     log.warn("event=business_conflict path={} reason={}", r.getRequestURI(), e.getMessage());
     return responder(HttpStatus.CONFLICT, NivelLog.ADVERTENCIA, "NEG_409", e.getMessage(), r);
+  }
+
+  @ExceptionHandler(ValidacionConfirmacionMatriculaException.class)
+  ResponseEntity<ErrorConfirmacionMatriculaResponse> validacionConfirmacionMatricula(
+      ValidacionConfirmacionMatriculaException e, HttpServletRequest r) {
+    HttpStatus estado = HttpStatus.UNPROCESSABLE_ENTITY;
+    log.warn(
+        "event=matricula_confirmation_validation_failed path={} affectedStudents={}",
+        r.getRequestURI(),
+        e.getIncidencias().size());
+    try {
+      registroError.registrar(
+          NivelLog.ADVERTENCIA,
+          "NEG_422",
+          r.getMethod(),
+          r.getRequestURI(),
+          estado.value(),
+          e.getMessage(),
+          e);
+    } catch (RuntimeException ex) {
+      log.error("event=registro_error_no_persistido codigo=NEG_422", ex);
+    }
+    return ResponseEntity.status(estado)
+        .body(
+            new ErrorConfirmacionMatriculaResponse(
+                java.time.OffsetDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
+                estado.value(),
+                estado.getReasonPhrase(),
+                e.getMessage(),
+                r.getRequestURI(),
+                e.getIncidencias()));
   }
 
   @ExceptionHandler(BusinessException.class)

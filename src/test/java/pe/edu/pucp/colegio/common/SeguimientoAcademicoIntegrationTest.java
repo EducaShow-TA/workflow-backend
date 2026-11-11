@@ -28,13 +28,17 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.model.*;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser(username = "docente-seguimiento-test", roles = "DOCENTE")
+@WithMockUser(username = SeguimientoAcademicoIntegrationTest.USUARIO_DOCENTE, roles = "DOCENTE")
 @TestPropertySource(properties = "app.storage.evidence-dir=target/test-evidencias")
 @Transactional
 class SeguimientoAcademicoIntegrationTest {
+
+  static final String USUARIO_DOCENTE = "docente-seguimiento-test";
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper objectMapper;
@@ -71,6 +75,29 @@ class SeguimientoAcademicoIntegrationTest {
     competencia.setCodigo(competenciaCodigo);
     competencia.setNombre("Resuelve problemas matemáticos " + sufijo);
     entityManager.persist(competencia);
+
+    Area area = new Area();
+    area.setCodigo("AREA-" + sufijo);
+    area.setNombre("Matemática " + sufijo);
+    area.getCompetencias().add(competencia);
+    entityManager.persist(area);
+
+    Persona personaDocente = new Persona("D" + sufijo, "Docente", "Prueba", sufijo);
+    entityManager.persist(personaDocente);
+    entityManager.persist(
+        new CuentaUsuario(USUARIO_DOCENTE, "hash-de-prueba", Rol.DOCENTE, personaDocente));
+    Docente docente = new Docente();
+    docente.setPersona(personaDocente);
+    entityManager.persist(docente);
+
+    SesionClase sesion = new SesionClase();
+    sesion.setSeccion(seccion);
+    sesion.setArea(area);
+    sesion.setDocente(docente);
+    sesion.setFecha(LocalDate.now());
+    sesion.setHoraInicio(java.time.LocalTime.of(8, 0));
+    sesion.setHoraFin(java.time.LocalTime.of(8, 45));
+    entityManager.persist(sesion);
 
     Estudiante estudiante = nuevoEstudiante(sufijo, "Ana", "Pérez");
     Matricula matricula = new Matricula();

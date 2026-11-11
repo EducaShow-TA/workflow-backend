@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +32,10 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 /** Compromisos, cronograma de pensiones, comprobantes, mora y cobranza consolidada. */
 @Service
 public class FinanzasService {
+  private static final String COMPROMISO_EXISTENTE =
+      "La matrícula ya tiene un compromiso de pago activo.";
+  private static final String APODERADO_PRINCIPAL_FALTANTE =
+      "El estudiante debe tener un apoderado principal activo para generar el compromiso.";
   private static final Sort ORDEN_BOLETAS =
       Sort.by("fechaVencimiento").ascending().and(Sort.by("id").ascending());
   private final CompromisoPagoRepository compromisos;
@@ -59,12 +64,13 @@ public class FinanzasService {
   public CompromisoPagoResponse crearCompromiso(
       Matricula matricula, CompromisoPagoRequest request) {
     validarTerminos(request);
-    compromisos
-        .findByMatriculaIdAndActiveTrue(matricula.getId())
-        .ifPresent(
-            c -> {
-              throw new ConflictException("La matrícula ya tiene un compromiso de pago");
-            });
+    List<String> requisitos = validarRequisitosCompromiso(matricula);
+    if (requisitos.contains(COMPROMISO_EXISTENTE)) {
+      throw new ConflictException("La matrícula ya tiene un compromiso de pago");
+    }
+    if (!requisitos.isEmpty()) {
+      throw new BusinessException("El estudiante debe tener un apoderado principal para generar el compromiso");
+    }
     VinculoFamiliar vinculo =
         vinculos
             .findFirstByEstudianteIdAndEsPrincipalTrueAndActiveTrueOrderByIdAsc(
@@ -86,6 +92,25 @@ public class FinanzasService {
     c = compromisos.save(c);
     generarBoleta(c, YearMonth.from(c.getPrimerVencimiento()), MecanismoGeneracion.AUTOMATICO);
     return respuesta(c);
+  }
+
+  /** Precondiciones por estudiante para que una confirmación masiva pueda crear el compromiso. */
+  @Transactional(readOnly = true)
+  public List<String> validarRequisitosCompromiso(Matricula matricula) {
+    List<String> problemas = new ArrayList<>();
+    if (compromisos.findByMatriculaIdAndActiveTrue(matricula.getId()).isPresent()) {
+      problemas.add(COMPROMISO_EXISTENTE);
+    }
+    boolean tieneApoderadoPrincipal =
+        vinculos
+            .findFirstByEstudianteIdAndEsPrincipalTrueAndActiveTrueOrderByIdAsc(
+                matricula.getEstudiante().getId())
+            .filter(vinculo -> Boolean.TRUE.equals(vinculo.getApoderado().getActive()))
+            .isPresent();
+    if (!tieneApoderadoPrincipal) {
+      problemas.add(APODERADO_PRINCIPAL_FALTANTE);
+    }
+    return List.copyOf(problemas);
   }
 
   @Transactional(readOnly = true)
@@ -307,7 +332,7 @@ public class FinanzasService {
     return b;
   }
 
-  private void validarTerminos(CompromisoPagoRequest r) {
+  public void validarTerminos(CompromisoPagoRequest r) {
     if (r.numeroCuotas() > 24)
       throw new BusinessException("El cronograma no puede superar 24 cuotas");
     if (r.primerVencimiento().isBefore(LocalDate.now()))

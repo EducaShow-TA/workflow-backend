@@ -13,6 +13,20 @@ import pe.edu.pucp.colegio.common.model.SesionHorario;
 
 public interface SesionHorarioRepository extends JpaRepository<SesionHorario, Integer> {
 
+    @Query(
+            "select s from SesionHorario s "
+                    + "join fetch s.horario h "
+                    + "join fetch h.seccion sec "
+                    + "join fetch sec.grado "
+                    + "join fetch s.bloque b "
+                    + "join fetch s.area "
+                    + "join fetch s.docente "
+                    + "join fetch s.aula "
+                    + "where s.docente.id = :cuentaId and h.anio = :anio "
+                    + "order by s.dia, b.horaInicio")
+    List<SesionHorario> listarHorarioDocente(
+            @Param("cuentaId") Integer cuentaId, @Param("anio") Integer anio);
+
     @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})
     List<SesionHorario> findAllByHorarioId(Integer horarioId);
 
