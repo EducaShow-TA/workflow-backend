@@ -3,7 +3,10 @@ package pe.edu.pucp.colegio.common.controller;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,9 +36,19 @@ import pe.edu.pucp.colegio.common.service.FinanzasService;
 public class FinanzasController {
 
   private final FinanzasService finanzas;
+  private final BigDecimal montoPensionPredeterminado;
 
-  public FinanzasController(FinanzasService finanzas) {
+  public FinanzasController(
+      FinanzasService finanzas,
+      @Value("${app.finanzas.monto-pension-predeterminado:500.00}")
+          BigDecimal montoPensionPredeterminado) {
     this.finanzas = finanzas;
+    this.montoPensionPredeterminado = montoPensionPredeterminado;
+  }
+
+  @GetMapping("/configuracion/finanzas")
+  public Map<String, BigDecimal> configuracionFinanciera() {
+    return Map.of("montoPensionPredeterminado", montoPensionPredeterminado);
   }
 
   @GetMapping("/compromisos-pago")

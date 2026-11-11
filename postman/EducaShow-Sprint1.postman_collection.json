@@ -360,6 +360,7 @@
                   "pm.expect(area.id).to.be.a('number');",
                   "pm.expect(area.competencias).to.have.lengthOf.at.least(1);",
                   "pm.environment.set('areaId', String(area.id));",
+                  "pm.environment.set('areaCodigo', area.codigo);",
                   "pm.environment.set('competenciaId', String(area.competencias[0].id));"
                 ]
               }
@@ -2890,6 +2891,81 @@
                   "pm.environment.set('docenteToken', pm.response.json().token);"
                 ]
               }
+            }
+          ]
+        },
+        {
+          "name": "Crear área activa para la clase de prueba",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"AREA-TAREA-{{$guid}}\",\n  \"nombre\": \"Área tareas Postman {{$guid}}\",\n  \"descripcion\": \"Área activa para validar acceso docente a tareas\",\n  \"competenciaCodigos\": [\"{{competenciaIndependienteCodigo}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/areas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "areas"]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Área activa creada y vinculada a la competencia', () => pm.response.to.have.status(201));",
+              "pm.environment.set('areaTareasCodigo', pm.response.json().codigo);"
+            ] }
+          }]
+        },
+        {
+          "name": "Consultar ID del docente de prueba",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docentes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "docentes"]
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('Se encuentra el docente creado para la prueba', () => pm.response.to.have.status(200));",
+              "const docente = pm.response.json().find(x => x.username === pm.environment.get('cuentaUsuarioUsernameEditado'));",
+              "pm.expect(docente, 'la cuenta DOCENTE aparece en el catálogo').to.exist;",
+              "pm.environment.set('docenteId', String(docente.id));"
+            ] }
+          }]
+        },
+        {
+          "name": "Asignar clase al docente de prueba",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seccionId\": {{seccionId}},\n  \"areaCodigo\": \"{{areaTareasCodigo}}\",\n  \"docenteId\": {{docenteId}},\n  \"fecha\": \"{{fechaClase}}\",\n  \"horaInicio\": \"08:00:00\",\n  \"horaFin\": \"08:45:00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sesiones-clase",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sesiones-clase"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "type": "text/javascript", "exec": [
+                "pm.environment.set('fechaClase', new Date().toISOString().slice(0, 10));"
+              ] }
+            },
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": [
+                "pm.test('Clase de prueba asignada al docente', () => pm.response.to.have.status(201));"
+              ] }
             }
           ]
         },
