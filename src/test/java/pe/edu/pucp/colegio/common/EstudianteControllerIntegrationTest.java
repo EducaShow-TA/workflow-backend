@@ -49,7 +49,7 @@ class EstudianteControllerIntegrationTest {
 
     String cuerpo =
         """
-        {"username":"%s","password":"ClaveSegura123","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
+        {"username":"%s","password":"ClaveSegura123!","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
         """
             .formatted(username, dni, suffix, dniApoderado, dniSegundoApoderado);
 
@@ -69,8 +69,8 @@ class EstudianteControllerIntegrationTest {
 
     CuentaUsuario cuenta = cuentas.findByUsername(username).orElseThrow();
     assertEquals(Rol.ALUMNO, cuenta.getRol());
-    assertNotEquals("ClaveSegura123", cuenta.getPassword());
-    assertTrue(passwordEncoder.matches("ClaveSegura123", cuenta.getPassword()));
+    assertNotEquals("ClaveSegura123!", cuenta.getPassword());
+    assertTrue(passwordEncoder.matches("ClaveSegura123!", cuenta.getPassword()));
     assertTrue(estudiantes.existsByPersonaId(cuenta.getPersona().getId()));
     assertEquals(
         "ana-" + suffix + "@ejemplo.edu.pe",
@@ -96,7 +96,7 @@ class EstudianteControllerIntegrationTest {
 
     CuentaUsuario cuenta =
         new CuentaUsuario(
-            "existente-" + suffix, passwordEncoder.encode("ClaveSegura123"), Rol.DOCENTE, persona);
+            "existente-" + suffix, passwordEncoder.encode("ClaveSegura123!"), Rol.DOCENTE, persona);
     cuenta = cuentas.save(cuenta);
     Integer cuentaId = cuenta.getId();
     Integer personaId = persona.getId();

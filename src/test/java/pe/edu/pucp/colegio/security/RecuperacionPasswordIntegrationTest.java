@@ -83,22 +83,22 @@ class RecuperacionPasswordIntegrationTest {
     mvc.perform(
             post("/api/v1/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"token\":\"" + tokenClaro + "\",\"password\":\"NuevaClaveSegura123\"}"))
+                .content("{\"token\":\"" + tokenClaro + "\",\"password\":\"NuevaClaveSegura123!\"}"))
         .andExpect(status().isOk());
 
     CuentaUsuario actualizada = cuentas.findById(cuenta.getId()).orElseThrow();
-    assertTrue(passwordEncoder.matches("NuevaClaveSegura123", actualizada.getPassword()));
+    assertTrue(passwordEncoder.matches("NuevaClaveSegura123!", actualizada.getPassword()));
     assertFalse(tokens.findById(tokenGuardado.getId()).orElseThrow().getActive());
     mvc.perform(
             post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"" + correo + "\",\"password\":\"NuevaClaveSegura123\"}"))
+                .content("{\"username\":\"" + correo + "\",\"password\":\"NuevaClaveSegura123!\"}"))
         .andExpect(status().isOk());
 
     mvc.perform(
             post("/api/v1/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"token\":\"" + tokenClaro + "\",\"password\":\"OtraClaveSegura123\"}"))
+                .content("{\"token\":\"" + tokenClaro + "\",\"password\":\"OtraClaveSegura123!\"}"))
         .andExpect(status().isBadRequest());
   }
 
