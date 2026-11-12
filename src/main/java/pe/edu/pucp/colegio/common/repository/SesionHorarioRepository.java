@@ -14,6 +14,11 @@ import pe.edu.pucp.colegio.common.model.SesionHorario;
 public interface SesionHorarioRepository extends JpaRepository<SesionHorario, Integer> {
 
   @Query(
+      "select case when count(s) > 0 then true else false end from SesionHorario s "
+          + "where s.bloque.plantilla.id = :plantillaId")
+  boolean existsByPlantillaId(@Param("plantillaId") Integer plantillaId);
+
+  @Query(
       "select s from SesionHorario s "
           + "join fetch s.horario h "
           + "join fetch h.seccion sec "

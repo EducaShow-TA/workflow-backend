@@ -1,16 +1,22 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -18,6 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 class PlantillaHorarioIntegrationTest {
 
   @Autowired MockMvc mvc;
+  @Autowired ObjectMapper objectMapper;
+  @MockitoBean SesionHorarioRepository sesiones;
 
   @Test
   void creaPlantillaYCalculaBloquesYRecreos() throws Exception {
@@ -83,6 +91,32 @@ class PlantillaHorarioIntegrationTest {
             "duracionHoraPedagogicaMinutos":45,"cantidadBloquesPedagogicos":2,"recreos":[]}
             """)
         .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void noActualizaPlantillaConSesionesAsignadas() throws Exception {
+    String creada =
+        crear(
+                """
+                {"nombre":"Plantilla en uso","turno":"MANANA","horaInicio":"08:00:00","horaFin":"12:00:00",
+                "duracionHoraPedagogicaMinutos":45,"cantidadBloquesPedagogicos":4,"recreos":[]}
+                """)
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    JsonNode plantilla = objectMapper.readTree(creada);
+    when(sesiones.existsByPlantillaId(plantilla.get("id").asInt())).thenReturn(true);
+
+    mvc.perform(
+            put("/api/v1/horarios/plantillas/{id}", plantilla.get("id").asInt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"nombre":"Plantilla en uso actualizada","turno":"MANANA","horaInicio":"08:00:00","horaFin":"12:00:00",
+                    "duracionHoraPedagogicaMinutos":45,"cantidadBloquesPedagogicos":4,"recreos":[]}
+                    """))
+        .andExpect(status().isConflict());
   }
 
   private org.springframework.test.web.servlet.ResultActions crear(String cuerpo) throws Exception {
