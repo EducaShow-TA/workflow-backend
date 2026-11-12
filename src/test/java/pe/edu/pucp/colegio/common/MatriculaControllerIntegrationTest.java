@@ -241,7 +241,7 @@ class MatriculaControllerIntegrationTest {
     EstudianteCreateRequest request =
         new EstudianteCreateRequest(
             "alumno" + suffix,
-            "ClaveSegura123",
+            "ClaveSegura123!",
             "DNI",
             dni,
             "Estudiante",
