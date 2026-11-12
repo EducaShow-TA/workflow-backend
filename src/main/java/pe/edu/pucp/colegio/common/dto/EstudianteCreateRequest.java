@@ -7,8 +7,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
-import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.common.validation.PasswordPolicy;
+import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 
 public record EstudianteCreateRequest(
     @NotBlank

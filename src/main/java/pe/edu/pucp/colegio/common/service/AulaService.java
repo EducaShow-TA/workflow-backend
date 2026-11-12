@@ -24,7 +24,7 @@ public class AulaService {
   private final MatriculaRepository matriculas;
 
   public AulaService(
-          AulaRepository aulas, SesionHorarioRepository sesiones, MatriculaRepository matriculas) {
+      AulaRepository aulas, SesionHorarioRepository sesiones, MatriculaRepository matriculas) {
     this.aulas = aulas;
     this.sesiones = sesiones;
     this.matriculas = matriculas;
@@ -70,7 +70,7 @@ public class AulaService {
     Aula aula = buscar(id);
     if (!request.activo() && sesiones.existsByAulaId(id)) {
       throw new ConflictException(
-              "No se puede desactivar el aula porque tiene sesiones de clase asignadas");
+          "No se puede desactivar el aula porque tiene sesiones de clase asignadas");
     }
     aula.setActive(request.activo());
     return respuesta(aulas.save(aula));
@@ -79,21 +79,21 @@ public class AulaService {
   private void validarNuevaCapacidad(Integer aulaId, int nuevaCapacidad) {
     for (HorarioSeccion horario : sesiones.findHorariosConAula(aulaId)) {
       long alumnos =
-              matriculas.countAlumnosActivosPorSeccionEnAnhio(
-                      horario.getSeccion().getId(), horario.getAnio());
+          matriculas.countAlumnosActivosPorSeccionEnAnhio(
+              horario.getSeccion().getId(), horario.getAnio());
       if (alumnos > nuevaCapacidad) {
         throw new ConflictException(
-                "No se puede reducir la capacidad a "
-                        + nuevaCapacidad
-                        + ": "
-                        + horario.getSeccion().getGrado().getNumero()
-                        + "° "
-                        + horario.getSeccion().getCodigo()
-                        + " tiene "
-                        + alumnos
-                        + " alumnos matriculados en "
-                        + horario.getAnio()
-                        + " y tiene clases en esta aula");
+            "No se puede reducir la capacidad a "
+                + nuevaCapacidad
+                + ": "
+                + horario.getSeccion().getGrado().getNumero()
+                + "° "
+                + horario.getSeccion().getCodigo()
+                + " tiene "
+                + alumnos
+                + " alumnos matriculados en "
+                + horario.getAnio()
+                + " y tiene clases en esta aula");
       }
     }
   }
@@ -107,17 +107,17 @@ public class AulaService {
 
   private Aula buscar(Integer id) {
     return aulas
-            .findById(id)
-            .orElseThrow(
-                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe el aula indicada"));
+        .findById(id)
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe el aula indicada"));
   }
 
   private AulaResponse respuesta(Aula aula) {
     return new AulaResponse(
-            aula.getId(),
-            aula.getCodigo(),
-            aula.getCapacidad(),
-            aula.getDescripcion(),
-            aula.getActive());
+        aula.getId(),
+        aula.getCodigo(),
+        aula.getCapacidad(),
+        aula.getDescripcion(),
+        aula.getActive());
   }
 }

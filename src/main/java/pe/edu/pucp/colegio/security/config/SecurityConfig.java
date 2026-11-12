@@ -54,7 +54,9 @@ public class SecurityConfig {
                     .hasRole("DOCENTE")
                     .requestMatchers("/api/v1/apoderados/mis-estudiantes/**")
                     .hasRole("APODERADO")
-                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/evaluaciones-parciales/**")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.GET,
+                        "/api/v1/evaluaciones-parciales/**")
                     .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                     .requestMatchers(
                         org.springframework.http.HttpMethod.PUT,

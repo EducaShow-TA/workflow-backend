@@ -24,7 +24,5 @@ public record CrearCuentaRequestDTO(
         @jakarta.validation.constraints.Email(message = "El correo no tiene un formato válido")
         @Size(max = 254, message = "El correo es muy largo")
         String correo,
-    @NotBlank(message = "La contraseña es obligatoria")
-        @PasswordPolicy
-        String password,
+    @NotBlank(message = "La contraseña es obligatoria") @PasswordPolicy String password,
     @NotNull(message = "El rol es obligatorio") Rol rol) {}

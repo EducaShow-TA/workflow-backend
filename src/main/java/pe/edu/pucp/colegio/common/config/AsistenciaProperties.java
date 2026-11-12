@@ -17,7 +17,9 @@ public class AsistenciaProperties {
   @Min(0)
   private int toleranciaDocenteMinutos = 10;
 
-  /** Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada. */
+  /**
+   * Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada.
+   */
   @Min(0)
   private int ventanaDocenteAntesMinutos = 30;
 

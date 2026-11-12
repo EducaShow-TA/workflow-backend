@@ -7,8 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import pe.edu.pucp.colegio.common.model.EntregaTarea;
 
 public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Integer> {
-  @EntityGraph(attributePaths = {"matricula", "matricula.estudiante", "matricula.estudiante.persona"})
+  @EntityGraph(
+      attributePaths = {"matricula", "matricula.estudiante", "matricula.estudiante.persona"})
   List<EntregaTarea> findAllByTareaIdAndActiveTrueOrderByMatriculaId(Integer tareaId);
 
-  Optional<EntregaTarea> findByTareaIdAndMatriculaIdAndActiveTrue(Integer tareaId, Integer matriculaId);
+  Optional<EntregaTarea> findByTareaIdAndMatriculaIdAndActiveTrue(
+      Integer tareaId, Integer matriculaId);
 }

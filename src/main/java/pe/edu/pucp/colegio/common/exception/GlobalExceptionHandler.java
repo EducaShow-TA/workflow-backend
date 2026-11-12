@@ -71,8 +71,9 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(estado)
         .body(
             new ErrorConfirmacionMatriculaResponse(
-                java.time.OffsetDateTime.now().format(
-                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
+                java.time.OffsetDateTime.now()
+                    .format(
+                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
                 estado.value(),
                 estado.getReasonPhrase(),
                 e.getMessage(),

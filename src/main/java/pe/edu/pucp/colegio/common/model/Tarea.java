@@ -27,16 +27,51 @@ public class Tarea extends EntidadBase {
   @Column(precision = 5, scale = 2)
   private BigDecimal ponderacion;
 
-  public Periodo getPeriodo() { return periodo; }
-  public void setPeriodo(Periodo periodo) { this.periodo = periodo; }
-  public Competencia getCompetencia() { return competencia; }
-  public void setCompetencia(Competencia competencia) { this.competencia = competencia; }
-  public String getTitulo() { return titulo; }
-  public void setTitulo(String titulo) { this.titulo = titulo; }
-  public String getDescripcion() { return descripcion; }
-  public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-  public LocalDateTime getFechaLimite() { return fechaLimite; }
-  public void setFechaLimite(LocalDateTime fechaLimite) { this.fechaLimite = fechaLimite; }
-  public BigDecimal getPonderacion() { return ponderacion; }
-  public void setPonderacion(BigDecimal ponderacion) { this.ponderacion = ponderacion; }
+  public Periodo getPeriodo() {
+    return periodo;
+  }
+
+  public void setPeriodo(Periodo periodo) {
+    this.periodo = periodo;
+  }
+
+  public Competencia getCompetencia() {
+    return competencia;
+  }
+
+  public void setCompetencia(Competencia competencia) {
+    this.competencia = competencia;
+  }
+
+  public String getTitulo() {
+    return titulo;
+  }
+
+  public void setTitulo(String titulo) {
+    this.titulo = titulo;
+  }
+
+  public String getDescripcion() {
+    return descripcion;
+  }
+
+  public void setDescripcion(String descripcion) {
+    this.descripcion = descripcion;
+  }
+
+  public LocalDateTime getFechaLimite() {
+    return fechaLimite;
+  }
+
+  public void setFechaLimite(LocalDateTime fechaLimite) {
+    this.fechaLimite = fechaLimite;
+  }
+
+  public BigDecimal getPonderacion() {
+    return ponderacion;
+  }
+
+  public void setPonderacion(BigDecimal ponderacion) {
+    this.ponderacion = ponderacion;
+  }
 }

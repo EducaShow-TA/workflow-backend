@@ -13,38 +13,38 @@ import pe.edu.pucp.colegio.common.model.SesionHorario;
 
 public interface SesionHorarioRepository extends JpaRepository<SesionHorario, Integer> {
 
-    @Query(
-            "select s from SesionHorario s "
-                    + "join fetch s.horario h "
-                    + "join fetch h.seccion sec "
-                    + "join fetch sec.grado "
-                    + "join fetch s.bloque b "
-                    + "join fetch s.area "
-                    + "join fetch s.docente "
-                    + "join fetch s.aula "
-                    + "where s.docente.id = :cuentaId and h.anio = :anio "
-                    + "order by s.dia, b.horaInicio")
-    List<SesionHorario> listarHorarioDocente(
-            @Param("cuentaId") Integer cuentaId, @Param("anio") Integer anio);
+  @Query(
+      "select s from SesionHorario s "
+          + "join fetch s.horario h "
+          + "join fetch h.seccion sec "
+          + "join fetch sec.grado "
+          + "join fetch s.bloque b "
+          + "join fetch s.area "
+          + "join fetch s.docente "
+          + "join fetch s.aula "
+          + "where s.docente.id = :cuentaId and h.anio = :anio "
+          + "order by s.dia, b.horaInicio")
+  List<SesionHorario> listarHorarioDocente(
+      @Param("cuentaId") Integer cuentaId, @Param("anio") Integer anio);
 
-    @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})
-    List<SesionHorario> findAllByHorarioId(Integer horarioId);
+  @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})
+  List<SesionHorario> findAllByHorarioId(Integer horarioId);
 
-    Optional<SesionHorario> findByIdAndHorarioId(Integer id, Integer horarioId);
+  Optional<SesionHorario> findByIdAndHorarioId(Integer id, Integer horarioId);
 
-    boolean existsByAulaId(Integer aulaId);
+  boolean existsByAulaId(Integer aulaId);
 
-    boolean existsByHorarioIdAndBloqueIdAndDia(Integer horarioId, Integer bloqueId, DayOfWeek dia);
+  boolean existsByHorarioIdAndBloqueIdAndDia(Integer horarioId, Integer bloqueId, DayOfWeek dia);
 
-    boolean existsByHorarioIdAndBloqueIdAndDiaAndIdNot(
-            Integer horarioId, Integer bloqueId, DayOfWeek dia, Integer id);
+  boolean existsByHorarioIdAndBloqueIdAndDiaAndIdNot(
+      Integer horarioId, Integer bloqueId, DayOfWeek dia, Integer id);
 
-    /** Horarios (sección y año) que tienen al menos una clase en el aula. */
-    @Query("select distinct s.horario from SesionHorario s where s.aula.id = :aulaId")
-    List<HorarioSeccion> findHorariosConAula(@Param("aulaId") Integer aulaId);
+  /** Horarios (sección y año) que tienen al menos una clase en el aula. */
+  @Query("select distinct s.horario from SesionHorario s where s.aula.id = :aulaId")
+  List<HorarioSeccion> findHorariosConAula(@Param("aulaId") Integer aulaId);
 
-    @Query(
-            """
+  @Query(
+      """
             select s from SesionHorario s
               join fetch s.horario h
               join fetch h.seccion sec
@@ -58,16 +58,16 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
               and b.horaFin > :inicio
             order by b.horaInicio
             """)
-    List<SesionHorario> buscarCrucesDocente(
-            @Param("docenteId") Integer docenteId,
-            @Param("dia") DayOfWeek dia,
-            @Param("anio") Integer anio,
-            @Param("inicio") LocalTime inicio,
-            @Param("fin") LocalTime fin,
-            @Param("excluirId") Integer excluirId);
+  List<SesionHorario> buscarCrucesDocente(
+      @Param("docenteId") Integer docenteId,
+      @Param("dia") DayOfWeek dia,
+      @Param("anio") Integer anio,
+      @Param("inicio") LocalTime inicio,
+      @Param("fin") LocalTime fin,
+      @Param("excluirId") Integer excluirId);
 
-    @Query(
-            """
+  @Query(
+      """
             select s from SesionHorario s
               join fetch s.horario h
               join fetch h.seccion sec
@@ -81,11 +81,11 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
               and b.horaFin > :inicio
             order by b.horaInicio
             """)
-    List<SesionHorario> buscarCrucesAula(
-            @Param("aulaId") Integer aulaId,
-            @Param("dia") DayOfWeek dia,
-            @Param("anio") Integer anio,
-            @Param("inicio") LocalTime inicio,
-            @Param("fin") LocalTime fin,
-            @Param("excluirId") Integer excluirId);
+  List<SesionHorario> buscarCrucesAula(
+      @Param("aulaId") Integer aulaId,
+      @Param("dia") DayOfWeek dia,
+      @Param("anio") Integer anio,
+      @Param("inicio") LocalTime inicio,
+      @Param("fin") LocalTime fin,
+      @Param("excluirId") Integer excluirId);
 }

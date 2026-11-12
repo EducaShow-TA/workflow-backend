@@ -18,8 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.*;
 import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.service.EvidenciaStorageService;
-import pe.edu.pucp.colegio.common.service.SeguimientoAcademicoService;
 import pe.edu.pucp.colegio.common.service.MisClasesService;
+import pe.edu.pucp.colegio.common.service.SeguimientoAcademicoService;
 
 @RestController
 @PreAuthorize("hasAnyRole('DOCENTE', 'ADMINISTRADOR')")
@@ -40,7 +40,8 @@ public class SeguimientoAcademicoController {
   @PostMapping("/api/v1/tareas")
   public ResponseEntity<TareaResponse> crearTarea(
       @Valid @RequestBody TareaRequest request, Authentication authentication) {
-    validarAccesoCompetenciaEnPeriodo(request.periodoId(), request.competenciaCodigo(), authentication);
+    validarAccesoCompetenciaEnPeriodo(
+        request.periodoId(), request.competenciaCodigo(), authentication);
     return ResponseEntity.ok(service.crearTarea(request));
   }
 
@@ -56,16 +57,23 @@ public class SeguimientoAcademicoController {
   }
 
   @PatchMapping("/api/v1/tareas/{tareaId}/entregas/{matriculaId}")
-  public TareaResponse marcarEntrega(@PathVariable Integer tareaId, @PathVariable Integer matriculaId,
-      @Valid @RequestBody EstadoEntregaRequest request, Authentication authentication) {
+  public TareaResponse marcarEntrega(
+      @PathVariable Integer tareaId,
+      @PathVariable Integer matriculaId,
+      @Valid @RequestBody EstadoEntregaRequest request,
+      Authentication authentication) {
     if (!esAdministrador(authentication)) {
-      boolean tareaAsignada = misClases.listar(authentication.getName()).stream()
-          .flatMap(clase -> service.listarTareas(clase.periodoId()).stream())
-          .anyMatch(tarea -> tarea.id().equals(tareaId)
-              && competenciasDelDocente(authentication, tarea.periodoId())
-                  .contains(tarea.competenciaCodigo()));
+      boolean tareaAsignada =
+          misClases.listar(authentication.getName()).stream()
+              .flatMap(clase -> service.listarTareas(clase.periodoId()).stream())
+              .anyMatch(
+                  tarea ->
+                      tarea.id().equals(tareaId)
+                          && competenciasDelDocente(authentication, tarea.periodoId())
+                              .contains(tarea.competenciaCodigo()));
       if (!tareaAsignada) {
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "La tarea no pertenece a tus clases");
+        throw new ResponseStatusException(
+            HttpStatus.FORBIDDEN, "La tarea no pertenece a tus clases");
       }
     }
     return service.marcarEntrega(tareaId, matriculaId, request.cumplida());
@@ -75,7 +83,8 @@ public class SeguimientoAcademicoController {
       Integer periodoId, String competenciaCodigo, Authentication authentication) {
     if (esAdministrador(authentication)
         || competenciasDelDocente(authentication, periodoId).contains(competenciaCodigo)) return;
-    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes gestionar tareas de tus clases");
+    throw new ResponseStatusException(
+        HttpStatus.FORBIDDEN, "Solo puedes gestionar tareas de tus clases");
   }
 
   private Set<String> competenciasDelDocente(Authentication authentication, Integer periodoId) {
@@ -96,7 +105,8 @@ public class SeguimientoAcademicoController {
       @Valid @RequestPart("datos") CalificacionRequest request,
       @RequestPart(value = "archivo", required = false) MultipartFile archivo,
       Authentication authentication) {
-    validarAccesoCompetenciaEnPeriodo(request.periodoId(), request.competenciaCodigo(), authentication);
+    validarAccesoCompetenciaEnPeriodo(
+        request.periodoId(), request.competenciaCodigo(), authentication);
     String rol =
         authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
@@ -111,9 +121,7 @@ public class SeguimientoAcademicoController {
 
   @GetMapping("/api/v1/seguimiento/competencias/{codigo}")
   public List<CalificacionResponse> seguimientoCompetencia(
-      @PathVariable String codigo,
-      @RequestParam Integer periodoId,
-      Authentication authentication) {
+      @PathVariable String codigo, @RequestParam Integer periodoId, Authentication authentication) {
     validarAccesoCompetenciaEnPeriodo(periodoId, codigo, authentication);
     return service.seguimientoCompetencia(periodoId, codigo);
   }
@@ -132,11 +140,18 @@ public class SeguimientoAcademicoController {
     Resource recurso = storage.cargar(calificacion.getEvidenciaArchivo());
     MediaType tipo = MediaType.APPLICATION_OCTET_STREAM;
     if (calificacion.getEvidenciaTipo() != null) {
-      try { tipo = MediaType.parseMediaType(calificacion.getEvidenciaTipo()); }
-      catch (IllegalArgumentException ignored) { /* se entrega como binario */ }
+      try {
+        tipo = MediaType.parseMediaType(calificacion.getEvidenciaTipo());
+      } catch (IllegalArgumentException ignored) {
+        /* se entrega como binario */
+      }
     }
-    String nombre = calificacion.getEvidenciaNombre() == null ? "evidencia" : calificacion.getEvidenciaNombre().replaceAll("[\\r\\n\\\"]", "_");
-    return ResponseEntity.ok().contentType(tipo)
+    String nombre =
+        calificacion.getEvidenciaNombre() == null
+            ? "evidencia"
+            : calificacion.getEvidenciaNombre().replaceAll("[\\r\\n\\\"]", "_");
+    return ResponseEntity.ok()
+        .contentType(tipo)
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombre + "\"")
         .body(recurso);
   }

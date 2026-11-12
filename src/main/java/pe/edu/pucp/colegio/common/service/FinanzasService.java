@@ -69,7 +69,8 @@ public class FinanzasService {
       throw new ConflictException("La matrícula ya tiene un compromiso de pago");
     }
     if (!requisitos.isEmpty()) {
-      throw new BusinessException("El estudiante debe tener un apoderado principal para generar el compromiso");
+      throw new BusinessException(
+          "El estudiante debe tener un apoderado principal para generar el compromiso");
     }
     VinculoFamiliar vinculo =
         vinculos

@@ -123,7 +123,8 @@ class CapacidadAulaIntegrationTest {
 
     actualizarAula(aulaId, codigo, 2)
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.message").value(containsString("No se puede reducir la capacidad a 2")));
+        .andExpect(
+            jsonPath("$.message").value(containsString("No se puede reducir la capacidad a 2")));
     actualizarAula(aulaId, codigo, 3)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.capacidad").value(3));
@@ -145,7 +146,8 @@ class CapacidadAulaIntegrationTest {
 
     Periodo periodo = periodo(seccion, LocalDate.of(ANIO, 3, 1), LocalDate.of(ANIO, 12, 15));
     for (int i = 0; i < alumnos; i++) {
-      matricula(periodo, i % 2 == 0 ? EstadoMatricula.CONFIRMADA : EstadoMatricula.EN_REGISTRO, true);
+      matricula(
+          periodo, i % 2 == 0 ? EstadoMatricula.CONFIRMADA : EstadoMatricula.EN_REGISTRO, true);
     }
 
     ResultActions creado =

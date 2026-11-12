@@ -8,6 +8,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record AulaRequest(
-        @NotBlank @Size(max = 30) @Pattern(regexp = "[A-Za-z0-9-]+") String codigo,
-        @NotNull @Min(1) @Max(200) Integer capacidad,
-        @Size(max = 200) String descripcion) {}
+    @NotBlank @Size(max = 30) @Pattern(regexp = "[A-Za-z0-9-]+") String codigo,
+    @NotNull @Min(1) @Max(200) Integer capacidad,
+    @Size(max = 200) String descripcion) {}

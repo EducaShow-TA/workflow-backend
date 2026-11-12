@@ -70,7 +70,9 @@ class CrucesHorarioIntegrationTest {
         .andExpect(status().isConflict())
         .andExpect(
             jsonPath("$.message")
-                .value(containsString("El docente Marta Quispe ya tiene clase el lunes de 07:30 a 08:15")));
+                .value(
+                    containsString(
+                        "El docente Marta Quispe ya tiene clase el lunes de 07:30 a 08:15")));
   }
 
   @Test
