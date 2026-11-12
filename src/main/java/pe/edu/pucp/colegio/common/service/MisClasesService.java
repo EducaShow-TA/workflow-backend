@@ -4,7 +4,9 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,14 +14,18 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.AlumnoClaseResponse;
 import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
+import pe.edu.pucp.colegio.common.dto.AlumnoRiesgoAcademicoResponse;
 import pe.edu.pucp.colegio.common.dto.MiClaseResponse;
+import pe.edu.pucp.colegio.common.dto.RiesgoAcademicoResponse;
 import pe.edu.pucp.colegio.common.model.Area;
+import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
@@ -36,6 +42,7 @@ public class MisClasesService {
   private final PeriodoRepository periodos;
   private final AreaRepository areas;
   private final MatriculaRepository matriculas;
+  private final CalificacionRepository calificaciones;
   private final Clock clock;
 
   public MisClasesService(
@@ -44,12 +51,14 @@ public class MisClasesService {
       PeriodoRepository periodos,
       AreaRepository areas,
       MatriculaRepository matriculas,
+      CalificacionRepository calificaciones,
       Clock clock) {
     this.docenteService = docenteService;
     this.sesiones = sesiones;
     this.periodos = periodos;
     this.areas = areas;
     this.matriculas = matriculas;
+    this.calificaciones = calificaciones;
     this.clock = clock;
   }
 
@@ -111,6 +120,65 @@ public class MisClasesService {
           HttpStatus.FORBIDDEN, "Solo puedes consultar los alumnos de tus clases");
     }
     return alumnosDe(periodo).stream().map(MisClasesService::alumno).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public RiesgoAcademicoResponse riesgoAcademico(
+      String usuario, Integer periodoId, String areaCodigo, int umbral) {
+    if (umbral < 1 || umbral > 5) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El umbral debe estar entre 1 y 5");
+    }
+    Docente docente = docenteService.obtenerDeCuenta(usuario);
+    Periodo periodo =
+        periodos
+            .findById(periodoId)
+            .filter(encontrado -> Boolean.TRUE.equals(encontrado.getActive()))
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Periodo no encontrado"));
+    if (!sesiones.existsByDocenteIdAndSeccionIdAndAreaCodigoAndActiveTrue(
+        docente.getId(), periodo.getSeccion().getId(), areaCodigo)) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Solo puedes consultar el riesgo académico de tus clases");
+    }
+    Area area =
+        areas
+            .findById(areaCodigo)
+            .filter(encontrada -> Boolean.TRUE.equals(encontrada.getActivo()))
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Área no encontrada"));
+    List<String> competencias =
+        area.getCompetencias().stream()
+            .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
+            .map(competencia -> competencia.getCodigo())
+            .toList();
+    Map<Integer, Integer> notasCPorMatricula = new HashMap<>();
+    if (!competencias.isEmpty()) {
+      for (Calificacion nota :
+          calificaciones.findAllByPeriodoIdAndCompetenciaCodigoInAndActiveTrue(
+              periodoId, competencias)) {
+        if ("C".equalsIgnoreCase(nota.getNota())) {
+          notasCPorMatricula.merge(nota.getMatricula().getId(), 1, Integer::sum);
+        }
+      }
+    }
+    List<AlumnoRiesgoAcademicoResponse> alumnos =
+        alumnosDe(periodo).stream()
+            .map(
+                matricula -> {
+                  Estudiante estudiante = matricula.getEstudiante();
+                  int notasC = notasCPorMatricula.getOrDefault(matricula.getId(), 0);
+                  return new AlumnoRiesgoAcademicoResponse(
+                      matricula.getId(),
+                      estudiante.getId(),
+                      estudiante.getPersona().getDni(),
+                      nombreLista(estudiante.getPersona()),
+                      notasC,
+                      notasC >= umbral);
+                })
+            .toList();
+    int enRiesgo = (int) alumnos.stream().filter(AlumnoRiesgoAcademicoResponse::enRiesgo).count();
+    return new RiesgoAcademicoResponse(
+        periodoId, areaCodigo, umbral, alumnos.size(), enRiesgo, alumnos);
   }
 
   /** Periodo de la sección que incluye hoy; si no hay, el más reciente. */

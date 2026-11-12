@@ -22,6 +22,10 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Inte
   List<Calificacion> findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrue(
       Integer periodoId, String competenciaCodigo);
 
+  @EntityGraph(attributePaths = {"matricula"})
+  List<Calificacion> findAllByPeriodoIdAndCompetenciaCodigoInAndActiveTrue(
+      Integer periodoId, List<String> competenciaCodigos);
+
   @EntityGraph(attributePaths = {"matricula", "competencia"})
   List<Calificacion> findAllByPeriodoIdAndCompetenciaCodigo(
       Integer periodoId, String competenciaCodigo);

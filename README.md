@@ -95,6 +95,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marcar salida propia (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases` | Secciones y áreas del docente con sus competencias activas (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases/{periodoId}/alumnos` | Alumnos confirmados de una de sus clases, para calificar (solo DOCENTE) |
+| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={1..5}` | Contar notas finales C y detectar alumnos en riesgo en una de sus áreas (solo DOCENTE) |
 | `POST` | `/api/v1/asistencias-docentes` | Registrar asistencia de cualquier docente (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes?fecha=&docenteId=` | Consultar asistencias de docentes (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes/{asistenciaId}` | Consultar una asistencia docente (solo ADMINISTRADOR) |
@@ -819,7 +820,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-3.1 Reglas de consolidación | **Completa**: umbrales configurables por competencia. |
 | US-3.2 Calificaciones por competencia | **Completa**: evaluaciones parciales ponderadas, calificaciones cualitativas y auditoría de cambios. |
 | US-3.3 Libretas e informes de progreso | **Completa**: consulta de libreta y descarga PDF, con cierre de actas y modo preliminar. |
-| US-3.4 Detección de riesgo académico | **Parcial**: la pantalla de calificaciones docente cuenta notas `C` y aplica un umbral configurable en el navegador; no existe un endpoint de riesgo en el backend. |
+| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área, con umbral de 1 a 5 notas finales `C`; devuelve el conteo por alumno y el resumen de riesgo. |
 | US-3.7 Seguimiento de tareas | **Completa**: creación de tareas y actualización/consulta de entregas por matrícula. |
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |

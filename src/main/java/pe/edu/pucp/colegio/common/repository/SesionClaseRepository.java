@@ -30,6 +30,9 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Intege
 
   boolean existsByDocenteIdAndSeccionIdAndActiveTrue(Integer docenteId, Integer seccionId);
 
+  boolean existsByDocenteIdAndSeccionIdAndAreaCodigoAndActiveTrue(
+      Integer docenteId, Integer seccionId, String areaCodigo);
+
   @EntityGraph(attributePaths = {"area", "area.competencias"})
   List<SesionClase> findAllByDocenteIdAndSeccionIdAndActiveTrue(
       Integer docenteId, Integer seccionId);
