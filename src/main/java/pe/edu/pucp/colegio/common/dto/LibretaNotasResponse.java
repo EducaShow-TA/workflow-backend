@@ -9,6 +9,8 @@ public record LibretaNotasResponse(
     String estudiante,
     Integer periodoSolicitadoId,
     int anhioEscolar,
+    Integer bimestre,
+    int evaluacionesSinBimestre,
     List<PeriodoLibreta> periodos) {
 
   public record PeriodoLibreta(
@@ -27,5 +29,9 @@ public record LibretaNotasResponse(
       String nombre,
       String nota,
       BigDecimal puntajeConsolidado,
-      String observacion) {}
+      String observacion,
+      List<EvaluacionLibreta> evaluaciones) {}
+
+  public record EvaluacionLibreta(
+      Integer evaluacionId, String titulo, BigDecimal ponderacion, String nota, boolean justificada) {}
 }

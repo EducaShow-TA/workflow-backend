@@ -96,6 +96,12 @@ public class ConsolidacionLogroService {
                     UMBRAL_AD));
   }
 
+  @Transactional(readOnly = true)
+  public ConsolidacionCalculada calcularLogroBimestral(
+      String competenciaCodigo, List<CalificacionParcial> notas) {
+    return calcularResultado(notas, obtenerRegla(competenciaCodigo));
+  }
+
   @Transactional
   public ReglaConsolidacionResponse actualizarRegla(
       String competenciaCodigo, ReglaConsolidacionRequest request, String username) {
@@ -133,6 +139,7 @@ public class ConsolidacionLogroService {
     evaluacion.setTitulo(request.titulo().trim());
     evaluacion.setDescripcion(limpiar(request.descripcion()));
     evaluacion.setPonderacion(request.ponderacion());
+    evaluacion.setBimestre(request.bimestre());
     evaluacion = evaluaciones.save(evaluacion);
     recalcularCompetencia(
         periodo,
@@ -154,6 +161,7 @@ public class ConsolidacionLogroService {
     evaluacion.setTitulo(request.titulo().trim());
     evaluacion.setDescripcion(limpiar(request.descripcion()));
     evaluacion.setPonderacion(request.ponderacion());
+    evaluacion.setBimestre(request.bimestre());
     evaluacion = evaluaciones.save(evaluacion);
     recalcularCompetencia(
         periodo,
@@ -500,25 +508,9 @@ public class ConsolidacionLogroService {
         new java.util.IdentityHashMap<>();
     for (Matricula matricula : roster) {
       List<CalificacionParcial> notas = porMatricula.getOrDefault(matricula.getId(), List.of());
-      BigDecimal ponderacionTotal = BigDecimal.ZERO;
-      BigDecimal sumaPonderada = BigDecimal.ZERO;
-      for (CalificacionParcial nota : notas) {
-        if (Boolean.TRUE.equals(nota.getJustificada())) {
-          continue;
-        }
-        String valor = nota.getNota();
-        if (valor == null) {
-          if (!cerrar) {
-            continue;
-          }
-          valor = "C";
-        }
-        BigDecimal ponderacion = nota.getEvaluacion().getPonderacion();
-        ponderacionTotal = ponderacionTotal.add(ponderacion);
-        sumaPonderada = sumaPonderada.add(valorOrdinal(valor).multiply(ponderacion));
-      }
+      ConsolidacionCalculada resultado = calcularResultado(notas, regla);
       Calificacion calificacionExistente = finalesExistentes.get(matricula.getId());
-      if (ponderacionTotal.signum() == 0) {
+      if (resultado.puntajeConsolidado() == null) {
         if (calificacionExistente != null
             && Boolean.TRUE.equals(calificacionExistente.getActive())) {
           anterioresFinales.put(
@@ -528,9 +520,6 @@ public class ConsolidacionLogroService {
         }
         continue;
       }
-      BigDecimal puntajeSinRedondear =
-          sumaPonderada.divide(ponderacionTotal, 10, RoundingMode.HALF_UP);
-      BigDecimal puntaje = puntajeSinRedondear.setScale(4, RoundingMode.HALF_UP);
       Calificacion calificacion =
           calificacionExistente == null ? new Calificacion() : calificacionExistente;
       anterioresFinales.put(
@@ -538,8 +527,8 @@ public class ConsolidacionLogroService {
       calificacion.setPeriodo(periodo);
       calificacion.setMatricula(matricula);
       calificacion.setCompetencia(buscarCompetencia(codigo));
-      calificacion.setNota(convertirNota(puntajeSinRedondear, regla));
-      calificacion.setPuntajeConsolidado(puntaje);
+      calificacion.setNota(resultado.nota());
+      calificacion.setPuntajeConsolidado(resultado.puntajeConsolidado());
       calificacion.setConsolidada(true);
       calificacion.setObservacion(null);
       calificacion.setEvidenciaUrl(null);
@@ -576,7 +565,7 @@ public class ConsolidacionLogroService {
     return new EvaluacionParcialResponse(
         evaluacion.getId(), evaluacion.getPeriodo().getId(),
         evaluacion.getCompetencia().getCodigo(), evaluacion.getTitulo(),
-        evaluacion.getDescripcion(), evaluacion.getPonderacion());
+        evaluacion.getDescripcion(), evaluacion.getPonderacion(), evaluacion.getBimestre());
   }
 
   private CalificacionParcialResponse respuestaNotaParcial(
@@ -672,6 +661,31 @@ public class ConsolidacionLogroService {
     }
     return "C";
   }
+
+  private ConsolidacionCalculada calcularResultado(
+      List<CalificacionParcial> notas, ReglaConsolidacionResponse regla) {
+    BigDecimal ponderacionTotal = BigDecimal.ZERO;
+    BigDecimal sumaPonderada = BigDecimal.ZERO;
+    for (CalificacionParcial nota : notas) {
+      if (Boolean.TRUE.equals(nota.getJustificada()) || nota.getNota() == null) {
+        continue;
+      }
+      BigDecimal ponderacion = nota.getEvaluacion().getPonderacion();
+      ponderacionTotal = ponderacionTotal.add(ponderacion);
+      sumaPonderada = sumaPonderada.add(valorOrdinal(nota.getNota()).multiply(ponderacion));
+    }
+
+    if (ponderacionTotal.signum() == 0) {
+      return new ConsolidacionCalculada(null, null);
+    }
+
+    BigDecimal puntajeSinRedondear =
+        sumaPonderada.divide(ponderacionTotal, 10, RoundingMode.HALF_UP);
+    return new ConsolidacionCalculada(
+        convertirNota(puntajeSinRedondear, regla), puntajeSinRedondear.setScale(4, RoundingMode.HALF_UP));
+  }
+
+  public record ConsolidacionCalculada(String nota, BigDecimal puntajeConsolidado) {}
 
   private String clave(Integer evaluacionId, Integer matriculaId) {
     return evaluacionId + ":" + matriculaId;
