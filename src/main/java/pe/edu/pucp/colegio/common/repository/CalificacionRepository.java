@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import pe.edu.pucp.colegio.common.model.Calificacion;
 
 public interface CalificacionRepository extends JpaRepository<Calificacion, Integer> {
+  boolean existsByCompetenciaCodigo(String competenciaCodigo);
+
   Optional<Calificacion> findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndActiveTrue(
       Integer periodoId, Integer matriculaId, String competenciaCodigo);
 
