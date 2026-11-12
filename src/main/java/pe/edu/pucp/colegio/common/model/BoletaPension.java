@@ -105,15 +105,14 @@ public class BoletaPension extends EntidadBase {
     fechaGeneracion = value;
   }
 
-  public boolean estaProximaAVencer() {
-    LocalDate hoy = LocalDate.now();
+  public boolean estaProximaAVencer(LocalDate hoy) {
     return estadoPago == EstadoBoleta.PENDIENTE
         && !hoy.isAfter(fechaVencimiento)
         && !fechaVencimiento.isAfter(hoy.plusDays(5));
   }
 
-  public void marcarEnMora() {
-    if (estadoPago == EstadoBoleta.PENDIENTE && LocalDate.now().isAfter(fechaVencimiento)) {
+  public void marcarEnMora(LocalDate hoy) {
+    if (estadoPago == EstadoBoleta.PENDIENTE && hoy.isAfter(fechaVencimiento)) {
       estadoPago = EstadoBoleta.EN_MORA;
     }
   }

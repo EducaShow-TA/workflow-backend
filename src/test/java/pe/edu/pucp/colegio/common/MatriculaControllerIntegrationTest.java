@@ -185,6 +185,38 @@ class MatriculaControllerIntegrationTest {
   }
 
   @Test
+  void retirarMatriculaDesactivaSuCompromisoDePago() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    EstudianteResponse estudiante = crearEstudiante();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
+        .andExpect(status().isOk());
+
+    mvc.perform(
+            delete(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}",
+                periodoId,
+                estudiante.estudianteId()))
+        .andExpect(status().isNoContent());
+
+    Long compromisosActivos =
+        entityManager
+            .createQuery(
+                "select count(c) from CompromisoPago c "
+                    + "where c.matricula.estudiante.id = :estudianteId and c.active = true",
+                Long.class)
+            .setParameter("estudianteId", estudiante.estudianteId())
+            .getSingleResult();
+    org.assertj.core.api.Assertions.assertThat(compromisosActivos).isZero();
+  }
+
+  @Test
   void noPermiteRegistrarMatriculaFueraDeLaVentanaVigente() throws Exception {
     Integer periodoId = crearPeriodo(1);
     EstudianteResponse estudiante = crearEstudiante();

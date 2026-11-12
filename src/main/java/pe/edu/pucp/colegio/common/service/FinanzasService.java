@@ -2,12 +2,15 @@ package pe.edu.pucp.colegio.common.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -17,7 +20,10 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
@@ -32,6 +38,7 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 /** Compromisos, cronograma de pensiones, comprobantes, mora y cobranza consolidada. */
 @Service
 public class FinanzasService {
+  private static final Logger log = LoggerFactory.getLogger(FinanzasService.class);
   private static final String COMPROMISO_EXISTENTE =
       "La matrícula ya tiene un compromiso de pago activo.";
   private static final String APODERADO_PRINCIPAL_FALTANTE =
@@ -44,6 +51,8 @@ public class FinanzasService {
   private final VinculoFamiliarRepository vinculos;
   private final RegistroAuditoriaRepository auditoria;
   private final CuentaUsuarioRepository usuarios;
+  private final Clock clock;
+  private final TransactionTemplate transaccionPorCompromiso;
 
   public FinanzasService(
       CompromisoPagoRepository compromisos,
@@ -51,13 +60,19 @@ public class FinanzasService {
       ComprobantePagoRepository comprobantes,
       VinculoFamiliarRepository vinculos,
       RegistroAuditoriaRepository auditoria,
-      CuentaUsuarioRepository usuarios) {
+      CuentaUsuarioRepository usuarios,
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
     this.compromisos = compromisos;
     this.boletas = boletas;
     this.comprobantes = comprobantes;
     this.vinculos = vinculos;
     this.auditoria = auditoria;
     this.usuarios = usuarios;
+    this.clock = clock;
+    this.transaccionPorCompromiso = new TransactionTemplate(transactionManager);
+    this.transaccionPorCompromiso.setPropagationBehavior(
+        TransactionDefinition.PROPAGATION_REQUIRES_NEW);
   }
 
   @Transactional
@@ -85,7 +100,7 @@ public class FinanzasService {
     c.setApoderado(vinculo.getApoderado());
     c.setConcepto(request.concepto().trim());
     c.setMontoTotal(request.montoTotal().setScale(2, RoundingMode.HALF_UP));
-    c.setFechaEmision(LocalDate.now());
+    c.setFechaEmision(LocalDate.now(clock));
     c.setMesInicio(YearMonth.from(request.primerVencimiento()));
     c.setNumeroCuotas(request.numeroCuotas());
     c.setPrimerVencimiento(request.primerVencimiento());
@@ -128,6 +143,13 @@ public class FinanzasService {
   @Transactional(readOnly = true)
   public CompromisoPagoResponse obtenerCompromiso(Integer id) {
     return respuesta(buscarCompromiso(id));
+  }
+
+  @Transactional
+  public void desactivarCompromisoDeMatricula(Integer matriculaId) {
+    compromisos
+        .findByMatriculaIdAndActiveTrue(matriculaId)
+        .ifPresent(compromiso -> compromiso.setActive(false));
   }
 
   @Transactional
@@ -175,7 +197,7 @@ public class FinanzasService {
     }
     ComprobantePago comprobante = new ComprobantePago();
     comprobante.setBoleta(boleta);
-    comprobante.setFechaEmision(LocalDate.now());
+    comprobante.setFechaEmision(LocalDate.now(clock));
     comprobante.setMontoPagado(importe);
     comprobante.setMedioPago(request.medioPago());
     String numeroComprobante =
@@ -281,25 +303,42 @@ public class FinanzasService {
 
   /** Generación idempotente del mes actual y actualización diaria de vencimientos. */
   @Scheduled(cron = "0 10 1 * * *", zone = "America/Lima")
-  @Transactional
   public void procesarCicloDiario() {
-    YearMonth mesActual = YearMonth.now();
+    YearMonth mesActual = YearMonth.now(clock);
     for (CompromisoPago c : compromisos.findAllByActiveTrue()) {
-      YearMonth ultimoMes =
-          mesActual.isBefore(c.getMesInicio().plusMonths(c.getNumeroCuotas() - 1L))
-              ? mesActual
-              : c.getMesInicio().plusMonths(c.getNumeroCuotas() - 1L);
-      for (YearMonth mes = c.getMesInicio(); !mes.isAfter(ultimoMes); mes = mes.plusMonths(1)) {
-        if (!boletas.existsByEstudianteConceptoMes(
-            c.getMatricula().getEstudiante().getId(), c.getConcepto(), mes.atDay(1))) {
-          generarBoleta(c, mes, MecanismoGeneracion.AUTOMATICO);
-        }
+      if (c.getMatricula().getEstado() == EstadoMatricula.RETIRADA) {
+        continue;
+      }
+      try {
+        transaccionPorCompromiso.executeWithoutResult(
+            status -> generarBoletasPendientes(c, mesActual));
+      } catch (RuntimeException ex) {
+        log.error("No se pudo procesar el compromiso de pago {} en el ciclo diario", c.getId(), ex);
       }
     }
-    for (BoletaPension b :
-        boletas.findAllByActiveTrueAndEstadoPagoInAndFechaVencimientoBefore(
-            List.of(EstadoBoleta.PENDIENTE), LocalDate.now())) {
-      b.marcarEnMora();
+    LocalDate hoy = LocalDate.now(clock);
+    transaccionPorCompromiso.executeWithoutResult(
+        status -> {
+          for (BoletaPension b :
+              boletas.findAllByActiveTrueAndEstadoPagoInAndFechaVencimientoBefore(
+                  List.of(EstadoBoleta.PENDIENTE), hoy)) {
+            if (b.getCompromiso().getMatricula().getEstado() != EstadoMatricula.RETIRADA) {
+              b.marcarEnMora(hoy);
+            }
+          }
+        });
+  }
+
+  private void generarBoletasPendientes(CompromisoPago c, YearMonth mesActual) {
+    YearMonth ultimoMes =
+        mesActual.isBefore(c.getMesInicio().plusMonths(c.getNumeroCuotas() - 1L))
+            ? mesActual
+            : c.getMesInicio().plusMonths(c.getNumeroCuotas() - 1L);
+    for (YearMonth mes = c.getMesInicio(); !mes.isAfter(ultimoMes); mes = mes.plusMonths(1)) {
+      if (!boletas.existsByEstudianteConceptoMes(
+          c.getMatricula().getEstudiante().getId(), c.getConcepto(), mes.atDay(1))) {
+        generarBoleta(c, mes, MecanismoGeneracion.AUTOMATICO);
+      }
     }
   }
 
@@ -325,7 +364,7 @@ public class FinanzasService {
     b.setMora(BigDecimal.ZERO.setScale(2));
     b.setEstadoPago(EstadoBoleta.PENDIENTE);
     b.setMecanismoGeneracion(mecanismo);
-    b.setFechaGeneracion(LocalDateTime.now());
+    b.setFechaGeneracion(LocalDateTime.now(clock));
     b = boletas.save(b);
     registrarAuditoria(
         AccionAuditoria.GENERAR_BOLETA,
@@ -336,7 +375,7 @@ public class FinanzasService {
   public void validarTerminos(CompromisoPagoRequest r) {
     if (r.numeroCuotas() > 24)
       throw new BusinessException("El cronograma no puede superar 24 cuotas");
-    if (r.primerVencimiento().isBefore(LocalDate.now()))
+    if (r.primerVencimiento().isBefore(LocalDate.now(clock)))
       throw new BusinessException("El primer vencimiento no puede ser una fecha pasada");
     if (r.primerVencimiento().getDayOfMonth() != r.diaVencimiento())
       throw new BusinessException(

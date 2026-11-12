@@ -211,6 +211,7 @@ public class MatriculaService {
                         HttpStatus.NOT_FOUND,
                         "El estudiante no tiene matrícula en el periodo indicado"));
     matricula.setEstado(EstadoMatricula.RETIRADA);
+    finanzas.desactivarCompromisoDeMatricula(matricula.getId());
   }
 
   private Periodo buscarPeriodo(Integer periodoId) {
