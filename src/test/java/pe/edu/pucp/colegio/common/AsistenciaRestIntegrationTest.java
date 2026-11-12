@@ -55,7 +55,7 @@ import pe.edu.pucp.colegio.security.model.Rol;
 class AsistenciaRestIntegrationTest {
 
   private static final AtomicInteger NUMERO_GRADO = new AtomicInteger(40_000);
-  private static final ZoneId ZONA = ZoneId.systemDefault();
+  private static final ZoneId ZONA = ZoneId.of("America/Lima");
   private static final LocalDate FECHA_FIJA = LocalDate.of(2026, 11, 4);
   private static final LocalTime HORA_INICIO_SESION = LocalTime.of(10, 0);
 

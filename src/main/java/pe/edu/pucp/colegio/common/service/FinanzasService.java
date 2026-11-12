@@ -279,7 +279,7 @@ public class FinanzasService {
   }
 
   /** Generación idempotente del mes actual y actualización diaria de vencimientos. */
-  @Scheduled(cron = "0 10 1 * * *")
+  @Scheduled(cron = "0 10 1 * * *", zone = "America/Lima")
   @Transactional
   public void procesarCicloDiario() {
     YearMonth mesActual = YearMonth.now();
