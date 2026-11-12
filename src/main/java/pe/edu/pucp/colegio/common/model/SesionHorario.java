@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 
 /** Celda de la grilla: qué área dicta qué docente, en qué aula, en un día y bloque. */
@@ -21,8 +22,8 @@ import pe.edu.pucp.colegio.security.model.CuentaUsuario;
     name = "sesiones_horario",
     uniqueConstraints =
         @UniqueConstraint(
-            name = "uk_sesion_horario_bloque_dia",
-            columnNames = {"horario_id", "bloque_id", "dia"}))
+            name = "uk_sesion_horario_vigencia",
+            columnNames = {"horario_id", "bloque_id", "dia", "vigente_desde"}))
 public class SesionHorario {
 
   @Id
@@ -52,6 +53,12 @@ public class SesionHorario {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "aula_id", nullable = false)
   private Aula aula;
+
+  @Column(name = "vigente_desde", nullable = false)
+  private LocalDate vigenteDesde;
+
+  @Column(name = "vigente_hasta")
+  private LocalDate vigenteHasta;
 
   public Integer getId() {
     return id;
@@ -103,5 +110,25 @@ public class SesionHorario {
 
   public void setAula(Aula aula) {
     this.aula = aula;
+  }
+
+  public LocalDate getVigenteDesde() {
+    return vigenteDesde;
+  }
+
+  public void setVigenteDesde(LocalDate vigenteDesde) {
+    this.vigenteDesde = vigenteDesde;
+  }
+
+  public LocalDate getVigenteHasta() {
+    return vigenteHasta;
+  }
+
+  public void setVigenteHasta(LocalDate vigenteHasta) {
+    this.vigenteHasta = vigenteHasta;
+  }
+
+  public boolean estaVigenteEn(LocalDate fecha) {
+    return !fecha.isBefore(vigenteDesde) && (vigenteHasta == null || !fecha.isAfter(vigenteHasta));
   }
 }

@@ -27,6 +27,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.fixture.HorarioFixture;
 import pe.edu.pucp.colegio.common.model.*;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -89,6 +90,14 @@ class SeguimientoAcademicoIntegrationTest {
     Docente docente = new Docente();
     docente.setPersona(personaDocente);
     entityManager.persist(docente);
+    HorarioFixture.asignar(
+        entityManager,
+        seccion,
+        area,
+        USUARIO_DOCENTE,
+        LocalDate.now(),
+        java.time.LocalTime.of(8, 0),
+        java.time.LocalTime.of(8, 45));
 
     SesionClase sesion = new SesionClase();
     sesion.setSeccion(seccion);

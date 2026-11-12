@@ -28,6 +28,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.fixture.HorarioFixture;
 import pe.edu.pucp.colegio.common.model.*;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -148,6 +149,14 @@ class LibretaNotasIntegrationTest {
     Docente docente = new Docente();
     docente.setPersona(personaDocente);
     entityManager.persist(docente);
+    HorarioFixture.asignar(
+        entityManager,
+        seccion,
+        area,
+        docenteUsername,
+        LocalDate.of(2026, 9, 1),
+        LocalTime.of(9, 0),
+        LocalTime.of(10, 0));
     SesionClase sesion = new SesionClase();
     sesion.setSeccion(seccion);
     sesion.setArea(area);

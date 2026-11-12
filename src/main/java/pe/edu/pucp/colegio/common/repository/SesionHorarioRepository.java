@@ -28,21 +28,43 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
           + "join fetch s.docente "
           + "join fetch s.aula "
           + "where s.docente.id = :cuentaId and h.anio = :anio "
+          + "and s.vigenteDesde <= :hasta and (s.vigenteHasta is null or s.vigenteHasta >= :desde) "
           + "order by s.dia, b.horaInicio")
   List<SesionHorario> listarHorarioDocente(
-      @Param("cuentaId") Integer cuentaId, @Param("anio") Integer anio);
+      @Param("cuentaId") Integer cuentaId,
+      @Param("anio") Integer anio,
+      @Param("desde") java.time.LocalDate desde,
+      @Param("hasta") java.time.LocalDate hasta);
 
   @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})
   List<SesionHorario> findAllByHorarioId(Integer horarioId);
+
+  @Query(
+      "select distinct s from SesionHorario s join fetch s.area a left join fetch a.competencias "
+          + "where s.docente.persona.id = :personaId and s.horario.seccion.id = :seccionId "
+          + "and s.horario.active = true and s.vigenteDesde <= :hasta "
+          + "and (s.vigenteHasta is null or s.vigenteHasta >= :desde)")
+  List<SesionHorario> buscarAsignacionesDocente(
+      @Param("personaId") Integer personaId,
+      @Param("seccionId") Integer seccionId,
+      @Param("desde") java.time.LocalDate desde,
+      @Param("hasta") java.time.LocalDate hasta);
 
   Optional<SesionHorario> findByIdAndHorarioId(Integer id, Integer horarioId);
 
   boolean existsByAulaId(Integer aulaId);
 
-  boolean existsByHorarioIdAndBloqueIdAndDia(Integer horarioId, Integer bloqueId, DayOfWeek dia);
-
-  boolean existsByHorarioIdAndBloqueIdAndDiaAndIdNot(
-      Integer horarioId, Integer bloqueId, DayOfWeek dia, Integer id);
+  @Query(
+      "select case when count(s) > 0 then true else false end from SesionHorario s"
+          + " where s.horario.id = :horarioId and s.bloque.id = :bloqueId and s.dia = :dia"
+          + " and s.vigenteDesde <= :fecha and (s.vigenteHasta is null or s.vigenteHasta >= :fecha)"
+          + " and (:excluirId is null or s.id <> :excluirId)")
+  boolean existeCeldaVigente(
+      @Param("horarioId") Integer horarioId,
+      @Param("bloqueId") Integer bloqueId,
+      @Param("dia") DayOfWeek dia,
+      @Param("fecha") java.time.LocalDate fecha,
+      @Param("excluirId") Integer excluirId);
 
   /** Horarios (sección y año) que tienen al menos una clase en el aula. */
   @Query("select distinct s.horario from SesionHorario s where s.aula.id = :aulaId")
@@ -58,6 +80,8 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
             where s.docente.id = :docenteId
               and s.dia = :dia
               and h.anio = :anio
+              and s.vigenteDesde <= :fecha
+              and (s.vigenteHasta is null or s.vigenteHasta >= :fecha)
               and s.id <> :excluirId
               and b.horaInicio < :fin
               and b.horaFin > :inicio
@@ -67,6 +91,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("docenteId") Integer docenteId,
       @Param("dia") DayOfWeek dia,
       @Param("anio") Integer anio,
+      @Param("fecha") java.time.LocalDate fecha,
       @Param("inicio") LocalTime inicio,
       @Param("fin") LocalTime fin,
       @Param("excluirId") Integer excluirId);
@@ -81,6 +106,8 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
             where s.aula.id = :aulaId
               and s.dia = :dia
               and h.anio = :anio
+              and s.vigenteDesde <= :fecha
+              and (s.vigenteHasta is null or s.vigenteHasta >= :fecha)
               and s.id <> :excluirId
               and b.horaInicio < :fin
               and b.horaFin > :inicio
@@ -90,6 +117,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("aulaId") Integer aulaId,
       @Param("dia") DayOfWeek dia,
       @Param("anio") Integer anio,
+      @Param("fecha") java.time.LocalDate fecha,
       @Param("inicio") LocalTime inicio,
       @Param("fin") LocalTime fin,
       @Param("excluirId") Integer excluirId);

@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.dto;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 
 public record SesionHorarioResponse(
     Integer id,
@@ -11,4 +12,6 @@ public record SesionHorarioResponse(
     Integer docenteId,
     String docenteNombre,
     Integer aulaId,
-    String aulaCodigo) {}
+    String aulaCodigo,
+    LocalDate vigenteDesde,
+    LocalDate vigenteHasta) {}

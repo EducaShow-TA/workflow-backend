@@ -45,7 +45,7 @@ public class ConsolidacionLogroService {
   private final RegistroAuditoriaRepository auditoria;
   private final AuditoriaCalificacionService auditoriaCalificaciones;
   private final DocenteService docentes;
-  private final SesionClaseRepository sesiones;
+  private final SesionHorarioRepository asignacionesHorario;
   private final EvidenciaStorageService storage;
 
   public ConsolidacionLogroService(
@@ -60,7 +60,7 @@ public class ConsolidacionLogroService {
       RegistroAuditoriaRepository auditoria,
       AuditoriaCalificacionService auditoriaCalificaciones,
       DocenteService docentes,
-      SesionClaseRepository sesiones,
+      SesionHorarioRepository asignacionesHorario,
       EvidenciaStorageService storage) {
     this.reglas = reglas;
     this.evaluaciones = evaluaciones;
@@ -73,7 +73,7 @@ public class ConsolidacionLogroService {
     this.auditoria = auditoria;
     this.auditoriaCalificaciones = auditoriaCalificaciones;
     this.docentes = docentes;
-    this.sesiones = sesiones;
+    this.asignacionesHorario = asignacionesHorario;
     this.storage = storage;
   }
 
@@ -721,13 +721,16 @@ public class ConsolidacionLogroService {
     }
     Docente docente = docentes.obtenerDeCuenta(username);
     boolean dictaCompetencia =
-        sesiones
-            .findAllByDocenteIdAndSeccionIdAndActiveTrue(
-                docente.getId(), periodo.getSeccion().getId())
+        asignacionesHorario
+            .buscarAsignacionesDocente(
+                docente.getPersona().getId(),
+                periodo.getSeccion().getId(),
+                periodo.getFechaInicio(),
+                periodo.getFechaFin())
             .stream()
             .anyMatch(
-                sesion ->
-                    sesion.getArea().getCompetencias().stream()
+                asignacion ->
+                    asignacion.getArea().getCompetencias().stream()
                         .anyMatch(c -> c.getCodigo().equals(competenciaCodigo)));
     if (!dictaCompetencia) {
       throw new ResponseStatusException(
