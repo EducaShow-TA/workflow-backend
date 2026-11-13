@@ -68,9 +68,22 @@ public class LibretaPdfService {
         new Font(Font.HELVETICA, 17, Font.BOLD, preliminar ? Color.DARK_GRAY : COLOR_INSTITUCIONAL);
     Paragraph encabezado =
         new Paragraph(
-            preliminar ? "INFORME DE PROGRESO - BORRADOR" : "LIBRETA OFICIAL DE NOTAS", titulo);
+            (preliminar ? "INFORME DE PROGRESO" : "LIBRETA OFICIAL DE NOTAS")
+                + " - BIMESTRE "
+                + libreta.bimestre()
+                + (preliminar ? " - BORRADOR" : ""),
+            titulo);
     encabezado.setAlignment(Element.ALIGN_CENTER);
     documento.add(encabezado);
+
+    if (libreta.evaluacionesSinBimestre() > 0) {
+      documento.add(
+          new Paragraph(
+              "Aviso: "
+                  + libreta.evaluacionesSinBimestre()
+                  + " evaluación(es) sin bimestre asignado no se incluyen en este informe.",
+              new Font(Font.HELVETICA, 9, Font.BOLD, Color.DARK_GRAY)));
+    }
 
     Paragraph identificacion = new Paragraph();
     identificacion.add(new Chunk("Estudiante: ", new Font(Font.HELVETICA, 10, Font.BOLD)));
@@ -110,11 +123,10 @@ public class LibretaPdfService {
   private void agregarPeriodo(Document documento, PeriodoLibreta periodo) throws DocumentException {
     Paragraph tituloPeriodo =
         new Paragraph(
-            "Período "
-                + periodo.periodoId()
-                + " - "
+            "Grado "
                 + periodo.gradoNumero()
                 + "° "
+                + " - Sección "
                 + periodo.seccion(),
             new Font(Font.HELVETICA, 12, Font.BOLD, COLOR_INSTITUCIONAL));
     tituloPeriodo.setSpacingBefore(10);
@@ -134,21 +146,45 @@ public class LibretaPdfService {
       tituloArea.setSpacingAfter(3);
       documento.add(tituloArea);
 
-      PdfPTable tabla = new PdfPTable(new float[] {3.4f, 0.8f, 1.0f, 2.4f});
+      PdfPTable tabla = new PdfPTable(new float[] {2.6f, 0.7f, 0.9f, 2.6f, 1.8f});
       tabla.setWidthPercentage(100);
       tabla.setHeaderRows(1);
       agregarCeldaEncabezado(tabla, "Competencia");
       agregarCeldaEncabezado(tabla, "Nota");
       agregarCeldaEncabezado(tabla, "Puntaje");
+      agregarCeldaEncabezado(tabla, "Evaluaciones del bimestre");
       agregarCeldaEncabezado(tabla, "Observación");
       for (CompetenciaLibreta competencia : area.competencias()) {
         agregarCelda(tabla, competencia.nombre());
         agregarCelda(tabla, valor(competencia.nota()));
         agregarCelda(tabla, valor(competencia.puntajeConsolidado()));
+        agregarCelda(tabla, detalleEvaluaciones(competencia));
         agregarCelda(tabla, valor(competencia.observacion()));
       }
       documento.add(tabla);
     }
+  }
+
+  private String detalleEvaluaciones(CompetenciaLibreta competencia) {
+    if (competencia.evaluaciones().isEmpty()) {
+      return "Sin evaluaciones asignadas";
+    }
+
+    return competencia.evaluaciones().stream()
+        .map(
+            evaluacion -> {
+              String nota =
+                  evaluacion.justificada()
+                      ? "Justificada"
+                      : evaluacion.nota() == null ? "Sin calificación" : evaluacion.nota();
+              return evaluacion.titulo()
+                  + ": "
+                  + nota
+                  + " ("
+                  + evaluacion.ponderacion().stripTrailingZeros().toPlainString()
+                  + "%)";
+            })
+        .collect(java.util.stream.Collectors.joining("\n"));
   }
 
   private void agregarCeldaEncabezado(PdfPTable tabla, String texto) {

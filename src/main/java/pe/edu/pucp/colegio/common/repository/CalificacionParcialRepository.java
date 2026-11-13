@@ -27,4 +27,8 @@ public interface CalificacionParcialRepository extends JpaRepository<Calificacio
 
   @EntityGraph(attributePaths = {"evaluacion", "matricula"})
   List<CalificacionParcial> findAllByEvaluacionIdInAndActiveTrue(List<Integer> evaluacionIds);
+
+  @EntityGraph(attributePaths = {"evaluacion"})
+  List<CalificacionParcial> findAllByEvaluacionIdInAndMatriculaIdAndActiveTrue(
+      List<Integer> evaluacionIds, Integer matriculaId);
 }

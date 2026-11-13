@@ -107,6 +107,11 @@ class LibretaNotasIntegrationTest {
 
     guardarNota(cerrado, matriculaCerrada, competencia, "B", "Avanza en resolución");
     guardarNota(solicitado, matriculaSolicitada, competencia, "AD", "Logro destacado");
+    guardarEvaluacion(cerrado, matriculaCerrada, competencia, 1, "Bimestre cerrado", "100.00", "A");
+    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 1, "Primer bimestre", "100.00", "AD");
+    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 2, "Comprensión", "60.00", "A");
+    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 2, "Resolución", "40.00", "B");
+    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, null, "Sin asignar", "100.00", "C");
 
     Persona personaAdmin = new Persona("A" + sufijo, "Admin", "Prueba", "Local");
     entityManager.persist(personaAdmin);
@@ -157,20 +162,25 @@ class LibretaNotasIntegrationTest {
   }
 
   @Test
-  void generaLibretaAgrupadaYAcumulaSoloPeriodosCerradosAnterioresDelMismoAnhio() throws Exception {
+  void generaLibretaDelBimestreYConsolidaSoloSusEvaluaciones() throws Exception {
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudianteId)
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.estudiante").value("Ana Pérez López"))
         .andExpect(jsonPath("$.anhioEscolar").value(2026))
-        .andExpect(jsonPath("$.periodos.length()").value(2))
-        .andExpect(jsonPath("$.periodos[0].periodoId").value(periodoCerradoId))
-        .andExpect(jsonPath("$.periodos[0].actasCerradas").value(true))
+        .andExpect(jsonPath("$.bimestre").value(2))
+        .andExpect(jsonPath("$.evaluacionesSinBimestre").value(1))
+        .andExpect(jsonPath("$.periodos.length()").value(1))
+        .andExpect(jsonPath("$.periodos[0].periodoId").value(periodoSolicitadoId))
         .andExpect(jsonPath("$.periodos[0].areas[0].nombre").value("Matemática"))
-        .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].nota").value("B"))
-        .andExpect(jsonPath("$.periodos[1].periodoId").value(periodoSolicitadoId))
-        .andExpect(jsonPath("$.periodos[1].areas[0].competencias[0].nota").value("AD"));
+        .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].nota").value("A"))
+        .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].puntajeConsolidado").value(2.6))
+        .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones.length()").value(2))
+        .andExpect(
+            jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones[0].titulo")
+                .value("Comprensión"));
   }
 
   @Test
@@ -178,14 +188,16 @@ class LibretaNotasIntegrationTest {
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudianteId)
                 .with(user(apoderadoUsername).roles("APODERADO"))
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.periodos.length()").value(2));
+        .andExpect(jsonPath("$.periodos.length()").value(1));
 
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudianteId)
                 .with(user(apoderadoNoVinculadoUsername).roles("APODERADO"))
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isForbidden());
   }
 
@@ -194,16 +206,18 @@ class LibretaNotasIntegrationTest {
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudianteId)
                 .with(user(docenteUsername).roles("DOCENTE"))
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isOk())
         .andExpect(
-            jsonPath("$.periodos[1].areas[0].competencias[0].codigo").value(competenciaCodigo));
+            jsonPath("$.periodos[0].areas[0].competencias[0].codigo").value(competenciaCodigo));
 
     Integer otroPeriodo = crearPeriodoEnOtraSeccion();
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudianteId)
                 .with(user(docenteUsername).roles("DOCENTE"))
-                .param("periodoId", otroPeriodo.toString()))
+                .param("periodoId", otroPeriodo.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isForbidden());
   }
 
@@ -212,14 +226,16 @@ class LibretaNotasIntegrationTest {
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudianteId)
                 .with(user(alumnoUsername).roles("ALUMNO"))
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isOk());
 
     Integer otroEstudianteId = crearEstudianteSinMatricula();
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", otroEstudianteId)
                 .with(user(alumnoUsername).roles("ALUMNO"))
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isForbidden());
   }
 
@@ -228,23 +244,26 @@ class LibretaNotasIntegrationTest {
     MvcResult oficial =
         mvc.perform(
                 get("/api/v1/estudiantes/{estudianteId}/libreta/pdf", estudianteId)
-                    .param("periodoId", periodoCerradoId.toString()))
+                    .param("periodoId", periodoCerradoId.toString())
+                    .param("bimestre", "1"))
             .andExpect(status().isOk())
             .andExpect(header().string("X-Documento-Estado", "OFICIAL"))
             .andExpect(
                 header()
                     .string(
                         "Content-Disposition",
-                        org.hamcrest.Matchers.containsString("-oficial.pdf")))
+                        org.hamcrest.Matchers.containsString("-bimestre-1-oficial.pdf")))
             .andReturn();
     String textoOficial = textoPdf(oficial);
     assertTrue(textoOficial.contains("LIBRETA OFICIAL DE NOTAS"));
+    assertTrue(textoOficial.contains("BIMESTRE 1"));
     assertFalse(textoOficial.contains("DOCUMENTO NO OFICIAL"));
 
     MvcResult preliminar =
         mvc.perform(
                 get("/api/v1/estudiantes/{estudianteId}/libreta/pdf", estudianteId)
-                    .param("periodoId", periodoSolicitadoId.toString()))
+                    .param("periodoId", periodoSolicitadoId.toString())
+                    .param("bimestre", "2"))
             .andExpect(status().isOk())
             .andExpect(header().string("X-Documento-Estado", "BORRADOR"))
             .andExpect(
@@ -254,7 +273,7 @@ class LibretaNotasIntegrationTest {
                         org.hamcrest.Matchers.containsString("-borrador.pdf")))
             .andReturn();
     String textoPreliminar = textoPdf(preliminar);
-    assertTrue(textoPreliminar.contains("INFORME DE PROGRESO - BORRADOR"));
+    assertTrue(textoPreliminar.contains("INFORME DE PROGRESO - BIMESTRE 2 - BORRADOR"));
     assertTrue(textoPreliminar.contains("BORRADOR - DOCUMENTO NO OFICIAL"));
     assertTrue(textoPreliminar.contains("Consulta realizada:"));
     assertTrue(
@@ -267,7 +286,8 @@ class LibretaNotasIntegrationTest {
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta/pdf", estudianteId)
                 .with(user(alumnoUsername).roles("ALUMNO"))
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isForbidden());
   }
 
@@ -283,7 +303,8 @@ class LibretaNotasIntegrationTest {
 
     mvc.perform(
             get("/api/v1/estudiantes/{estudianteId}/libreta", estudiante.getId())
-                .param("periodoId", periodoSolicitadoId.toString()))
+                .param("periodoId", periodoSolicitadoId.toString())
+                .param("bimestre", "2"))
         .andExpect(status().isNotFound());
   }
 
@@ -326,6 +347,31 @@ class LibretaNotasIntegrationTest {
     calificacion.setCompetencia(competencia);
     calificacion.setNota(nota);
     calificacion.setObservacion(observacion);
+    calificacion.setFechaRegistro(LocalDateTime.now());
+    entityManager.persist(calificacion);
+  }
+
+  private void guardarEvaluacion(
+      Periodo periodo,
+      Matricula matricula,
+      Competencia competencia,
+      Integer bimestre,
+      String titulo,
+      String ponderacion,
+      String nota) {
+    EvaluacionParcial evaluacion = new EvaluacionParcial();
+    evaluacion.setPeriodo(periodo);
+    evaluacion.setCompetencia(competencia);
+    evaluacion.setBimestre(bimestre);
+    evaluacion.setTitulo(titulo);
+    evaluacion.setPonderacion(new java.math.BigDecimal(ponderacion));
+    entityManager.persist(evaluacion);
+
+    CalificacionParcial calificacion = new CalificacionParcial();
+    calificacion.setEvaluacion(evaluacion);
+    calificacion.setMatricula(matricula);
+    calificacion.setNota(nota);
+    calificacion.setJustificada(false);
     calificacion.setFechaRegistro(LocalDateTime.now());
     entityManager.persist(calificacion);
   }
