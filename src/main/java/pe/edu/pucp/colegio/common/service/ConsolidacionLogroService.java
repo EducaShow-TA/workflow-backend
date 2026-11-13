@@ -563,9 +563,13 @@ public class ConsolidacionLogroService {
 
   private EvaluacionParcialResponse respuestaEvaluacion(EvaluacionParcial evaluacion) {
     return new EvaluacionParcialResponse(
-        evaluacion.getId(), evaluacion.getPeriodo().getId(),
-        evaluacion.getCompetencia().getCodigo(), evaluacion.getTitulo(),
-        evaluacion.getDescripcion(), evaluacion.getPonderacion(), evaluacion.getBimestre());
+        evaluacion.getId(),
+        evaluacion.getPeriodo().getId(),
+        evaluacion.getCompetencia().getCodigo(),
+        evaluacion.getTitulo(),
+        evaluacion.getDescripcion(),
+        evaluacion.getPonderacion(),
+        evaluacion.getBimestre());
   }
 
   private CalificacionParcialResponse respuestaNotaParcial(
@@ -682,7 +686,8 @@ public class ConsolidacionLogroService {
     BigDecimal puntajeSinRedondear =
         sumaPonderada.divide(ponderacionTotal, 10, RoundingMode.HALF_UP);
     return new ConsolidacionCalculada(
-        convertirNota(puntajeSinRedondear, regla), puntajeSinRedondear.setScale(4, RoundingMode.HALF_UP));
+        convertirNota(puntajeSinRedondear, regla),
+        puntajeSinRedondear.setScale(4, RoundingMode.HALF_UP));
   }
 
   public record ConsolidacionCalculada(String nota, BigDecimal puntajeConsolidado) {}

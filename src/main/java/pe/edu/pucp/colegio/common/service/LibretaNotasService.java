@@ -20,8 +20,8 @@ import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.PeriodoLibreta;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.model.Competencia;
-import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
@@ -151,7 +151,9 @@ public class LibretaNotasService {
                         || competenciasPermitidas.contains(evaluacion.getCompetencia().getCodigo()))
             .toList();
     List<EvaluacionParcial> evaluacionesBimestre =
-        evaluaciones.findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodoId, bimestre).stream()
+        evaluaciones
+            .findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodoId, bimestre)
+            .stream()
             .filter(
                 evaluacion ->
                     competenciasPermitidas == null

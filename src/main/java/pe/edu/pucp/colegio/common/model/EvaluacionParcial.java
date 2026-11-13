@@ -29,8 +29,7 @@ public class EvaluacionParcial extends EntidadBase {
   @Column(nullable = false, precision = 5, scale = 2)
   private BigDecimal ponderacion;
 
-  @Column
-  private Integer bimestre;
+  @Column private Integer bimestre;
 
   public Periodo getPeriodo() {
     return periodo;

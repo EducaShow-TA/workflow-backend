@@ -109,10 +109,12 @@ class LibretaNotasIntegrationTest {
     guardarNota(cerrado, matriculaCerrada, competencia, "B", "Avanza en resolución");
     guardarNota(solicitado, matriculaSolicitada, competencia, "AD", "Logro destacado");
     guardarEvaluacion(cerrado, matriculaCerrada, competencia, 1, "Bimestre cerrado", "100.00", "A");
-    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 1, "Primer bimestre", "100.00", "AD");
+    guardarEvaluacion(
+        solicitado, matriculaSolicitada, competencia, 1, "Primer bimestre", "100.00", "AD");
     guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 2, "Comprensión", "60.00", "A");
     guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 2, "Resolución", "40.00", "B");
-    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, null, "Sin asignar", "100.00", "C");
+    guardarEvaluacion(
+        solicitado, matriculaSolicitada, competencia, null, "Sin asignar", "100.00", "C");
 
     Persona personaAdmin = new Persona("A" + sufijo, "Admin", "Prueba", "Local");
     entityManager.persist(personaAdmin);
@@ -186,7 +188,8 @@ class LibretaNotasIntegrationTest {
         .andExpect(jsonPath("$.periodos[0].areas[0].nombre").value("Matemática"))
         .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].nota").value("A"))
         .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].puntajeConsolidado").value(2.6))
-        .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones.length()").value(2))
+        .andExpect(
+            jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones.length()").value(2))
         .andExpect(
             jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones[0].titulo")
                 .value("Comprensión"));
