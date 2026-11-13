@@ -22,6 +22,7 @@ import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 /** Gestiona la matrícula, confirmación y retiro de estudiantes por periodo. */
 @Service
@@ -34,6 +35,7 @@ public class MatriculaService {
   private final SeccionRepository secciones;
   private final PeriodoMatriculaService periodosMatricula;
   private final FinanzasService finanzas;
+  private final CuentaUsuarioRepository cuentas;
 
   public MatriculaService(
       MatriculaRepository matriculas,
@@ -42,7 +44,8 @@ public class MatriculaService {
       VacantesService vacantes,
       SeccionRepository secciones,
       PeriodoMatriculaService periodosMatricula,
-      FinanzasService finanzas) {
+      FinanzasService finanzas,
+      CuentaUsuarioRepository cuentas) {
     this.matriculas = matriculas;
     this.estudiantes = estudiantes;
     this.periodos = periodos;
@@ -50,6 +53,7 @@ public class MatriculaService {
     this.secciones = secciones;
     this.periodosMatricula = periodosMatricula;
     this.finanzas = finanzas;
+    this.cuentas = cuentas;
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -79,6 +83,7 @@ public class MatriculaService {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "El estudiante ya está matriculado en este periodo");
     }
+    validarDisponibleParaMatricula(estudiante, periodo);
 
     if (vacantes.consultar(periodoId).vacantesDisponibles() == 0) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "El periodo no tiene vacantes");
@@ -95,6 +100,41 @@ public class MatriculaService {
     matricula = matriculas.save(matricula);
 
     return respuesta(matricula);
+  }
+
+  /**
+   * Un estudiante solo puede tener una matrícula vigente por año escolar, y no se matricula a quien
+   * tiene la cuenta dada de baja hasta que se reactive.
+   */
+  private void validarDisponibleParaMatricula(Estudiante estudiante, Periodo periodo) {
+    int anhio = periodo.getFechaInicio().getYear();
+    List<Matricula> otras =
+        matriculas.buscarOtrasMatriculasEntre(
+            estudiante.getId(),
+            periodo.getId(),
+            LocalDate.of(anhio, 1, 1),
+            LocalDate.of(anhio, 12, 31));
+    if (!otras.isEmpty()) {
+      Periodo otro = otras.get(0).getPeriodo();
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "El estudiante ya está matriculado en "
+              + otro.getGrado().getNumero()
+              + ".° "
+              + otro.getSeccion().getCodigo()
+              + " ("
+              + anhio
+              + ")");
+    }
+    if (estudiante.getPersona() != null
+        && cuentas
+            .findByPersonaDni(estudiante.getPersona().getDni())
+            .filter(cuenta -> !Boolean.TRUE.equals(cuenta.getActive()))
+            .isPresent()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "La cuenta del estudiante está inactiva: reactívala en Usuarios para matricularlo");
+    }
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)

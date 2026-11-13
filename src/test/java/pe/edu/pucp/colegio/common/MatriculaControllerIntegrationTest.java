@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -33,6 +34,8 @@ import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.model.Seccion;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,6 +50,8 @@ class MatriculaControllerIntegrationTest {
   @Autowired ObjectMapper objectMapper;
 
   @PersistenceContext EntityManager entityManager;
+
+  @Autowired CuentaUsuarioRepository cuentas;
 
   private Integer ventanaMatriculaId;
 
@@ -246,6 +251,48 @@ class MatriculaControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(compromisoRequestContent()))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void noMatriculaAlMismoEstudianteEnDosSeccionesDelMismoAnhio() throws Exception {
+    Integer primera = crearPeriodo(5);
+    Integer segunda = crearPeriodo(5);
+    EstudianteResponse estudiante = crearEstudiante();
+
+    matricular(primera, estudiante.estudianteId()).andExpect(status().isCreated());
+    matricular(segunda, estudiante.estudianteId())
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value(containsString("ya está matriculado en")))
+        .andExpect(jsonPath("$.message").value(containsString("(2026)")));
+
+    mvc.perform(
+            delete(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}",
+                primera,
+                estudiante.estudianteId()))
+        .andExpect(status().isNoContent());
+    matricular(segunda, estudiante.estudianteId()).andExpect(status().isCreated());
+  }
+
+  @Test
+  void noMatriculaAEstudianteConCuentaInactivaHastaReactivarla() throws Exception {
+    Integer periodoId = crearPeriodo(5);
+    EstudianteResponse estudiante = crearEstudiante();
+    CuentaUsuario cuenta = cuentas.findByPersonaDni(estudiante.dni()).orElseThrow();
+    cuenta.setActive(false);
+    entityManager.flush();
+
+    matricular(periodoId, estudiante.estudianteId())
+        .andExpect(status().isConflict())
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "La cuenta del estudiante está inactiva: reactívala en Usuarios para"
+                        + " matricularlo"));
+
+    cuenta.setActive(true);
+    entityManager.flush();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
   }
 
   private org.springframework.test.web.servlet.ResultActions matricular(

@@ -64,6 +64,22 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
 
   boolean existsByActiveTrueAndFechaMatriculaBetween(LocalDate desde, LocalDate hasta);
 
+  /**
+   * Matrículas vigentes (no retiradas) del estudiante en otros periodos del mismo rango de años.
+   */
+  @org.springframework.data.jpa.repository.EntityGraph(
+      attributePaths = {"periodo", "periodo.grado", "periodo.seccion"})
+  @Query(
+      "select m from Matricula m where m.estudiante.id = :estudianteId and m.active = true "
+          + "and m.estado <> pe.edu.pucp.colegio.common.model.EstadoMatricula.RETIRADA "
+          + "and m.periodo.id <> :periodoId "
+          + "and m.periodo.fechaInicio between :desde and :hasta")
+  List<Matricula> buscarOtrasMatriculasEntre(
+      @Param("estudianteId") Integer estudianteId,
+      @Param("periodoId") Integer periodoId,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta);
+
   /** Alumnos con matrícula confirmada en la sección durante el periodo que incluye la fecha. */
   @org.springframework.data.jpa.repository.EntityGraph(
       attributePaths = {"estudiante", "estudiante.persona"})

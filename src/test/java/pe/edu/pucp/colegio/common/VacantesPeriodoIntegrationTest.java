@@ -14,6 +14,7 @@ import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -179,6 +180,83 @@ class VacantesPeriodoIntegrationTest {
                         + anhio
                         + "-03-15\"}"))
         .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void abrirAnhioRechazaInicioDeClasesEnElPasado() throws Exception {
+    Assumptions.assumeTrue(LocalDate.now().getDayOfYear() > 1);
+    crearSeccion(20);
+    LocalDate ayer = LocalDate.now().minusDays(1);
+    entityManager.flush();
+
+    mvc.perform(
+            post("/api/v1/periodos/anhio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoAnhio(ayer.getYear(), ayer, LocalDate.of(ayer.getYear(), 12, 31))))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(
+            jsonPath("$.message").value("El inicio de clases no puede ser una fecha pasada"));
+  }
+
+  @Test
+  void editarAnhioEnCursoNoMueveElInicioNiPoneElFinEnElPasado() throws Exception {
+    Seccion seccion = crearSeccion(15);
+    LocalDate hoy = LocalDate.now();
+    int anhio = hoy.getYear();
+    LocalDate inicio = LocalDate.of(anhio, 1, 1);
+    LocalDate fin = LocalDate.of(anhio, 12, 31);
+    crearPeriodo(seccion, inicio, fin);
+    entityManager.flush();
+
+    mvc.perform(
+            put("/api/v1/periodos/anhio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoAnhio(anhio, inicio.plusDays(1), fin)))
+        .andExpect(status().isUnprocessableEntity());
+    mvc.perform(
+            put("/api/v1/periodos/anhio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoAnhio(anhio, inicio, hoy.minusDays(1))))
+        .andExpect(status().isUnprocessableEntity());
+    mvc.perform(
+            put("/api/v1/periodos/anhio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoAnhio(anhio, inicio, fin)))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void editarAnhioQueAunNoEmpiezaRechazaInicioPasado() throws Exception {
+    LocalDate hoy = LocalDate.now();
+    int anhio = hoy.getYear();
+    Assumptions.assumeTrue(hoy.getDayOfYear() > 1 && hoy.plusDays(2).getYear() == anhio);
+    Seccion seccion = crearSeccion(15);
+    LocalDate fin = LocalDate.of(anhio, 12, 31);
+    crearPeriodo(seccion, hoy.plusDays(1), fin);
+    entityManager.flush();
+
+    mvc.perform(
+            put("/api/v1/periodos/anhio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoAnhio(anhio, hoy.minusDays(1), fin)))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(
+            jsonPath("$.message").value("El inicio de clases no puede ser una fecha pasada"));
+    mvc.perform(
+            put("/api/v1/periodos/anhio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoAnhio(anhio, hoy.plusDays(2), fin)))
+        .andExpect(status().isOk());
+  }
+
+  private String cuerpoAnhio(int anhio, LocalDate inicio, LocalDate fin) {
+    return "{\"anhio\":"
+        + anhio
+        + ",\"fechaInicio\":\""
+        + inicio
+        + "\",\"fechaFin\":\""
+        + fin
+        + "\"}";
   }
 
   @Test
