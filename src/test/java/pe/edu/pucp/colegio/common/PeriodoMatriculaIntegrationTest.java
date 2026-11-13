@@ -65,8 +65,10 @@ class PeriodoMatriculaIntegrationTest {
     int anhio = LocalDate.now().getYear();
     crear(LocalDate.of(anhio + 2, 1, 10), LocalDate.of(anhio + 4, 1, 20))
         .andExpect(status().isUnprocessableEntity())
-        .andExpect(jsonPath("$.message").value(
-            "El inicio del período no puede ser más de un año calendario anterior al año escolar de la fecha límite"));
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "El inicio del período no puede ser más de un año calendario anterior al año escolar de la fecha límite"));
   }
 
   @Test
@@ -82,8 +84,7 @@ class PeriodoMatriculaIntegrationTest {
         .andExpect(status().isUnprocessableEntity());
     actualizar(primero, hoy.plusDays(24), hoy.plusDays(23))
         .andExpect(status().isUnprocessableEntity());
-    actualizar(primero, hoy.plusDays(32), hoy.plusDays(35))
-        .andExpect(status().isConflict());
+    actualizar(primero, hoy.plusDays(32), hoy.plusDays(35)).andExpect(status().isConflict());
     mvc.perform(get("/api/v1/periodos-matricula/{id}", primero))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.fechaInicio").value(hoy.plusDays(12).toString()));
@@ -126,7 +127,12 @@ class PeriodoMatriculaIntegrationTest {
   }
 
   private int crearYObtenerId(LocalDate inicio, LocalDate limite) throws Exception {
-    String body = crear(inicio, limite).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+    String body =
+        crear(inicio, limite)
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
     return objectMapper.readTree(body).get("id").asInt();
   }
 

@@ -33,5 +33,9 @@ public record LibretaNotasResponse(
       List<EvaluacionLibreta> evaluaciones) {}
 
   public record EvaluacionLibreta(
-      Integer evaluacionId, String titulo, BigDecimal ponderacion, String nota, boolean justificada) {}
+      Integer evaluacionId,
+      String titulo,
+      BigDecimal ponderacion,
+      String nota,
+      boolean justificada) {}
 }

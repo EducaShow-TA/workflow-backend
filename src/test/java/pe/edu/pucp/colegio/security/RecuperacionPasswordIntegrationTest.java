@@ -83,7 +83,8 @@ class RecuperacionPasswordIntegrationTest {
     mvc.perform(
             post("/api/v1/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"token\":\"" + tokenClaro + "\",\"password\":\"NuevaClaveSegura123!\"}"))
+                .content(
+                    "{\"token\":\"" + tokenClaro + "\",\"password\":\"NuevaClaveSegura123!\"}"))
         .andExpect(status().isOk());
 
     CuentaUsuario actualizada = cuentas.findById(cuenta.getId()).orElseThrow();

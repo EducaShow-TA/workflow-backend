@@ -1,8 +1,8 @@
 package pe.edu.pucp.colegio.common.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.Valid;
 import java.util.List;
 
 public record ConfirmacionMasivaMatriculaRequest(

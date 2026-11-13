@@ -66,7 +66,10 @@ public class EstudiantesApoderadoService {
                                 periodo.getFechaInicio(),
                                 periodo.getFechaFin());
                           })
-                      .sorted(Comparator.comparing(EstudianteVinculadoResponse.PeriodoVinculado::fechaInicio).reversed())
+                      .sorted(
+                          Comparator.comparing(
+                                  EstudianteVinculadoResponse.PeriodoVinculado::fechaInicio)
+                              .reversed())
                       .toList();
               return new EstudianteVinculadoResponse(
                   estudiante.getId(), estudiante.getPersona().getNombreCompleto(), periodos);

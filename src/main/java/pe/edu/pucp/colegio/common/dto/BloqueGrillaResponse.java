@@ -6,9 +6,9 @@ import pe.edu.pucp.colegio.common.model.TipoBloqueHorario;
 
 /** Una fila de la grilla: el bloque y las sesiones asignadas en cada día. */
 public record BloqueGrillaResponse(
-        Integer id,
-        Integer orden,
-        TipoBloqueHorario tipo,
-        LocalTime horaInicio,
-        LocalTime horaFin,
-        List<SesionHorarioResponse> sesiones) {}
+    Integer id,
+    Integer orden,
+    TipoBloqueHorario tipo,
+    LocalTime horaInicio,
+    LocalTime horaFin,
+    List<SesionHorarioResponse> sesiones) {}

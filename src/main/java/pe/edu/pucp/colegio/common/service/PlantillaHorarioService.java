@@ -22,6 +22,7 @@ import pe.edu.pucp.colegio.common.model.PlantillaHorario;
 import pe.edu.pucp.colegio.common.model.TipoBloqueHorario;
 import pe.edu.pucp.colegio.common.repository.BloqueHorarioRepository;
 import pe.edu.pucp.colegio.common.repository.PlantillaHorarioRepository;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 
 /** Construye y administra plantillas de bloques y recreos por turno. */
 @Service
@@ -29,11 +30,15 @@ public class PlantillaHorarioService {
 
   private final PlantillaHorarioRepository plantillas;
   private final BloqueHorarioRepository bloques;
+  private final SesionHorarioRepository sesiones;
 
   public PlantillaHorarioService(
-      PlantillaHorarioRepository plantillas, BloqueHorarioRepository bloques) {
+      PlantillaHorarioRepository plantillas,
+      BloqueHorarioRepository bloques,
+      SesionHorarioRepository sesiones) {
     this.plantillas = plantillas;
     this.bloques = bloques;
+    this.sesiones = sesiones;
   }
 
   @Transactional(readOnly = true)
@@ -57,6 +62,10 @@ public class PlantillaHorarioService {
   @Transactional
   public PlantillaHorarioResponse actualizar(Integer id, PlantillaHorarioRequest request) {
     PlantillaHorario plantilla = buscar(id);
+    if (sesiones.existsByPlantillaId(id)) {
+      throw new ConflictException(
+          "No se puede actualizar una plantilla que ya tiene sesiones asignadas");
+    }
     validarNombreDisponible(request, id);
     List<BloqueHorario> nuevosBloques = generarBloques(request);
 

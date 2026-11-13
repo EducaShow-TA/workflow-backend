@@ -8,11 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
-import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
 import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.dto.ConfirmacionMasivaMatriculaRequest;
 import pe.edu.pucp.colegio.common.dto.IncidenciaConfirmacionMatriculaResponse;
+import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
+import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
 import pe.edu.pucp.colegio.common.exception.ValidacionConfirmacionMatriculaException;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Estudiante;
@@ -101,7 +101,8 @@ public class MatriculaService {
   public List<MatriculaResponse> crearMasivamente(Integer periodoId, List<Integer> estudianteIds) {
     List<Integer> ids = estudianteIds.stream().distinct().toList();
     if (ids.isEmpty()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
     }
     List<MatriculaResponse> resultados = new ArrayList<>();
     for (Integer estudianteId : ids) {
@@ -111,7 +112,8 @@ public class MatriculaService {
   }
 
   @Transactional
-  public MatriculaResponse confirmar(Integer periodoId, Integer estudianteId, CompromisoPagoRequest compromisoRequest) {
+  public MatriculaResponse confirmar(
+      Integer periodoId, Integer estudianteId, CompromisoPagoRequest compromisoRequest) {
     Periodo periodo = buscarPeriodo(periodoId);
     secciones
         .findByIdForUpdate(periodo.getSeccion().getId())
@@ -134,21 +136,27 @@ public class MatriculaService {
   }
 
   @Transactional
-  public List<MatriculaResponse> confirmarMasivamente(Integer periodoId, ConfirmacionMasivaMatriculaRequest request) {
+  public List<MatriculaResponse> confirmarMasivamente(
+      Integer periodoId, ConfirmacionMasivaMatriculaRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
-    secciones.findByIdForUpdate(periodo.getSeccion().getId())
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sección"));
+    secciones
+        .findByIdForUpdate(periodo.getSeccion().getId())
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sección"));
     List<Integer> ids = request.estudianteIds().stream().distinct().toList();
     if (ids.isEmpty()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
     }
     finanzas.validarTerminos(request.compromiso());
     List<Matricula> pendientes = new ArrayList<>();
     List<IncidenciaConfirmacionMatriculaResponse> incidencias = new ArrayList<>();
     for (Integer estudianteId : ids) {
-      Matricula matricula = matriculas.findByPeriodoIdAndEstudianteId(periodoId, estudianteId)
-          .filter(m -> Boolean.TRUE.equals(m.getActive()))
-          .orElse(null);
+      Matricula matricula =
+          matriculas
+              .findByPeriodoIdAndEstudianteId(periodoId, estudianteId)
+              .filter(m -> Boolean.TRUE.equals(m.getActive()))
+              .orElse(null);
       if (matricula == null) {
         incidencias.add(
             new IncidenciaConfirmacionMatriculaResponse(
@@ -203,6 +211,7 @@ public class MatriculaService {
                         HttpStatus.NOT_FOUND,
                         "El estudiante no tiene matrícula en el periodo indicado"));
     matricula.setEstado(EstadoMatricula.RETIRADA);
+    finanzas.desactivarCompromisoDeMatricula(matricula.getId());
   }
 
   private Periodo buscarPeriodo(Integer periodoId) {

@@ -23,10 +23,10 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
 import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
-import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
@@ -166,22 +166,54 @@ class MatriculaControllerIntegrationTest {
 
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
-                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
-                periodoId,
-                estudiante.estudianteId())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(compromisoRequestContent()))
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.estado").value("CONFIRMADA"));
 
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
-                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
-                periodoId,
-                estudiante.estudianteId())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(compromisoRequestContent()))
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void retirarMatriculaDesactivaSuCompromisoDePago() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    EstudianteResponse estudiante = crearEstudiante();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
+        .andExpect(status().isOk());
+
+    mvc.perform(
+            delete(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}",
+                periodoId,
+                estudiante.estudianteId()))
+        .andExpect(status().isNoContent());
+
+    Long compromisosActivos =
+        entityManager
+            .createQuery(
+                "select count(c) from CompromisoPago c "
+                    + "where c.matricula.estudiante.id = :estudianteId and c.active = true",
+                Long.class)
+            .setParameter("estudianteId", estudiante.estudianteId())
+            .getSingleResult();
+    org.assertj.core.api.Assertions.assertThat(compromisosActivos).isZero();
   }
 
   @Test
@@ -208,11 +240,11 @@ class MatriculaControllerIntegrationTest {
     Integer periodoId = crearPeriodo(1);
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
-                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
-                periodoId,
-                Integer.MAX_VALUE)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(compromisoRequestContent()))
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    Integer.MAX_VALUE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
         .andExpect(status().isNotFound());
   }
 
@@ -279,9 +311,13 @@ class MatriculaControllerIntegrationTest {
   }
 
   private String compromisoRequestContent() throws Exception {
-    return objectMapper.writeValueAsString(new CompromisoPagoRequest(
-        "Pensión escolar", new java.math.BigDecimal("1200.00"), 12,
-        YearMonth.from(LocalDate.now().plusMonths(1)).atDay(10), 10));
+    return objectMapper.writeValueAsString(
+        new CompromisoPagoRequest(
+            "Pensión escolar",
+            new java.math.BigDecimal("1200.00"),
+            12,
+            YearMonth.from(LocalDate.now().plusMonths(1)).atDay(10),
+            10));
   }
 
   private Integer crearPeriodo(Integer vacantes) {

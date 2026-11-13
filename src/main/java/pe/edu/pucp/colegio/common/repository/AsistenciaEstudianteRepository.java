@@ -11,6 +11,8 @@ import pe.edu.pucp.colegio.common.model.AsistenciaEstudiante;
 public interface AsistenciaEstudianteRepository
     extends JpaRepository<AsistenciaEstudiante, Integer> {
 
+  boolean existsBySesionClaseIdAndActiveTrue(Integer sesionClaseId);
+
   @EntityGraph(
       attributePaths = {"estudiante", "estudiante.persona", "sesionClase", "sesionClase.seccion"})
   Optional<AsistenciaEstudiante> findByIdAndActiveTrue(Integer id);

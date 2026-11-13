@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,7 +36,10 @@ public class MiHorarioDocenteService {
                     new ResponseStatusException(
                         HttpStatus.FORBIDDEN, "La cuenta no corresponde a un docente activo"));
 
-    return sesiones.listarHorarioDocente(cuenta.getId(), anio).stream()
+    return sesiones
+        .listarHorarioDocente(
+            cuenta.getId(), anio, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31))
+        .stream()
         .map(
             sesion ->
                 new HorarioDocenteResponse(

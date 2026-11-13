@@ -62,7 +62,8 @@ class AuthIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"no-existe-qa\",\"password\":\"Incorrecta\"}"))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.message").value("No encontramos una cuenta con ese usuario o correo."));
+        .andExpect(
+            jsonPath("$.message").value("No encontramos una cuenta con ese usuario o correo."));
 
     CuentaUsuario admin = cuentas.findById(1).orElseThrow();
     boolean activoOriginal = admin.getActive();
@@ -81,8 +82,10 @@ class AuthIntegrationTest {
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"username\":\"admin@educore.edu.pe\",\"password\":\"Admin2026!\"}"))
           .andExpect(status().isUnauthorized())
-          .andExpect(jsonPath("$.message").value(
-              "Esta cuenta se encuentra desactivada. Contacta al administrador del colegio."));
+          .andExpect(
+              jsonPath("$.message")
+                  .value(
+                      "Esta cuenta se encuentra desactivada. Contacta al administrador del colegio."));
     } finally {
       admin.setActive(activoOriginal);
       cuentas.saveAndFlush(admin);
@@ -112,7 +115,9 @@ class AuthIntegrationTest {
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"username\":\"admin@educore.edu.pe\",\"password\":\"Admin2026!\"}"))
           .andExpect(status().isUnauthorized())
-          .andExpect(jsonPath("$.message").value("Tu cuenta está bloqueada temporalmente. Intenta más tarde."));
+          .andExpect(
+              jsonPath("$.message")
+                  .value("Tu cuenta está bloqueada temporalmente. Intenta más tarde."));
     } finally {
       admin.reiniciarIntentos();
       cuentas.save(admin);

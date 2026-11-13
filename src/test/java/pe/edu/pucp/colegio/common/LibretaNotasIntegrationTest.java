@@ -28,6 +28,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.fixture.HorarioFixture;
 import pe.edu.pucp.colegio.common.model.*;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -108,10 +109,12 @@ class LibretaNotasIntegrationTest {
     guardarNota(cerrado, matriculaCerrada, competencia, "B", "Avanza en resolución");
     guardarNota(solicitado, matriculaSolicitada, competencia, "AD", "Logro destacado");
     guardarEvaluacion(cerrado, matriculaCerrada, competencia, 1, "Bimestre cerrado", "100.00", "A");
-    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 1, "Primer bimestre", "100.00", "AD");
+    guardarEvaluacion(
+        solicitado, matriculaSolicitada, competencia, 1, "Primer bimestre", "100.00", "AD");
     guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 2, "Comprensión", "60.00", "A");
     guardarEvaluacion(solicitado, matriculaSolicitada, competencia, 2, "Resolución", "40.00", "B");
-    guardarEvaluacion(solicitado, matriculaSolicitada, competencia, null, "Sin asignar", "100.00", "C");
+    guardarEvaluacion(
+        solicitado, matriculaSolicitada, competencia, null, "Sin asignar", "100.00", "C");
 
     Persona personaAdmin = new Persona("A" + sufijo, "Admin", "Prueba", "Local");
     entityManager.persist(personaAdmin);
@@ -148,6 +151,14 @@ class LibretaNotasIntegrationTest {
     Docente docente = new Docente();
     docente.setPersona(personaDocente);
     entityManager.persist(docente);
+    HorarioFixture.asignar(
+        entityManager,
+        seccion,
+        area,
+        docenteUsername,
+        LocalDate.of(2026, 9, 1),
+        LocalTime.of(9, 0),
+        LocalTime.of(10, 0));
     SesionClase sesion = new SesionClase();
     sesion.setSeccion(seccion);
     sesion.setArea(area);
@@ -177,7 +188,8 @@ class LibretaNotasIntegrationTest {
         .andExpect(jsonPath("$.periodos[0].areas[0].nombre").value("Matemática"))
         .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].nota").value("A"))
         .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].puntajeConsolidado").value(2.6))
-        .andExpect(jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones.length()").value(2))
+        .andExpect(
+            jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones.length()").value(2))
         .andExpect(
             jsonPath("$.periodos[0].areas[0].competencias[0].evaluaciones[0].titulo")
                 .value("Comprensión"));

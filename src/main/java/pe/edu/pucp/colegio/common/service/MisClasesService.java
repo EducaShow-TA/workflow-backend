@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.AlumnoClaseResponse;
-import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
 import pe.edu.pucp.colegio.common.dto.AlumnoRiesgoAcademicoResponse;
+import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
 import pe.edu.pucp.colegio.common.dto.MiClaseResponse;
 import pe.edu.pucp.colegio.common.dto.RiesgoAcademicoResponse;
 import pe.edu.pucp.colegio.common.model.Area;
@@ -32,7 +32,7 @@ import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
 
 /**
  * Clases y alumnos del docente que inicia sesión (HU 3.2). Una clase es un área dictada en una
- * sección; se obtiene de las sesiones de clase asignadas al docente.
+ * sección; se obtiene de las asignaciones del horario semanal.
  */
 @Service
 public class MisClasesService {
@@ -68,12 +68,22 @@ public class MisClasesService {
     LocalDate hoy = LocalDate.now(clock);
     List<MiClaseResponse> clases = new ArrayList<>();
 
-    for (Object[] fila : sesiones.buscarClasesDelDocente(docente.getId())) {
+    for (Object[] fila :
+        sesiones.buscarClasesDelDocente(
+            docente.getPersona().getId(), hoy.minusYears(1), hoy.plusYears(1))) {
       Integer seccionId = (Integer) fila[0];
       String areaCodigo = (String) fila[1];
       Periodo periodo = periodoVigente(seccionId, hoy);
       Area area = areas.findById(areaCodigo).orElse(null);
-      if (periodo == null || area == null || !Boolean.TRUE.equals(area.getActivo())) {
+      if (periodo == null
+          || area == null
+          || !Boolean.TRUE.equals(area.getActivo())
+          || !sesiones.docenteTieneAreaEnSeccion(
+              docente.getPersona().getId(),
+              seccionId,
+              periodo.getFechaInicio(),
+              periodo.getFechaFin(),
+              areaCodigo)) {
         continue;
       }
       List<CompetenciaClaseResponse> competencias =
@@ -114,8 +124,11 @@ public class MisClasesService {
             .filter(encontrado -> Boolean.TRUE.equals(encontrado.getActive()))
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Periodo no encontrado"));
-    if (!sesiones.existsByDocenteIdAndSeccionIdAndActiveTrue(
-        docente.getId(), periodo.getSeccion().getId())) {
+    if (!sesiones.docenteTieneClaseEnSeccion(
+        docente.getPersona().getId(),
+        periodo.getSeccion().getId(),
+        periodo.getFechaInicio(),
+        periodo.getFechaFin())) {
       throw new ResponseStatusException(
           HttpStatus.FORBIDDEN, "Solo puedes consultar los alumnos de tus clases");
     }
@@ -135,8 +148,12 @@ public class MisClasesService {
             .filter(encontrado -> Boolean.TRUE.equals(encontrado.getActive()))
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Periodo no encontrado"));
-    if (!sesiones.existsByDocenteIdAndSeccionIdAndAreaCodigoAndActiveTrue(
-        docente.getId(), periodo.getSeccion().getId(), areaCodigo)) {
+    if (!sesiones.docenteTieneAreaEnSeccion(
+        docente.getPersona().getId(),
+        periodo.getSeccion().getId(),
+        periodo.getFechaInicio(),
+        periodo.getFechaFin(),
+        areaCodigo)) {
       throw new ResponseStatusException(
           HttpStatus.FORBIDDEN, "Solo puedes consultar el riesgo académico de tus clases");
     }

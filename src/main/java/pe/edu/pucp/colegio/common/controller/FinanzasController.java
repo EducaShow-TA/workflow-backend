@@ -1,9 +1,9 @@
 package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;

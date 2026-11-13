@@ -747,21 +747,47 @@
           "name": "Reactivar competencia independiente para US-3.7/3.8",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"activo\": true\n}", "options": { "raw": { "language": "json" } } },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/competencias/{{competenciaIndependienteId}}/estado",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "competencias", "{{competenciaIndependienteId}}", "estado"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "competencias",
+                "{{competenciaIndependienteId}}",
+                "estado"
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Competencia reactivada para tareas y calificaciones', () => pm.response.to.have.status(200));",
-              "pm.expect(pm.response.json().activo).to.eql(true);"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Competencia reactivada para tareas y calificaciones', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().activo).to.eql(true);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Desactivar área por DELETE",
@@ -1736,50 +1762,94 @@
           "name": "Crear tarea de prueba y guardar tareaId (US-3.7)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"periodoId\": {{periodoId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Tarea Postman {{$guid}}\",\n  \"descripcion\": \"Tarea creada para probar seguimiento de entregas\",\n  \"fechaLimite\": \"2026-11-28T23:59:00\",\n  \"ponderacion\": 15\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/tareas",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tareas"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas"
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Crea la tarea', () => pm.response.to.have.status(200));",
-              "const tarea = pm.response.json();",
-              "pm.expect(tarea.ponderacion).to.eql(15);",
-              "const entrega = tarea.entregas.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
-              "pm.expect(entrega, 'la matrícula confirmada aparece en el seguimiento').to.exist;",
-              "pm.expect(entrega.cumplida).to.eql(false);",
-              "pm.environment.set('tareaId', String(tarea.id));"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Crea la tarea', () => pm.response.to.have.status(200));",
+                  "const tarea = pm.response.json();",
+                  "pm.expect(tarea.ponderacion).to.eql(15);",
+                  "const entrega = tarea.entregas.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
+                  "pm.expect(entrega, 'la matrícula confirmada aparece en el seguimiento').to.exist;",
+                  "pm.expect(entrega.cumplida).to.eql(false);",
+                  "pm.environment.set('tareaId', String(tarea.id));"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Crear tarea sin ponderación opcional (US-3.7)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"periodoId\": {{periodoId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Tarea sin ponderación {{$guid}}\",\n  \"descripcion\": \"La ponderación es opcional\",\n  \"fechaLimite\": \"2026-11-28T23:59:00\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/tareas", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tareas"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas"
+              ]
+            }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Crea tarea con ponderación opcional ausente', () => pm.response.to.have.status(200));",
-              "pm.expect(pm.response.json().ponderacion).to.eql(null);"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Crea tarea con ponderación opcional ausente', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().ponderacion).to.eql(null);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Consultar tareas del periodo y comprobar seguimiento (US-3.7)",
@@ -1787,42 +1857,85 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/tareas?periodoId={{periodoId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tareas"],
-              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas"
+              ],
+              "query": [
+                {
+                  "key": "periodoId",
+                  "value": "{{periodoId}}"
+                }
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Lista las tareas del periodo', () => pm.response.to.have.status(200));",
-              "const tarea = pm.response.json().find(x => String(x.id) === pm.environment.get('tareaId'));",
-              "pm.expect(tarea, 'la tarea creada se devuelve en el periodo').to.exist;",
-              "pm.expect(tarea.entregas).to.be.an('array').and.not.empty;"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Lista las tareas del periodo', () => pm.response.to.have.status(200));",
+                  "const tarea = pm.response.json().find(x => String(x.id) === pm.environment.get('tareaId'));",
+                  "pm.expect(tarea, 'la tarea creada se devuelve en el periodo').to.exist;",
+                  "pm.expect(tarea.entregas).to.be.an('array').and.not.empty;"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Marcar entrega cumplida (US-3.7)",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"cumplida\": true\n}", "options": { "raw": { "language": "json" } } },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cumplida\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/tareas/{{tareaId}}/entregas/{{matriculaId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tareas", "{{tareaId}}", "entregas", "{{matriculaId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas",
+                "{{tareaId}}",
+                "entregas",
+                "{{matriculaId}}"
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Actualiza el cumplimiento de la matrícula', () => pm.response.to.have.status(200));",
-              "const entrega = pm.response.json().entregas.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
-              "pm.expect(entrega.cumplida).to.eql(true);",
-              "pm.expect(entrega.fechaCumplimiento).to.be.a('string').and.not.empty;"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Actualiza el cumplimiento de la matrícula', () => pm.response.to.have.status(200));",
+                  "const entrega = pm.response.json().entregas.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
+                  "pm.expect(entrega.cumplida).to.eql(true);",
+                  "pm.expect(entrega.fechaCumplimiento).to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Registrar calificación con evidencia URL (US-3.8)",
@@ -1831,30 +1944,43 @@
             "header": [],
             "body": {
               "mode": "formdata",
-              "formdata": [{
-                "key": "datos",
-                "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"AD\",\"observacion\":\"Evidencia de prueba Postman\",\"evidenciaUrl\":\"https://example.org/evidencia-postman\"}",
-                "contentType": "application/json",
-                "type": "text"
-              }]
+              "formdata": [
+                {
+                  "key": "datos",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"AD\",\"observacion\":\"Evidencia de prueba Postman\",\"evidenciaUrl\":\"https://example.org/evidencia-postman\"}",
+                  "contentType": "application/json",
+                  "type": "text"
+                }
+              ]
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/calificaciones",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "calificaciones"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calificaciones"
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Registra calificación con URL', () => pm.response.to.have.status(200));",
-              "const calificacion = pm.response.json();",
-              "pm.expect(calificacion.nota).to.eql('AD');",
-              "pm.expect(calificacion.evidenciaTipo).to.eql('URL');",
-              "pm.expect(calificacion.evidenciaUrl).to.eql('https://example.org/evidencia-postman');",
-              "pm.environment.set('calificacionId', String(calificacion.id));"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registra calificación con URL', () => pm.response.to.have.status(200));",
+                  "const calificacion = pm.response.json();",
+                  "pm.expect(calificacion.nota).to.eql('AD');",
+                  "pm.expect(calificacion.evidenciaTipo).to.eql('URL');",
+                  "pm.expect(calificacion.evidenciaUrl).to.eql('https://example.org/evidencia-postman');",
+                  "pm.environment.set('calificacionId', String(calificacion.id));"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Ver evidencia en seguimiento de competencia (US-3.8)",
@@ -1862,40 +1988,82 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "seguimiento", "competencias", "{{competenciaIndependienteCodigo}}"],
-              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seguimiento",
+                "competencias",
+                "{{competenciaIndependienteCodigo}}"
+              ],
+              "query": [
+                {
+                  "key": "periodoId",
+                  "value": "{{periodoId}}"
+                }
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Consulta seguimiento por competencia', () => pm.response.to.have.status(200));",
-              "const calificacion = pm.response.json().find(x => String(x.id) === pm.environment.get('calificacionId'));",
-              "pm.expect(calificacion, 'la calificación aparece en la ficha').to.exist;",
-              "pm.expect(calificacion.nota).to.eql('AD');",
-              "pm.expect(calificacion.evidenciaUrl).to.eql('https://example.org/evidencia-postman');"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consulta seguimiento por competencia', () => pm.response.to.have.status(200));",
+                  "const calificacion = pm.response.json().find(x => String(x.id) === pm.environment.get('calificacionId'));",
+                  "pm.expect(calificacion, 'la calificación aparece en la ficha').to.exist;",
+                  "pm.expect(calificacion.nota).to.eql('AD');",
+                  "pm.expect(calificacion.evidenciaUrl).to.eql('https://example.org/evidencia-postman');"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Rechazar ponderación mayor a 100 (US-3.7)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"periodoId\": {{periodoId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Ponderación inválida\",\n  \"descripcion\": \"Debe rechazarse\",\n  \"fechaLimite\": \"2026-11-28T23:59:00\",\n  \"ponderacion\": 101\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/tareas", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tareas"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas"
+              ]
+            }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Rechaza ponderación fuera del rango 0–100', () => pm.response.to.have.status(400));"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechaza ponderación fuera del rango 0–100', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Rechazar evidencia URL con protocolo no permitido (US-3.8)",
@@ -1904,21 +2072,38 @@
             "header": [],
             "body": {
               "mode": "formdata",
-              "formdata": [{
-                "key": "datos",
-                "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"evidenciaUrl\":\"ftp://example.org/evidencia\"}",
-                "contentType": "application/json",
-                "type": "text"
-              }]
+              "formdata": [
+                {
+                  "key": "datos",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"evidenciaUrl\":\"ftp://example.org/evidencia\"}",
+                  "contentType": "application/json",
+                  "type": "text"
+                }
+              ]
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/calificaciones", "host": ["{{baseUrl}}"], "path": ["api", "v1", "calificaciones"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calificaciones"
+              ]
+            }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Rechaza URL que no use HTTP/HTTPS', () => pm.response.to.have.status(422));"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechaza URL que no use HTTP/HTTPS', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Registrar calificación con archivo (manual; US-3.8)",
@@ -1934,27 +2119,47 @@
                   "contentType": "application/json",
                   "type": "text"
                 },
-                { "key": "archivo", "type": "file", "src": "" }
+                {
+                  "key": "archivo",
+                  "type": "file",
+                  "src": ""
+                }
               ]
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/calificaciones", "host": ["{{baseUrl}}"], "path": ["api", "v1", "calificaciones"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calificaciones"
+              ]
+            }
           },
           "event": [
             {
               "listen": "prerequest",
-              "script": { "type": "text/javascript", "exec": [
-                "if (pm.environment.get('runFileEvidencePostman') !== 'true') pm.execution.skipRequest();"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('runFileEvidencePostman') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
             },
             {
               "listen": "test",
-              "script": { "type": "text/javascript", "exec": [
-                "pm.test('Registra archivo de evidencia', () => pm.response.to.have.status(200));",
-                "const evidencia = pm.response.json();",
-                "pm.expect(evidencia.evidenciaTipo).to.eql('ARCHIVO');",
-                "pm.expect(evidencia.evidenciaUrl).to.include('/api/v1/evidencias/');",
-                "pm.environment.set('evidenciaArchivoUrl', evidencia.evidenciaUrl);"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registra archivo de evidencia', () => pm.response.to.have.status(200));",
+                  "const evidencia = pm.response.json();",
+                  "pm.expect(evidencia.evidenciaTipo).to.eql('ARCHIVO');",
+                  "pm.expect(evidencia.evidenciaUrl).to.include('/api/v1/evidencias/');",
+                  "pm.environment.set('evidenciaArchivoUrl', evidencia.evidenciaUrl);"
+                ]
+              }
             }
           ]
         },
@@ -1962,21 +2167,39 @@
           "name": "Descargar archivo adjunto (manual; US-3.8)",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}{{evidenciaArchivoUrl}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "evidencias", "{{calificacionId}}", "archivo"] }
+            "url": {
+              "raw": "{{baseUrl}}{{evidenciaArchivoUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "evidencias",
+                "{{calificacionId}}",
+                "archivo"
+              ]
+            }
           },
           "event": [
             {
               "listen": "prerequest",
-              "script": { "type": "text/javascript", "exec": [
-                "if (pm.environment.get('runFileEvidencePostman') !== 'true') pm.execution.skipRequest();"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('runFileEvidencePostman') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
             },
             {
               "listen": "test",
-              "script": { "type": "text/javascript", "exec": [
-                "pm.test('Descarga el archivo de evidencia', () => pm.response.to.have.status(200));",
-                "pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Descarga el archivo de evidencia', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');"
+                ]
+              }
             }
           ]
         },
@@ -1994,23 +2217,43 @@
                   "contentType": "application/json",
                   "type": "text"
                 },
-                { "key": "archivo", "type": "file", "src": "" }
+                {
+                  "key": "archivo",
+                  "type": "file",
+                  "src": ""
+                }
               ]
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/calificaciones", "host": ["{{baseUrl}}"], "path": ["api", "v1", "calificaciones"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "calificaciones"
+              ]
+            }
           },
           "event": [
             {
               "listen": "prerequest",
-              "script": { "type": "text/javascript", "exec": [
-                "if (pm.environment.get('runOversizeEvidencePostman') !== 'true') pm.execution.skipRequest();"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('runOversizeEvidencePostman') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
             },
             {
               "listen": "test",
-              "script": { "type": "text/javascript", "exec": [
-                "pm.test('Rechaza archivo que supera 10 MB', () => pm.response.to.have.status(413));"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechaza archivo que supera 10 MB', () => pm.response.to.have.status(413));"
+                ]
+              }
             }
           ]
         },
@@ -2056,68 +2299,6 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Doble confirmación responde 409', () => pm.response.to.have.status(409));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Eliminar matrícula de prueba 1",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas/{{estudianteId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "periodos",
-                "{{periodoId}}",
-                "matriculas",
-                "{{estudianteId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Primera matrícula eliminada', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Eliminar matrícula de prueba 2",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas/{{estudiante2Id}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "periodos",
-                "{{periodoId}}",
-                "matriculas",
-                "{{estudiante2Id}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Segunda matrícula eliminada', () => pm.response.to.have.status(204));"
                 ]
               }
             }
@@ -2302,8 +2483,10 @@
                 "exec": [
                   "pm.test('Compromiso consultado', () => pm.response.to.have.status(200));",
                   "const rows = pm.response.json();",
-                  "const compromiso = rows.find(x => String(x.matriculaId) === pm.environment.get('matriculaId'));",
-                  "pm.expect(compromiso, 'compromiso de esta matrícula').to.exist;",
+                  "const matriculaId = pm.variables.get('matriculaId');",
+                  "pm.expect(matriculaId, 'matriculaId guardado en el entorno').to.exist;",
+                  "const compromiso = rows.find(x => String(x.matriculaId) === String(matriculaId));",
+                  "pm.expect(compromiso, `compromiso para matriculaId ${matriculaId}; IDs recibidos: ${rows.map(x => x.matriculaId).join(', ')}`).to.exist;",
                   "pm.expect(compromiso.concepto).to.eql('Pensión escolar');",
                   "pm.expect(compromiso.montoTotal).to.eql(1200);",
                   "pm.expect(compromiso.numeroCuotas).to.eql(12);",
@@ -2737,6 +2920,68 @@
               }
             }
           ]
+        },
+        {
+          "name": "Eliminar matrícula de prueba 1",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas/{{estudianteId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "periodos",
+                "{{periodoId}}",
+                "matriculas",
+                "{{estudianteId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Primera matrícula eliminada', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar matrícula de prueba 2",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoId}}/matriculas/{{estudiante2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "periodos",
+                "{{periodoId}}",
+                "matriculas",
+                "{{estudiante2Id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Segunda matrícula eliminada', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -2898,25 +3143,45 @@
           "name": "Crear área activa para la clase de prueba",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"codigo\": \"AREA-TAREA-{{$guid}}\",\n  \"nombre\": \"Área tareas Postman {{$guid}}\",\n  \"descripcion\": \"Área activa para validar acceso docente a tareas\",\n  \"competenciaCodigos\": [\"{{competenciaIndependienteCodigo}}\"]\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/areas",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "areas"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "areas"
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Área activa creada y vinculada a la competencia', () => pm.response.to.have.status(201));",
-              "pm.environment.set('areaTareasCodigo', pm.response.json().codigo);"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Área activa creada y vinculada a la competencia', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('areaTareasCodigo', pm.response.json().codigo);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Consultar ID del docente de prueba",
@@ -2924,48 +3189,306 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/docentes",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "docentes"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docentes"
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('Se encuentra el docente creado para la prueba', () => pm.response.to.have.status(200));",
-              "const docente = pm.response.json().find(x => x.username === pm.environment.get('cuentaUsuarioUsernameEditado'));",
-              "pm.expect(docente, 'la cuenta DOCENTE aparece en el catálogo').to.exist;",
-              "pm.environment.set('docenteId', String(docente.id));"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Se encuentra el docente creado para la prueba', () => pm.response.to.have.status(200));",
+                  "const docente = pm.response.json().find(x => x.username === pm.environment.get('cuentaUsuarioUsernameEditado'));",
+                  "pm.expect(docente, 'la cuenta DOCENTE aparece en el catálogo').to.exist;",
+                  "pm.environment.set('docenteId', String(docente.id));",
+                  "pm.environment.set('docenteCuentaId', String(docente.cuentaId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear plantilla horaria para asignación docente (US-3.7)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Plantilla tareas {{$guid}}\",\n  \"turno\": \"MANANA\",\n  \"horaInicio\": \"07:30:00\",\n  \"horaFin\": \"09:00:00\",\n  \"duracionHoraPedagogicaMinutos\": 45,\n  \"cantidadBloquesPedagogicos\": 2,\n  \"recreos\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/horarios/plantillas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "horarios",
+                "plantillas"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Plantilla para clase docente creada', () => pm.response.to.have.status(201));",
+                  "const plantilla = pm.response.json();",
+                  "pm.environment.set('plantillaDocenteId', String(plantilla.id));",
+                  "pm.environment.set('bloqueDocenteId', String(plantilla.bloques.find(x => x.tipo === 'PEDAGOGICO').id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear aula para asignación docente (US-3.7)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"AULA-DOC-{{$randomInt}}\",\n  \"capacidad\": 30,\n  \"descripcion\": \"Aula de prueba Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aulas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "aulas"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Aula para clase docente creada', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('aulaDocenteId', String(pm.response.json().id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear horario semanal para asignación docente (US-3.7)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seccionId\": {{seccionId}},\n  \"anio\": 2026,\n  \"plantillaId\": {{plantillaDocenteId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/horarios/secciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "horarios",
+                "secciones"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Horario semanal de prueba creado', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('horarioDocenteId', String(pm.response.json().id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Asignar área al horario semanal del docente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bloqueId\": {{bloqueDocenteId}},\n  \"dia\": \"MONDAY\",\n  \"areaCodigo\": \"{{areaTareasCodigo}}\",\n  \"docenteId\": {{docenteCuentaId}},\n  \"aulaId\": {{aulaDocenteId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/horarios/secciones/{{horarioDocenteId}}/sesiones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "horarios",
+                "secciones",
+                "{{horarioDocenteId}}",
+                "sesiones"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Área y docente asignados al horario semanal', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Asignar clase al docente de prueba",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"seccionId\": {{seccionId}},\n  \"areaCodigo\": \"{{areaTareasCodigo}}\",\n  \"docenteId\": {{docenteId}},\n  \"fecha\": \"{{fechaClase}}\",\n  \"horaInicio\": \"08:00:00\",\n  \"horaFin\": \"08:45:00\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/sesiones-clase",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "sesiones-clase"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sesiones-clase"
+              ]
             }
           },
           "event": [
             {
               "listen": "prerequest",
-              "script": { "type": "text/javascript", "exec": [
-                "pm.environment.set('fechaClase', new Date().toISOString().slice(0, 10));"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('fechaClase', new Date().toISOString().slice(0, 10));"
+                ]
+              }
             },
             {
               "listen": "test",
-              "script": { "type": "text/javascript", "exec": [
-                "pm.test('Clase de prueba asignada al docente', () => pm.response.to.have.status(201));"
-              ] }
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Clase de prueba asignada al docente', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verificar clase y competencia visibles para el docente (US-3.7)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{docenteToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docentes/mis-clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docentes",
+                "mis-clases"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El docente tiene clases asignadas', () => pm.response.to.have.status(200));",
+                  "const clases = pm.response.json();",
+                  "const clase = clases.find(x => String(x.periodoId) === pm.environment.get('periodoId') && x.areaCodigo === pm.environment.get('areaTareasCodigo'));",
+                  "pm.expect(clase, `periodoId=${pm.environment.get('periodoId')}; area=${pm.environment.get('areaTareasCodigo')}; clases=${JSON.stringify(clases)}`).to.exist;",
+                  "pm.expect(clase.competencias.some(x => x.codigo === pm.environment.get('competenciaIndependienteCodigo')), 'competencia de la tarea asignada al área del docente').to.eql(true);"
+                ]
+              }
             }
           ]
         },
@@ -2974,48 +3497,95 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{docenteToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{docenteToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/tareas?periodoId={{periodoId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tareas"],
-              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas"
+              ],
+              "query": [
+                {
+                  "key": "periodoId",
+                  "value": "{{periodoId}}"
+                }
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('DOCENTE tiene acceso al seguimiento de tareas', () => pm.response.to.have.status(200));",
-              "pm.expect(pm.response.json().some(x => String(x.id) === pm.environment.get('tareaId'))).to.eql(true);"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DOCENTE tiene acceso al seguimiento de tareas', () => pm.response.to.have.status(200));",
+                  "const tareas = pm.response.json();",
+                  "pm.expect(tareas.some(x => String(x.id) === pm.environment.get('tareaId')), `tareaId ${pm.environment.get('tareaId')}; tareas visibles: ${tareas.map(x => x.id).join(', ')}`).to.eql(true);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Docente puede ver evidencia en ficha de competencia (US-3.8)",
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{docenteToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{docenteToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "seguimiento", "competencias", "{{competenciaIndependienteCodigo}}"],
-              "query": [{ "key": "periodoId", "value": "{{periodoId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seguimiento",
+                "competencias",
+                "{{competenciaIndependienteCodigo}}"
+              ],
+              "query": [
+                {
+                  "key": "periodoId",
+                  "value": "{{periodoId}}"
+                }
+              ]
             }
           },
-          "event": [{
-            "listen": "test",
-            "script": { "type": "text/javascript", "exec": [
-              "pm.test('DOCENTE puede consultar la ficha de competencia', () => pm.response.to.have.status(200));",
-              "const calificacion = pm.response.json().find(x => String(x.id) === pm.environment.get('calificacionId'));",
-              "pm.expect(calificacion, 'la calificación con evidencia sigue disponible').to.exist;",
-              "pm.expect(calificacion.evidenciaTipo).to.eql('URL');"
-            ] }
-          }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DOCENTE puede consultar la ficha de competencia', () => pm.response.to.have.status(200));",
+                  "const calificacion = pm.response.json().find(x => String(x.id) === pm.environment.get('calificacionId'));",
+                  "pm.expect(calificacion, 'la calificación con evidencia sigue disponible').to.exist;",
+                  "pm.expect(calificacion.evidenciaTipo).to.eql('URL');"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Docente no puede listar cuentas (403)",

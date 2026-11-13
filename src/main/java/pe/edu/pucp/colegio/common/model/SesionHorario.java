@@ -13,95 +13,122 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 
 /** Celda de la grilla: qué área dicta qué docente, en qué aula, en un día y bloque. */
 @Entity
 @Table(
-        name = "sesiones_horario",
-        uniqueConstraints =
+    name = "sesiones_horario",
+    uniqueConstraints =
         @UniqueConstraint(
-                name = "uk_sesion_horario_bloque_dia",
-                columnNames = {"horario_id", "bloque_id", "dia"}))
+            name = "uk_sesion_horario_vigencia",
+            columnNames = {"horario_id", "bloque_id", "dia", "vigente_desde"}))
 public class SesionHorario {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "horario_id", nullable = false)
-    private HorarioSeccion horario;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "horario_id", nullable = false)
+  private HorarioSeccion horario;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "bloque_id", nullable = false)
-    private BloqueHorario bloque;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "bloque_id", nullable = false)
+  private BloqueHorario bloque;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 15)
-    private DayOfWeek dia;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 15)
+  private DayOfWeek dia;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "area_codigo", nullable = false)
-    private Area area;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "area_codigo", nullable = false)
+  private Area area;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "docente_id", nullable = false)
-    private CuentaUsuario docente;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "docente_id", nullable = false)
+  private CuentaUsuario docente;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "aula_id", nullable = false)
-    private Aula aula;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "aula_id", nullable = false)
+  private Aula aula;
 
-    public Integer getId() {
-        return id;
-    }
+  @Column(name = "vigente_desde", nullable = false)
+  private LocalDate vigenteDesde;
 
-    public HorarioSeccion getHorario() {
-        return horario;
-    }
+  @Column(name = "vigente_hasta")
+  private LocalDate vigenteHasta;
 
-    public void setHorario(HorarioSeccion horario) {
-        this.horario = horario;
-    }
+  public Integer getId() {
+    return id;
+  }
 
-    public BloqueHorario getBloque() {
-        return bloque;
-    }
+  public HorarioSeccion getHorario() {
+    return horario;
+  }
 
-    public void setBloque(BloqueHorario bloque) {
-        this.bloque = bloque;
-    }
+  public void setHorario(HorarioSeccion horario) {
+    this.horario = horario;
+  }
 
-    public DayOfWeek getDia() {
-        return dia;
-    }
+  public BloqueHorario getBloque() {
+    return bloque;
+  }
 
-    public void setDia(DayOfWeek dia) {
-        this.dia = dia;
-    }
+  public void setBloque(BloqueHorario bloque) {
+    this.bloque = bloque;
+  }
 
-    public Area getArea() {
-        return area;
-    }
+  public DayOfWeek getDia() {
+    return dia;
+  }
 
-    public void setArea(Area area) {
-        this.area = area;
-    }
+  public void setDia(DayOfWeek dia) {
+    this.dia = dia;
+  }
 
-    public CuentaUsuario getDocente() {
-        return docente;
-    }
+  public Area getArea() {
+    return area;
+  }
 
-    public void setDocente(CuentaUsuario docente) {
-        this.docente = docente;
-    }
+  public void setArea(Area area) {
+    this.area = area;
+  }
 
-    public Aula getAula() {
-        return aula;
-    }
+  public CuentaUsuario getDocente() {
+    return docente;
+  }
 
-    public void setAula(Aula aula) {
-        this.aula = aula;
-    }
+  public void setDocente(CuentaUsuario docente) {
+    this.docente = docente;
+  }
+
+  public Aula getAula() {
+    return aula;
+  }
+
+  public void setAula(Aula aula) {
+    this.aula = aula;
+  }
+
+  public LocalDate getVigenteDesde() {
+    return vigenteDesde;
+  }
+
+  public void setVigenteDesde(LocalDate vigenteDesde) {
+    this.vigenteDesde = vigenteDesde;
+  }
+
+  public LocalDate getVigenteHasta() {
+    return vigenteHasta;
+  }
+
+  public void setVigenteHasta(LocalDate vigenteHasta) {
+    this.vigenteHasta = vigenteHasta;
+  }
+
+  public boolean estaVigenteEn(LocalDate fecha) {
+    return !fecha.isBefore(vigenteDesde) && (vigenteHasta == null || !fecha.isAfter(vigenteHasta));
+  }
 }

@@ -7,7 +7,10 @@ import pe.edu.pucp.colegio.common.model.ComprobantePago;
 
 public interface ComprobantePagoRepository extends JpaRepository<ComprobantePago, Integer> {
   boolean existsByBoletaIdAndActiveTrue(Integer boletaId);
+
   boolean existsByNumeroComprobante(String numeroComprobante);
+
   List<ComprobantePago> findAllByBoletaIdAndActiveTrueOrderByFechaEmisionDesc(Integer boletaId);
+
   Optional<ComprobantePago> findByNumeroComprobante(String numeroComprobante);
 }

@@ -139,7 +139,8 @@ public class SesionClaseService {
     Docente docente = docenteService.obtenerDeCuenta(usuario);
     LocalDate dia = fecha != null ? fecha : LocalDate.now(clock);
     return sesiones
-        .findAllByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(docente.getId(), dia)
+        .findAllByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            docente.getId(), dia)
         .stream()
         .map(this::resumen)
         .toList();
@@ -442,11 +443,17 @@ public class SesionClaseService {
   }
 
   private SesionClase buscarSesion(Integer id) {
-    return sesiones
-        .findByIdAndActiveTrue(id)
-        .orElseThrow(
-            () ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la sesión de clase"));
+    SesionClase sesion =
+        sesiones
+            .findByIdAndActiveTrue(id)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No existe la sesión de clase"));
+    if (Boolean.TRUE.equals(sesion.getCancelada())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "La sesión fue cancelada");
+    }
+    return sesion;
   }
 
   private Docente buscarDocente(Integer id) {

@@ -20,11 +20,10 @@ import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.PeriodoLibreta;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.model.Competencia;
-import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
-import pe.edu.pucp.colegio.common.model.SesionClase;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
@@ -33,7 +32,7 @@ import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
-import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
@@ -52,7 +51,7 @@ public class LibretaNotasService {
   private final EvaluacionParcialRepository evaluaciones;
   private final CalificacionParcialRepository notasParciales;
   private final ConsolidacionLogroService consolidacion;
-  private final SesionClaseRepository sesiones;
+  private final SesionHorarioRepository asignacionesHorario;
 
   public LibretaNotasService(
       CuentaUsuarioRepository cuentas,
@@ -66,7 +65,7 @@ public class LibretaNotasService {
       EvaluacionParcialRepository evaluaciones,
       CalificacionParcialRepository notasParciales,
       ConsolidacionLogroService consolidacion,
-      SesionClaseRepository sesiones) {
+      SesionHorarioRepository asignacionesHorario) {
     this.cuentas = cuentas;
     this.estudiantes = estudiantes;
     this.apoderados = apoderados;
@@ -78,7 +77,7 @@ public class LibretaNotasService {
     this.evaluaciones = evaluaciones;
     this.notasParciales = notasParciales;
     this.consolidacion = consolidacion;
-    this.sesiones = sesiones;
+    this.asignacionesHorario = asignacionesHorario;
   }
 
   @Transactional(readOnly = true)
@@ -152,7 +151,9 @@ public class LibretaNotasService {
                         || competenciasPermitidas.contains(evaluacion.getCompetencia().getCodigo()))
             .toList();
     List<EvaluacionParcial> evaluacionesBimestre =
-        evaluaciones.findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodoId, bimestre).stream()
+        evaluaciones
+            .findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodoId, bimestre)
+            .stream()
             .filter(
                 evaluacion ->
                     competenciasPermitidas == null
@@ -281,9 +282,9 @@ public class LibretaNotasService {
             .findByPersonaId(cuenta.getPersona().getId())
             .filter(d -> Boolean.TRUE.equals(d.getActive()))
             .orElseThrow(() -> prohibido("La cuenta no corresponde a un docente activo"));
-    List<SesionClase> clases =
-        sesiones.findAllByDocenteIdAndSeccionIdAndFechaBetweenAndActiveTrue(
-            docente.getId(),
+    var clases =
+        asignacionesHorario.buscarAsignacionesDocente(
+            cuenta.getPersona().getId(),
             periodo.getSeccion().getId(),
             periodo.getFechaInicio(),
             periodo.getFechaFin());
@@ -292,8 +293,8 @@ public class LibretaNotasService {
     }
     Set<String> competenciasPermitidas = new HashSet<>();
     clases.forEach(
-        sesion ->
-            sesion.getArea().getCompetencias().stream()
+        asignacion ->
+            asignacion.getArea().getCompetencias().stream()
                 .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
                 .forEach(competencia -> competenciasPermitidas.add(competencia.getCodigo())));
     return competenciasPermitidas;

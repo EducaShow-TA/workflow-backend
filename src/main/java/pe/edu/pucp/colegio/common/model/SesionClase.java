@@ -34,6 +34,11 @@ public class SesionClase extends EntidadBase {
   @JoinColumn(name = "docente_id", nullable = false)
   private Docente docente;
 
+  /** Asignación semanal de origen; queda nula para sesiones creadas manualmente. */
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "sesion_horario_id")
+  private SesionHorario sesionHorario;
+
   @Column(nullable = false)
   private LocalDate fecha;
 
@@ -42,6 +47,12 @@ public class SesionClase extends EntidadBase {
 
   @Column(name = "hora_fin", nullable = false)
   private LocalTime horaFin;
+
+  @Column(nullable = false)
+  private Boolean cancelada = false;
+
+  @Column(name = "motivo_cancelacion", length = 300)
+  private String motivoCancelacion;
 
   @OneToMany(mappedBy = "sesionClase")
   private Set<AsistenciaEstudiante> asistenciasEstudiantes = new LinkedHashSet<>();
@@ -77,6 +88,30 @@ public class SesionClase extends EntidadBase {
     if (docente != null) {
       docente.getSesionesClase().add(this);
     }
+  }
+
+  public SesionHorario getSesionHorario() {
+    return sesionHorario;
+  }
+
+  public void setSesionHorario(SesionHorario sesionHorario) {
+    this.sesionHorario = sesionHorario;
+  }
+
+  public Boolean getCancelada() {
+    return cancelada;
+  }
+
+  public void setCancelada(Boolean cancelada) {
+    this.cancelada = cancelada;
+  }
+
+  public String getMotivoCancelacion() {
+    return motivoCancelacion;
+  }
+
+  public void setMotivoCancelacion(String motivoCancelacion) {
+    this.motivoCancelacion = motivoCancelacion;
   }
 
   public LocalDate getFecha() {

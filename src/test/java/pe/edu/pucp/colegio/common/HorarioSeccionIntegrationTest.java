@@ -98,8 +98,7 @@ class HorarioSeccionIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     cuerpo(
-                        Map.of(
-                            "seccionId", 999999, "anio", ANIO, "plantillaId", e.plantillaId()))))
+                        Map.of("seccionId", 999999, "anio", ANIO, "plantillaId", e.plantillaId()))))
         .andExpect(status().isNotFound());
   }
 
@@ -120,8 +119,7 @@ class HorarioSeccionIntegrationTest {
             get(BASE).param("seccionId", String.valueOf(e.seccionId())).param("anio", "" + ANIO))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(horarioId));
-    mvc.perform(
-            get(BASE).param("seccionId", String.valueOf(e.seccionId())).param("anio", "2099"))
+    mvc.perform(get(BASE).param("seccionId", String.valueOf(e.seccionId())).param("anio", "2099"))
         .andExpect(status().isNotFound());
   }
 
@@ -205,7 +203,8 @@ class HorarioSeccionIntegrationTest {
     Aula aula = aulas.findById(e.aulaId()).orElseThrow();
     aula.setActive(false);
     aulas.save(aula);
-    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY").andExpect(status().isUnprocessableEntity());
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY")
+        .andExpect(status().isUnprocessableEntity());
   }
 
   @Test
@@ -308,7 +307,12 @@ class HorarioSeccionIntegrationTest {
             .content(
                 cuerpo(
                     Map.of(
-                        "seccionId", e.seccionId(), "anio", ANIO, "plantillaId", e.plantillaId()))));
+                        "seccionId",
+                        e.seccionId(),
+                        "anio",
+                        ANIO,
+                        "plantillaId",
+                        e.plantillaId()))));
   }
 
   private ResultActions agregarSesion(int horarioId, Escenario e, int bloqueId, String dia)

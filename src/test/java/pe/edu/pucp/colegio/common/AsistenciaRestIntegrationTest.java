@@ -55,7 +55,7 @@ import pe.edu.pucp.colegio.security.model.Rol;
 class AsistenciaRestIntegrationTest {
 
   private static final AtomicInteger NUMERO_GRADO = new AtomicInteger(40_000);
-  private static final ZoneId ZONA = ZoneId.systemDefault();
+  private static final ZoneId ZONA = ZoneId.of("America/Lima");
   private static final LocalDate FECHA_FIJA = LocalDate.of(2026, 11, 4);
   private static final LocalTime HORA_INICIO_SESION = LocalTime.of(10, 0);
 
@@ -65,7 +65,7 @@ class AsistenciaRestIntegrationTest {
     @Primary
     Clock testClock() {
       return Clock.fixed(
-              LocalDateTime.of(FECHA_FIJA, LocalTime.of(10, 5)).atZone(ZONA).toInstant(), ZONA);
+          LocalDateTime.of(FECHA_FIJA, LocalTime.of(10, 5)).atZone(ZONA).toInstant(), ZONA);
     }
   }
 
@@ -77,23 +77,23 @@ class AsistenciaRestIntegrationTest {
   void administradorPuedeCrearSesionDeClase() throws Exception {
     Fixture f = crearFixture();
     SesionClaseRequest request =
-            new SesionClaseRequest(
-                    f.seccionId(),
-                    f.areaCodigo(),
-                    f.docenteId(),
-                    f.fecha(),
-                    LocalTime.of(11, 0),
-                    LocalTime.of(11, 45));
+        new SesionClaseRequest(
+            f.seccionId(),
+            f.areaCodigo(),
+            f.docenteId(),
+            f.fecha(),
+            LocalTime.of(11, 0),
+            LocalTime.of(11, 45));
 
     mvc.perform(
-                    post("/api/v1/sesiones-clase")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(request)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.seccionId").value(f.seccionId()))
-            .andExpect(jsonPath("$.areaCodigo").value(f.areaCodigo()))
-            .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
-            .andExpect(jsonPath("$.horaInicio").value("11:00:00"));
+            post("/api/v1/sesiones-clase")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(request)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.seccionId").value(f.seccionId()))
+        .andExpect(jsonPath("$.areaCodigo").value(f.areaCodigo()))
+        .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
+        .andExpect(jsonPath("$.horaInicio").value("11:00:00"));
   }
 
   @Test
@@ -102,9 +102,9 @@ class AsistenciaRestIntegrationTest {
     Fixture f = crearFixture();
 
     mvc.perform(get("/api/v1/sesiones-clase/{id}", f.sesionId()))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(f.sesionId()))
-            .andExpect(jsonPath("$.docenteId").value(f.docenteId()));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(f.sesionId()))
+        .andExpect(jsonPath("$.docenteId").value(f.docenteId()));
   }
 
   @Test
@@ -112,12 +112,12 @@ class AsistenciaRestIntegrationTest {
     Fixture f = crearFixture();
 
     mvc.perform(
-                    get("/api/v1/sesiones-clase")
-                            .param("fecha", f.fecha().toString())
-                            .param("seccionId", f.seccionId().toString()))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].id").value(f.sesionId()))
-            .andExpect(jsonPath("$[0].fecha").value(f.fecha().toString()));
+            get("/api/v1/sesiones-clase")
+                .param("fecha", f.fecha().toString())
+                .param("seccionId", f.seccionId().toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(f.sesionId()))
+        .andExpect(jsonPath("$[0].fecha").value(f.fecha().toString()));
   }
 
   @Test
@@ -125,21 +125,21 @@ class AsistenciaRestIntegrationTest {
     Fixture f = crearFixture();
 
     mvc.perform(
-                    post("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(
-                                    json(
-                                            new AsistenciaEstudianteRequest(
-                                                    f.estudianteId(), EstadoAsistencia.PRESENTE))))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.estudianteId").value(f.estudianteId()))
-            .andExpect(jsonPath("$.sesionClaseId").value(f.sesionId()))
-            .andExpect(jsonPath("$.estado").value("PRESENTE"));
+            post("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    json(
+                        new AsistenciaEstudianteRequest(
+                            f.estudianteId(), EstadoAsistencia.PRESENTE))))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.estudianteId").value(f.estudianteId()))
+        .andExpect(jsonPath("$.sesionClaseId").value(f.sesionId()))
+        .andExpect(jsonPath("$.estado").value("PRESENTE"));
 
     mvc.perform(get("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId()))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].estudianteId").value(f.estudianteId()))
-            .andExpect(jsonPath("$[0].estado").value("PRESENTE"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].estudianteId").value(f.estudianteId()))
+        .andExpect(jsonPath("$[0].estado").value("PRESENTE"));
   }
 
   @Test
@@ -149,46 +149,46 @@ class AsistenciaRestIntegrationTest {
     registrarAsistencia(f, request);
 
     mvc.perform(
-                    post("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(request)))
-            .andExpect(status().isConflict());
+            post("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(request)))
+        .andExpect(status().isConflict());
   }
 
   @Test
   void ajustaEstadoDeAsistenciaDeAlumno() throws Exception {
     Fixture f = crearFixture();
     registrarAsistencia(
-            f, new AsistenciaEstudianteRequest(f.estudianteId(), EstadoAsistencia.AUSENTE));
+        f, new AsistenciaEstudianteRequest(f.estudianteId(), EstadoAsistencia.AUSENTE));
 
     mvc.perform(
-                    patch(
-                            "/api/v1/sesiones-clase/{sesionId}/asistencias/{estudianteId}",
-                            f.sesionId(),
-                            f.estudianteId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(new AsistenciaEstudianteAjusteRequest(EstadoAsistencia.TARDANZA))))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.estado").value("TARDANZA"));
+            patch(
+                    "/api/v1/sesiones-clase/{sesionId}/asistencias/{estudianteId}",
+                    f.sesionId(),
+                    f.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(new AsistenciaEstudianteAjusteRequest(EstadoAsistencia.TARDANZA))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("TARDANZA"));
   }
 
   @Test
   void rechazaSesionConHorarioInvalido() throws Exception {
     Fixture f = crearFixture();
     SesionClaseRequest request =
-            new SesionClaseRequest(
-                    f.seccionId(),
-                    f.areaCodigo(),
-                    f.docenteId(),
-                    f.fecha(),
-                    LocalTime.of(12, 0),
-                    LocalTime.of(11, 0));
+        new SesionClaseRequest(
+            f.seccionId(),
+            f.areaCodigo(),
+            f.docenteId(),
+            f.fecha(),
+            LocalTime.of(12, 0),
+            LocalTime.of(11, 0));
 
     mvc.perform(
-                    post("/api/v1/sesiones-clase")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(request)))
-            .andExpect(status().isBadRequest());
+            post("/api/v1/sesiones-clase")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(request)))
+        .andExpect(status().isBadRequest());
   }
 
   @Test
@@ -197,17 +197,17 @@ class AsistenciaRestIntegrationTest {
     LocalTime entrada = HORA_INICIO_SESION.plusMinutes(3);
     LocalTime salida = entrada.plusHours(7);
     AsistenciaDocenteCreateRequest request =
-            new AsistenciaDocenteCreateRequest(
-                    f.docenteId(), f.fecha(), EstadoAsistenciaDocente.PRESENTE, entrada, salida, null);
+        new AsistenciaDocenteCreateRequest(
+            f.docenteId(), f.fecha(), EstadoAsistenciaDocente.PRESENTE, entrada, salida, null);
 
     mvc.perform(
-                    post("/api/v1/asistencias-docentes")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(request)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
-            .andExpect(jsonPath("$.estado").value("PRESENTE"))
-            .andExpect(jsonPath("$.horaEntrada").value("10:03:00"));
+            post("/api/v1/asistencias-docentes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(request)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
+        .andExpect(jsonPath("$.estado").value("PRESENTE"))
+        .andExpect(jsonPath("$.horaEntrada").value("10:03:00"));
   }
 
   @Test
@@ -216,12 +216,12 @@ class AsistenciaRestIntegrationTest {
     int asistenciaId = registrarAsistenciaDocente(f);
 
     mvc.perform(
-                    get("/api/v1/asistencias-docentes")
-                            .param("fecha", f.fecha().toString())
-                            .param("docenteId", f.docenteId().toString()))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].id").value(asistenciaId))
-            .andExpect(jsonPath("$[0].docenteId").value(f.docenteId()));
+            get("/api/v1/asistencias-docentes")
+                .param("fecha", f.fecha().toString())
+                .param("docenteId", f.docenteId().toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(asistenciaId))
+        .andExpect(jsonPath("$[0].docenteId").value(f.docenteId()));
   }
 
   @Test
@@ -230,19 +230,19 @@ class AsistenciaRestIntegrationTest {
     int asistenciaId = registrarAsistenciaDocente(f);
 
     mvc.perform(
-                    patch("/api/v1/asistencias-docentes/{id}", asistenciaId)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(
-                                    json(
-                                            new AsistenciaDocenteAjusteRequest(
-                                                    EstadoAsistenciaDocente.INASISTENCIA, "Licencia aprobada"))))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.estado").value("INASISTENCIA"))
-            .andExpect(jsonPath("$.motivoAjuste").value("Licencia aprobada"));
+            patch("/api/v1/asistencias-docentes/{id}", asistenciaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    json(
+                        new AsistenciaDocenteAjusteRequest(
+                            EstadoAsistenciaDocente.INASISTENCIA, "Licencia aprobada"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("INASISTENCIA"))
+        .andExpect(jsonPath("$.motivoAjuste").value("Licencia aprobada"));
 
     mvc.perform(get("/api/v1/asistencias-docentes/{id}", asistenciaId))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.estado").value("INASISTENCIA"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("INASISTENCIA"));
   }
 
   @Test
@@ -250,14 +250,16 @@ class AsistenciaRestIntegrationTest {
     Fixture f = crearFixture();
     String usuario = crearCuentaDocente(f);
 
-    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
+    mvc.perform(
+            post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
         .andExpect(jsonPath("$.fecha").value(FECHA_FIJA.toString()))
         .andExpect(jsonPath("$.horaEntrada").value("10:05:00"))
         .andExpect(jsonPath("$.estado").value("PRESENTE"));
 
-    mvc.perform(post("/api/v1/docentes/mis-asistencias/salida").with(user(usuario).roles("DOCENTE")))
+    mvc.perform(
+            post("/api/v1/docentes/mis-asistencias/salida").with(user(usuario).roles("DOCENTE")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.horaSalida").value("10:05:00"));
 
@@ -275,10 +277,12 @@ class AsistenciaRestIntegrationTest {
   void marcarEntrada_dosVecesElMismoDia_devuelveConflicto() throws Exception {
     Fixture f = crearFixture();
     String usuario = crearCuentaDocente(f);
-    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
+    mvc.perform(
+            post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
         .andExpect(status().isCreated());
 
-    mvc.perform(post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
+    mvc.perform(
+            post("/api/v1/docentes/mis-asistencias/entrada").with(user(usuario).roles("DOCENTE")))
         .andExpect(status().isConflict());
   }
 
@@ -347,12 +351,12 @@ class AsistenciaRestIntegrationTest {
     entityManager.persist(sesion);
     entityManager.flush();
     return new Fixture(
-            estudiante.getId(),
-            docente.getId(),
-            area.getCodigo(),
-            seccion.getId(),
-            sesion.getId(),
-            FECHA_FIJA);
+        estudiante.getId(),
+        docente.getId(),
+        area.getCodigo(),
+        seccion.getId(),
+        sesion.getId(),
+        FECHA_FIJA);
   }
 
   private String crearCuentaDocente(Fixture f) {
@@ -364,30 +368,30 @@ class AsistenciaRestIntegrationTest {
   }
 
   private void registrarAsistencia(Fixture f, AsistenciaEstudianteRequest request)
-          throws Exception {
+      throws Exception {
     mvc.perform(
-                    post("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(json(request)))
-            .andExpect(status().isCreated());
+            post("/api/v1/sesiones-clase/{id}/asistencias", f.sesionId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(request)))
+        .andExpect(status().isCreated());
   }
 
   private int registrarAsistenciaDocente(Fixture f) throws Exception {
     MvcResult resultado =
-            mvc.perform(
-                            post("/api/v1/asistencias-docentes")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(
-                                            json(
-                                                    new AsistenciaDocenteCreateRequest(
-                                                            f.docenteId(),
-                                                            f.fecha(),
-                                                            EstadoAsistenciaDocente.PRESENTE,
-                                                            LocalTime.of(8, 0),
-                                                            null,
-                                                            null))))
-                    .andExpect(status().isCreated())
-                    .andReturn();
+        mvc.perform(
+                post("/api/v1/asistencias-docentes")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        json(
+                            new AsistenciaDocenteCreateRequest(
+                                f.docenteId(),
+                                f.fecha(),
+                                EstadoAsistenciaDocente.PRESENTE,
+                                LocalTime.of(8, 0),
+                                null,
+                                null))))
+            .andExpect(status().isCreated())
+            .andReturn();
     JsonNode response = objectMapper.readTree(resultado.getResponse().getContentAsString());
     return response.get("id").asInt();
   }
@@ -397,10 +401,10 @@ class AsistenciaRestIntegrationTest {
   }
 
   private record Fixture(
-          Integer estudianteId,
-          Integer docenteId,
-          String areaCodigo,
-          Integer seccionId,
-          Integer sesionId,
-          LocalDate fecha) {}
+      Integer estudianteId,
+      Integer docenteId,
+      String areaCodigo,
+      Integer seccionId,
+      Integer sesionId,
+      LocalDate fecha) {}
 }

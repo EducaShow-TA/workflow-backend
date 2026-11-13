@@ -27,6 +27,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.fixture.HorarioFixture;
 import pe.edu.pucp.colegio.common.model.*;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -89,6 +90,14 @@ class SeguimientoAcademicoIntegrationTest {
     Docente docente = new Docente();
     docente.setPersona(personaDocente);
     entityManager.persist(docente);
+    HorarioFixture.asignar(
+        entityManager,
+        seccion,
+        area,
+        USUARIO_DOCENTE,
+        LocalDate.now(),
+        java.time.LocalTime.of(8, 0),
+        java.time.LocalTime.of(8, 45));
 
     SesionClase sesion = new SesionClase();
     sesion.setSeccion(seccion);
@@ -114,26 +123,30 @@ class SeguimientoAcademicoIntegrationTest {
 
   @Test
   void creaTareaYPermiteMarcarEntregaDeUnAlumno() throws Exception {
-    String solicitud = """
+    String solicitud =
+        """
         {"periodoId":%d,"competenciaCodigo":"%s","titulo":"Práctica de fracciones",
         "descripcion":"Resolver los ejercicios asignados.","fechaLimite":"2026-11-20T23:59:00","ponderacion":20.00}
-        """.formatted(periodoId, competenciaCodigo);
+        """
+            .formatted(periodoId, competenciaCodigo);
 
-    MvcResult resultado = mvc.perform(post("/api/v1/tareas")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(solicitud))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.titulo").value("Práctica de fracciones"))
-        .andExpect(jsonPath("$.ponderacion").value(20.0))
-        .andExpect(jsonPath("$.entregas.length()").value(1))
-        .andExpect(jsonPath("$.entregas[0].estudiante").value("Ana Pérez Pérez"))
-        .andExpect(jsonPath("$.entregas[0].cumplida").value(false))
-        .andReturn();
-    int tareaId = objectMapper.readTree(resultado.getResponse().getContentAsString()).get("id").asInt();
+    MvcResult resultado =
+        mvc.perform(
+                post("/api/v1/tareas").contentType(MediaType.APPLICATION_JSON).content(solicitud))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.titulo").value("Práctica de fracciones"))
+            .andExpect(jsonPath("$.ponderacion").value(20.0))
+            .andExpect(jsonPath("$.entregas.length()").value(1))
+            .andExpect(jsonPath("$.entregas[0].estudiante").value("Ana Pérez Pérez"))
+            .andExpect(jsonPath("$.entregas[0].cumplida").value(false))
+            .andReturn();
+    int tareaId =
+        objectMapper.readTree(resultado.getResponse().getContentAsString()).get("id").asInt();
 
-    mvc.perform(patch("/api/v1/tareas/{tareaId}/entregas/{matriculaId}", tareaId, matriculaId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"cumplida\":true}"))
+    mvc.perform(
+            patch("/api/v1/tareas/{tareaId}/entregas/{matriculaId}", tareaId, matriculaId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cumplida\":true}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.entregas[0].cumplida").value(true))
         .andExpect(jsonPath("$.entregas[0].fechaCumplimiento").isNotEmpty());
@@ -146,18 +159,26 @@ class SeguimientoAcademicoIntegrationTest {
 
   @Test
   void registraCalificacionConUrlYLaDevuelveEnElSeguimientoDeCompetencia() throws Exception {
-    CalificacionRequestBody datos = new CalificacionRequestBody(
-        periodoId, matriculaId, competenciaCodigo, "AD", "Resolución completa", "https://example.org/evidencia");
+    CalificacionRequestBody datos =
+        new CalificacionRequestBody(
+            periodoId,
+            matriculaId,
+            competenciaCodigo,
+            "AD",
+            "Resolución completa",
+            "https://example.org/evidencia");
 
-    mvc.perform(multipart("/api/v1/calificaciones")
-            .part(partJson("datos", objectMapper.writeValueAsBytes(datos))))
+    mvc.perform(
+            multipart("/api/v1/calificaciones")
+                .part(partJson("datos", objectMapper.writeValueAsBytes(datos))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.nota").value("AD"))
         .andExpect(jsonPath("$.evidenciaTipo").value("URL"))
         .andExpect(jsonPath("$.evidenciaUrl").value("https://example.org/evidencia"));
 
-    mvc.perform(get("/api/v1/seguimiento/competencias/{codigo}", competenciaCodigo)
-            .param("periodoId", periodoId.toString()))
+    mvc.perform(
+            get("/api/v1/seguimiento/competencias/{codigo}", competenciaCodigo)
+                .param("periodoId", periodoId.toString()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].estudiante").value("Ana Pérez Pérez"))
         .andExpect(jsonPath("$[0].nota").value("AD"))
@@ -216,47 +237,55 @@ class SeguimientoAcademicoIntegrationTest {
 
   @Test
   void adjuntaArchivoYPermiteRecuperarloDesdeLaFichaDeSeguimiento() throws Exception {
-    CalificacionRequestBody datos = new CalificacionRequestBody(
-        periodoId, matriculaId, competenciaCodigo, "A", "Trabajo revisado", null);
-    MockMultipartFile archivo = new MockMultipartFile("archivo", "trabajo.txt", "text/plain", "contenido de evidencia".getBytes());
+    CalificacionRequestBody datos =
+        new CalificacionRequestBody(
+            periodoId, matriculaId, competenciaCodigo, "A", "Trabajo revisado", null);
+    MockMultipartFile archivo =
+        new MockMultipartFile(
+            "archivo", "trabajo.txt", "text/plain", "contenido de evidencia".getBytes());
 
-    MvcResult resultado = mvc.perform(multipart("/api/v1/calificaciones")
-            .file(archivo)
-            .part(partJson("datos", objectMapper.writeValueAsBytes(datos))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.nota").value("A"))
-        .andExpect(jsonPath("$.evidenciaTipo").value("ARCHIVO"))
-        .andExpect(jsonPath("$.evidenciaNombre").value("trabajo.txt"))
-        .andReturn();
+    MvcResult resultado =
+        mvc.perform(
+                multipart("/api/v1/calificaciones")
+                    .file(archivo)
+                    .part(partJson("datos", objectMapper.writeValueAsBytes(datos))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nota").value("A"))
+            .andExpect(jsonPath("$.evidenciaTipo").value("ARCHIVO"))
+            .andExpect(jsonPath("$.evidenciaNombre").value("trabajo.txt"))
+            .andReturn();
     JsonNode respuesta = objectMapper.readTree(resultado.getResponse().getContentAsString());
     String urlArchivo = respuesta.get("evidenciaUrl").asText();
 
     mvc.perform(get(urlArchivo))
         .andExpect(status().isOk())
-        .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-            .bytes("contenido de evidencia".getBytes()));
+        .andExpect(
+            org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                .bytes("contenido de evidencia".getBytes()));
   }
 
   @Test
   void rechazaPonderacionFueraDelRangoPermitido() throws Exception {
-    String solicitud = """
+    String solicitud =
+        """
         {"periodoId":%d,"competenciaCodigo":"%s","titulo":"Práctica",
         "descripcion":"Descripción","fechaLimite":"2026-11-20T23:59:00","ponderacion":101}
-        """.formatted(periodoId, competenciaCodigo);
+        """
+            .formatted(periodoId, competenciaCodigo);
 
-    mvc.perform(post("/api/v1/tareas")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(solicitud))
+    mvc.perform(post("/api/v1/tareas").contentType(MediaType.APPLICATION_JSON).content(solicitud))
         .andExpect(status().isBadRequest());
   }
 
   @Test
   void rechazaUrlDeEvidenciaQueNoSeaHttpOHttps() throws Exception {
-    CalificacionRequestBody datos = new CalificacionRequestBody(
-        periodoId, matriculaId, competenciaCodigo, "B", null, "ftp://example.org/evidencia");
+    CalificacionRequestBody datos =
+        new CalificacionRequestBody(
+            periodoId, matriculaId, competenciaCodigo, "B", null, "ftp://example.org/evidencia");
 
-    mvc.perform(multipart("/api/v1/calificaciones")
-            .part(partJson("datos", objectMapper.writeValueAsBytes(datos))))
+    mvc.perform(
+            multipart("/api/v1/calificaciones")
+                .part(partJson("datos", objectMapper.writeValueAsBytes(datos))))
         .andExpect(status().isUnprocessableEntity());
   }
 

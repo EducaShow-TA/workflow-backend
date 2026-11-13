@@ -15,7 +15,13 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Inte
   Optional<Calificacion> findByPeriodoIdAndMatriculaIdAndCompetenciaCodigo(
       Integer periodoId, Integer matriculaId, String competenciaCodigo);
 
-  @EntityGraph(attributePaths = {"matricula", "matricula.estudiante", "matricula.estudiante.persona", "competencia"})
+  @EntityGraph(
+      attributePaths = {
+        "matricula",
+        "matricula.estudiante",
+        "matricula.estudiante.persona",
+        "competencia"
+      })
   List<Calificacion> findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrueOrderByMatriculaId(
       Integer periodoId, String competenciaCodigo);
 
@@ -31,8 +37,8 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Inte
       Integer periodoId, String competenciaCodigo);
 
   @EntityGraph(attributePaths = {"competencia"})
-  List<Calificacion> findAllByPeriodoIdAndMatriculaIdAndActiveTrue(Integer periodoId, Integer matriculaId);
+  List<Calificacion> findAllByPeriodoIdAndMatriculaIdAndActiveTrue(
+      Integer periodoId, Integer matriculaId);
 
   Optional<Calificacion> findByIdAndActiveTrue(Integer id);
-
 }

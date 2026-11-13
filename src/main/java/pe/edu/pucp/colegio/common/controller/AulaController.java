@@ -24,37 +24,37 @@ import pe.edu.pucp.colegio.common.service.AulaService;
 @PreAuthorize("hasRole('ADMINISTRADOR')")
 public class AulaController {
 
-    private final AulaService aulas;
+  private final AulaService aulas;
 
-    public AulaController(AulaService aulas) {
-        this.aulas = aulas;
-    }
+  public AulaController(AulaService aulas) {
+    this.aulas = aulas;
+  }
 
-    @GetMapping
-    public List<AulaResponse> listar() {
-        return aulas.listar();
-    }
+  @GetMapping
+  public List<AulaResponse> listar() {
+    return aulas.listar();
+  }
 
-    @GetMapping("/{id}")
-    public AulaResponse obtener(@PathVariable Integer id) {
-        return aulas.obtener(id);
-    }
+  @GetMapping("/{id}")
+  public AulaResponse obtener(@PathVariable Integer id) {
+    return aulas.obtener(id);
+  }
 
-    @PostMapping
-    public ResponseEntity<AulaResponse> crear(@Valid @RequestBody AulaRequest request) {
-        AulaResponse creada = aulas.crear(request);
-        return ResponseEntity.created(URI.create("/api/v1/aulas/" + creada.id())).body(creada);
-    }
+  @PostMapping
+  public ResponseEntity<AulaResponse> crear(@Valid @RequestBody AulaRequest request) {
+    AulaResponse creada = aulas.crear(request);
+    return ResponseEntity.created(URI.create("/api/v1/aulas/" + creada.id())).body(creada);
+  }
 
-    @PutMapping("/{id}")
-    public AulaResponse actualizar(
-            @PathVariable Integer id, @Valid @RequestBody AulaRequest request) {
-        return aulas.actualizar(id, request);
-    }
+  @PutMapping("/{id}")
+  public AulaResponse actualizar(
+      @PathVariable Integer id, @Valid @RequestBody AulaRequest request) {
+    return aulas.actualizar(id, request);
+  }
 
-    @PatchMapping("/{id}/estado")
-    public AulaResponse cambiarEstado(
-            @PathVariable Integer id, @Valid @RequestBody CambioEstadoAulaRequest request) {
-        return aulas.cambiarEstado(id, request);
-    }
+  @PatchMapping("/{id}/estado")
+  public AulaResponse cambiarEstado(
+      @PathVariable Integer id, @Valid @RequestBody CambioEstadoAulaRequest request) {
+    return aulas.cambiarEstado(id, request);
+  }
 }
