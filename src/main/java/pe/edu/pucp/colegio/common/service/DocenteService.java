@@ -77,10 +77,6 @@ public class DocenteService {
     }
     Persona persona = cuenta.getPersona();
     return new DocenteResponse(
-        docente.getId(),
-        cuenta.getId(),
-        cuenta.getUsername(),
-        persona.getNombreCompleto(),
-        persona.getDni());
+        docente.getId(), cuenta.getUsername(), persona.getNombreCompleto(), persona.getDni());
   }
 }

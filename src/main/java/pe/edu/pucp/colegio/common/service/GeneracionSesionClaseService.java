@@ -21,7 +21,6 @@ import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.SesionClase;
 import pe.edu.pucp.colegio.common.model.SesionHorario;
 import pe.edu.pucp.colegio.common.repository.DiaNoLectivoRepository;
-import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.HorarioSeccionRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
@@ -36,7 +35,6 @@ public class GeneracionSesionClaseService {
   private final SesionHorarioRepository asignaciones;
   private final SesionClaseRepository sesiones;
   private final DiaNoLectivoRepository diasNoLectivos;
-  private final DocenteRepository docentes;
   private final Clock clock;
 
   public GeneracionSesionClaseService(
@@ -45,14 +43,12 @@ public class GeneracionSesionClaseService {
       SesionHorarioRepository asignaciones,
       SesionClaseRepository sesiones,
       DiaNoLectivoRepository diasNoLectivos,
-      DocenteRepository docentes,
       Clock clock) {
     this.periodos = periodos;
     this.horarios = horarios;
     this.asignaciones = asignaciones;
     this.sesiones = sesiones;
     this.diasNoLectivos = diasNoLectivos;
-    this.docentes = docentes;
     this.clock = clock;
   }
 
@@ -117,15 +113,11 @@ public class GeneracionSesionClaseService {
         if (sesiones.existsBySesionHorarioIdAndFecha(celda.getId(), fecha)) {
           continue;
         }
-        Docente docente =
-            docentes
-                .findByPersonaId(celda.getDocente().getPersona().getId())
-                .filter(d -> Boolean.TRUE.equals(d.getActive()))
-                .orElseThrow(
-                    () ->
-                        new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            "La cuenta asignada no tiene un perfil docente activo"));
+        Docente docente = celda.getDocente();
+        if (!Boolean.TRUE.equals(docente.getActive())) {
+          throw new ResponseStatusException(
+              HttpStatus.CONFLICT, "El docente asignado no tiene un perfil docente activo");
+        }
         SesionClase sesion = new SesionClase();
         sesion.setSeccion(horario.getSeccion());
         sesion.setArea(celda.getArea());

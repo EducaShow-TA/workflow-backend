@@ -43,7 +43,6 @@ import pe.edu.pucp.colegio.common.repository.PlantillaHorarioRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
 import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
-import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
@@ -102,7 +101,7 @@ public class HorarioSeccionService {
     this.clock = clock;
   }
 
-  private record Resolucion(BloqueHorario bloque, Area area, CuentaUsuario docente, Aula aula) {}
+  private record Resolucion(BloqueHorario bloque, Area area, Docente docente, Aula aula) {}
 
   @Transactional
   public HorarioSeccionResponse crear(HorarioSeccionCreateRequest request) {
@@ -191,11 +190,7 @@ public class HorarioSeccionService {
     nueva.setVigenteHasta(finAnterior);
     aplicar(horario, nueva, request, vigenciaNueva);
     nueva = sesiones.save(nueva);
-    Docente docenteNuevo =
-        docentes
-            .findByPersonaId(nueva.getDocente().getPersona().getId())
-            .filter(d -> Boolean.TRUE.equals(d.getActive()))
-            .orElseThrow(() -> new BusinessException("El docente no tiene un perfil activo"));
+    Docente docenteNuevo = nueva.getDocente();
     for (var ocurrencia :
         sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(sesion.getId(), hoy)) {
       if (asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId())) {
@@ -295,10 +290,16 @@ public class HorarioSeccionService {
             .findById(request.areaCodigo())
             .filter(a -> Boolean.TRUE.equals(a.getActivo()))
             .orElseThrow(() -> new BusinessException("El área indicada no existe o está inactiva"));
-    CuentaUsuario docente =
-        cuentas
+    // docenteId es docentes.id, igual que en sesiones de clase y asistencia docente. Ademas del
+    // perfil activo, la persona debe tener una cuenta DOCENTE activa.
+    Docente docente =
+        docentes
             .findById(request.docenteId())
-            .filter(c -> c.getRol() == Rol.DOCENTE && Boolean.TRUE.equals(c.getActive()))
+            .filter(d -> Boolean.TRUE.equals(d.getActive()))
+            .filter(
+                d ->
+                    cuentas.existsByPersonaIdAndRolAndActiveTrue(
+                        d.getPersona().getId(), Rol.DOCENTE))
             .orElseThrow(
                 () -> new BusinessException("El docente indicado no existe o no está activo"));
     Aula aula =
@@ -461,7 +462,7 @@ public class HorarioSeccionService {
   }
 
   private SesionHorarioResponse respuesta(SesionHorario sesion) {
-    CuentaUsuario docente = sesion.getDocente();
+    Docente docente = sesion.getDocente();
     return new SesionHorarioResponse(
         sesion.getId(),
         sesion.getBloque().getId(),
@@ -486,11 +487,8 @@ public class HorarioSeccionService {
     return hoy.isAfter(finAnio) ? finAnio : hoy;
   }
 
-  private String nombreDocente(CuentaUsuario docente) {
+  private String nombreDocente(Docente docente) {
     var persona = docente.getPersona();
-    if (persona == null) {
-      return docente.getUsername();
-    }
     return (persona.getNombre() + " " + persona.getApellidoPaterno()).trim();
   }
 
