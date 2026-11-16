@@ -8,7 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -18,6 +22,16 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.dto.PeriodoMatriculaRequest;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
+import pe.edu.pucp.colegio.common.model.Estudiante;
+import pe.edu.pucp.colegio.common.model.Grado;
+import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.NivelEducativo;
+import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
+import pe.edu.pucp.colegio.common.model.Persona;
+import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
 
 @SpringBootTest
@@ -26,11 +40,15 @@ import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
 @Transactional
 class PeriodoMatriculaIntegrationTest {
 
+  private static final AtomicInteger NUMERO_GRADO = new AtomicInteger(5000);
+
   @Autowired MockMvc mvc;
 
   @Autowired ObjectMapper objectMapper;
 
   @Autowired PeriodoMatriculaRepository periodos;
+
+  @PersistenceContext EntityManager entityManager;
 
   @Test
   void configuraVentanasYExponeSusEstadosCalculados() throws Exception {
@@ -116,6 +134,86 @@ class PeriodoMatriculaIntegrationTest {
     mvc.perform(delete("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNoContent());
 
     mvc.perform(get("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void periodoVigenteSoloPermiteMoverSuFechaLimite() throws Exception {
+    LocalDate hoy = LocalDate.now();
+    LocalDate inicio = hoy.minusDays(5);
+    int id = guardarVentana(inicio, hoy.plusDays(3));
+
+    actualizar(id, inicio, hoy.plusDays(10))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fechaInicio").value(inicio.toString()))
+        .andExpect(jsonPath("$.fechaLimite").value(hoy.plusDays(10).toString()))
+        .andExpect(jsonPath("$.estado").value("VIGENTE"));
+    actualizar(id, hoy, hoy.plusDays(10))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(
+            jsonPath("$.message")
+                .value("El periodo ya inició; su fecha de inicio no se puede modificar"));
+    actualizar(id, inicio, hoy.minusDays(1)).andExpect(status().isUnprocessableEntity());
+    actualizar(id, inicio, hoy).andExpect(status().isOk());
+  }
+
+  @Test
+  void noDesactivaUnPeriodoVencidoConMatriculasPeroSiUnoSinMatriculas() throws Exception {
+    LocalDate inicio = LocalDate.of(2001, 1, 1);
+    int conMatriculas = guardarVentana(inicio, inicio.plusDays(30));
+    int sinMatriculas = guardarVentana(LocalDate.of(2002, 1, 1), LocalDate.of(2002, 1, 31));
+    agregarMatricula(inicio.plusDays(10));
+
+    mvc.perform(delete("/api/v1/periodos-matricula/{id}", conMatriculas))
+        .andExpect(status().isConflict());
+    mvc.perform(get("/api/v1/periodos-matricula/{id}", conMatriculas))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.tieneMatriculas").value(true));
+    mvc.perform(delete("/api/v1/periodos-matricula/{id}", sinMatriculas))
+        .andExpect(status().isNoContent());
+  }
+
+  private int guardarVentana(LocalDate inicio, LocalDate limite) {
+    PeriodoMatricula ventana = new PeriodoMatricula();
+    ventana.setFechaInicio(inicio);
+    ventana.setFechaLimite(limite);
+    entityManager.persist(ventana);
+    entityManager.flush();
+    return ventana.getId();
+  }
+
+  private void agregarMatricula(LocalDate fechaMatricula) {
+    Grado grado = new Grado();
+    grado.setNumero(NUMERO_GRADO.getAndIncrement());
+    grado.setNivelEducativo(NivelEducativo.SECUNDARIA);
+    Seccion seccion = new Seccion();
+    seccion.setCodigo("A");
+    seccion.setVacantesTotales(30);
+    grado.agregarSeccion(seccion);
+    entityManager.persist(grado);
+    entityManager.persist(seccion);
+
+    Periodo periodo = new Periodo();
+    periodo.setGrado(grado);
+    periodo.setSeccion(seccion);
+    periodo.setFechaInicio(fechaMatricula.plusMonths(2));
+    periodo.setFechaFin(fechaMatricula.plusMonths(11));
+    periodo.setEstado(EstadoPeriodo.PLANIFICADO);
+    entityManager.persist(periodo);
+
+    String dni = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    Persona persona = new Persona(dni, "Estudiante", "Prueba", "Historial");
+    entityManager.persist(persona);
+    Estudiante estudiante = new Estudiante();
+    estudiante.setPersona(persona);
+    entityManager.persist(estudiante);
+
+    Matricula matricula = new Matricula();
+    matricula.setFechaMatricula(fechaMatricula);
+    matricula.setEstado(EstadoMatricula.CONFIRMADA);
+    matricula.setPeriodo(periodo);
+    matricula.setEstudiante(estudiante);
+    entityManager.persist(matricula);
+    entityManager.flush();
   }
 
   private org.springframework.test.web.servlet.ResultActions crear(

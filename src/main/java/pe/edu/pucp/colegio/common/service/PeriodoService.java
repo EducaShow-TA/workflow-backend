@@ -89,6 +89,9 @@ public class PeriodoService {
       throw new BusinessException(
           "La fecha de fin de clases debe ser posterior a la fecha de inicio");
     }
+    if (request.fechaInicio().isBefore(LocalDate.now())) {
+      throw new BusinessException("El inicio de clases no puede ser una fecha pasada");
+    }
 
     List<Seccion> activas = secciones.findAllByActiveTrueOrderByGradoNumeroAscCodigoAsc();
     if (activas.isEmpty()) {
@@ -132,6 +135,7 @@ public class PeriodoService {
     List<Periodo> existentes = periodos.buscar(desde, hasta, null, null);
     if (existentes.isEmpty())
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El año escolar no está abierto");
+    validarFechasEdicionAnhio(existentes, request);
     List<Integer> ids = existentes.stream().map(Periodo::getId).toList();
     for (Periodo periodo : existentes) {
       List<Periodo> cruces =
@@ -150,6 +154,31 @@ public class PeriodoService {
           periodo.setEstado(periodo.calcularEstado(LocalDate.now()));
         });
     return periodos.saveAll(existentes).stream().map(vacantes::describir).toList();
+  }
+
+  /**
+   * Si las clases del año ya empezaron, el inicio no se mueve y el fin no puede quedar en el
+   * pasado; si aún no empiezan, el nuevo inicio no puede ser una fecha pasada.
+   */
+  private void validarFechasEdicionAnhio(List<Periodo> existentes, AperturaAnhioRequest request) {
+    LocalDate hoy = LocalDate.now();
+    LocalDate inicioActual =
+        existentes.stream().map(Periodo::getFechaInicio).min(LocalDate::compareTo).orElseThrow();
+    if (inicioActual.isAfter(hoy)) {
+      if (request.fechaInicio().isBefore(hoy)) {
+        throw new BusinessException("El inicio de clases no puede ser una fecha pasada");
+      }
+      return;
+    }
+    if (!request.fechaInicio().equals(inicioActual)) {
+      throw new BusinessException(
+          "Las clases ya empezaron el "
+              + inicioActual.format(FORMATO_FECHA)
+              + "; la fecha de inicio no se puede modificar");
+    }
+    if (request.fechaFin().isBefore(hoy)) {
+      throw new BusinessException("El fin de clases no puede ser una fecha pasada");
+    }
   }
 
   private void validarCruces(Seccion seccion, LocalDate fechaInicio, LocalDate fechaFin) {

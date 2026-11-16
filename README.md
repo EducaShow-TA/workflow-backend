@@ -427,9 +427,28 @@ Lista estudiantes activos y sus matrículas en una página. Acepta filtros opcio
 
 La ventana de matrícula es global y separada del periodo académico asociado a grado y sección. Todas las rutas requieren rol `ADMINISTRADOR`. El sistema considera ambas fechas inclusivas: antes de `fechaInicio` el estado es `PENDIENTE`, entre ambas fechas es `VIGENTE` y después de `fechaLimite` es `VENCIDO`. La fecha límite debe ser posterior a la fecha de inicio.
 
-`POST /api/v1/periodos-matricula` recibe `{ "fechaInicio": "2026-10-20", "fechaLimite": "2026-10-31" }` y responde `201` con `id`, las fechas y `estado`. `GET` lista las ventanas activas con su estado actual y `GET /{id}` consulta una. `PUT /{id}` actualiza ambas fechas. `DELETE /{id}` la desactiva lógicamente para que deje de habilitar matrículas. Las fechas inválidas responden `400`; una ventana inexistente o ya desactivada responde `404`.
+`POST /api/v1/periodos-matricula` recibe `{ "fechaInicio": "2026-10-20", "fechaLimite": "2026-10-31" }` y responde `201` con `id`, las fechas y `estado`. `GET` lista las ventanas activas con su estado actual y `GET /{id}` consulta una. `PUT /{id}` actualiza las fechas según el estado de la ventana:
+
+- `PENDIENTE`: se editan ambas fechas; el inicio no puede ser anterior a hoy.
+- `VIGENTE`: la matrícula ya se abrió, así que solo se mueve la fecha límite, que no puede ser anterior a hoy. Si se envía otra fecha de inicio responde `422` ("El periodo ya inició; su fecha de inicio no se puede modificar").
+- `VENCIDO` con matrículas registradas: no se modifica (`422`).
+
+`DELETE /{id}` la desactiva lógicamente para que deje de habilitar matrículas. Una ventana `VENCIDO` con matrículas registradas se conserva como historial y no se desactiva (`409`). Las fechas inválidas responden `422`; una ventana inexistente o ya desactivada responde `404`.
 
 El endpoint de registro `POST /api/v1/periodos/{periodoId}/matriculas` solo acepta altas mientras exista una ventana global en estado `VIGENTE`; fuera de ella responde `409`. Esta validación no afecta la confirmación ni el retiro de matrículas ya registradas.
+
+Además, el registro rechaza con `409`:
+
+- a un estudiante que ya tiene una matrícula no retirada en otra sección del mismo año escolar ("El estudiante ya está matriculado en 2.° B (2027)");
+- a un estudiante cuya cuenta de usuario está inactiva, hasta que se reactive desde la gestión de usuarios.
+
+### Año escolar (`/api/v1/periodos/anhio`)
+
+`POST` abre el año creando el periodo académico de cada sección activa que aún no lo tiene; `PUT` actualiza las fechas de clases de todos los periodos del año. Ambos reciben `{ "anhio": 2027, "fechaInicio": "2027-03-01", "fechaFin": "2027-12-17" }` y validan que las fechas pertenezcan al año, que el fin sea posterior al inicio y que no haya cruces. Reglas de fechas (las mismas que aplica la pantalla):
+
+- Al abrir, el inicio de clases no puede ser una fecha pasada (`422`).
+- Al editar un año que aún no empieza, el nuevo inicio tampoco puede ser una fecha pasada.
+- Al editar un año en curso, el inicio no se modifica y el fin no puede ser una fecha pasada (`422`).
 
 ### Periodos académicos y vacantes
 
