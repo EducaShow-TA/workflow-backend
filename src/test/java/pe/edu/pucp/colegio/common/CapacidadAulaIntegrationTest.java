@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Aula;
+import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 import pe.edu.pucp.colegio.common.model.Estudiante;
@@ -35,6 +36,7 @@ import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.AulaRepository;
+import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
@@ -60,6 +62,7 @@ class CapacidadAulaIntegrationTest {
   @Autowired AulaRepository aulas;
   @Autowired PersonaRepository personas;
   @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired DocenteRepository docentes;
   @PersistenceContext EntityManager entityManager;
 
   /** Sección con un horario creado y N alumnos matriculados en el año del horario. */
@@ -123,7 +126,8 @@ class CapacidadAulaIntegrationTest {
 
     actualizarAula(aulaId, codigo, 2)
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.message").value(containsString("No se puede reducir la capacidad a 2")));
+        .andExpect(
+            jsonPath("$.message").value(containsString("No se puede reducir la capacidad a 2")));
     actualizarAula(aulaId, codigo, 3)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.capacidad").value(3));
@@ -145,7 +149,8 @@ class CapacidadAulaIntegrationTest {
 
     Periodo periodo = periodo(seccion, LocalDate.of(ANIO, 3, 1), LocalDate.of(ANIO, 12, 15));
     for (int i = 0; i < alumnos; i++) {
-      matricula(periodo, i % 2 == 0 ? EstadoMatricula.CONFIRMADA : EstadoMatricula.EN_REGISTRO, true);
+      matricula(
+          periodo, i % 2 == 0 ? EstadoMatricula.CONFIRMADA : EstadoMatricula.EN_REGISTRO, true);
     }
 
     ResultActions creado =
@@ -172,8 +177,10 @@ class CapacidadAulaIntegrationTest {
     area = areas.save(area);
 
     Persona persona = personas.save(new Persona("2" + s, "Marta", "Quispe", "Salas"));
-    CuentaUsuario docente =
-        cuentas.save(new CuentaUsuario("docente-" + s, "hash", Rol.DOCENTE, persona));
+    cuentas.save(new CuentaUsuario("docente-" + s, "hash", Rol.DOCENTE, persona));
+    Docente docente = new Docente();
+    docente.setPersona(persona);
+    docente = docentes.save(docente);
 
     return new Caso(
         horarioId,

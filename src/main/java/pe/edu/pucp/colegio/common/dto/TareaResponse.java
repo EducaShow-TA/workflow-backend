@@ -14,5 +14,10 @@ public record TareaResponse(
     LocalDateTime fechaLimite,
     BigDecimal ponderacion,
     List<EntregaResponse> entregas) {
-  public record EntregaResponse(Integer matriculaId, Integer estudianteId, String estudiante, boolean cumplida, LocalDateTime fechaCumplimiento) {}
+  public record EntregaResponse(
+      Integer matriculaId,
+      Integer estudianteId,
+      String estudiante,
+      boolean cumplida,
+      LocalDateTime fechaCumplimiento) {}
 }

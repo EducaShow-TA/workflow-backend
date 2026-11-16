@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -23,16 +24,18 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
 import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
-import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
 import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.model.Seccion;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,6 +50,8 @@ class MatriculaControllerIntegrationTest {
   @Autowired ObjectMapper objectMapper;
 
   @PersistenceContext EntityManager entityManager;
+
+  @Autowired CuentaUsuarioRepository cuentas;
 
   private Integer ventanaMatriculaId;
 
@@ -166,22 +171,54 @@ class MatriculaControllerIntegrationTest {
 
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
-                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
-                periodoId,
-                estudiante.estudianteId())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(compromisoRequestContent()))
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.estado").value("CONFIRMADA"));
 
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
-                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
-                periodoId,
-                estudiante.estudianteId())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(compromisoRequestContent()))
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void retirarMatriculaDesactivaSuCompromisoDePago() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    EstudianteResponse estudiante = crearEstudiante();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
+        .andExpect(status().isOk());
+
+    mvc.perform(
+            delete(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}",
+                periodoId,
+                estudiante.estudianteId()))
+        .andExpect(status().isNoContent());
+
+    Long compromisosActivos =
+        entityManager
+            .createQuery(
+                "select count(c) from CompromisoPago c "
+                    + "where c.matricula.estudiante.id = :estudianteId and c.active = true",
+                Long.class)
+            .setParameter("estudianteId", estudiante.estudianteId())
+            .getSingleResult();
+    org.assertj.core.api.Assertions.assertThat(compromisosActivos).isZero();
   }
 
   @Test
@@ -208,12 +245,54 @@ class MatriculaControllerIntegrationTest {
     Integer periodoId = crearPeriodo(1);
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
-                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
-                periodoId,
-                Integer.MAX_VALUE)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(compromisoRequestContent()))
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    Integer.MAX_VALUE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void noMatriculaAlMismoEstudianteEnDosSeccionesDelMismoAnhio() throws Exception {
+    Integer primera = crearPeriodo(5);
+    Integer segunda = crearPeriodo(5);
+    EstudianteResponse estudiante = crearEstudiante();
+
+    matricular(primera, estudiante.estudianteId()).andExpect(status().isCreated());
+    matricular(segunda, estudiante.estudianteId())
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value(containsString("ya está matriculado en")))
+        .andExpect(jsonPath("$.message").value(containsString("(2026)")));
+
+    mvc.perform(
+            delete(
+                "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}",
+                primera,
+                estudiante.estudianteId()))
+        .andExpect(status().isNoContent());
+    matricular(segunda, estudiante.estudianteId()).andExpect(status().isCreated());
+  }
+
+  @Test
+  void noMatriculaAEstudianteConCuentaInactivaHastaReactivarla() throws Exception {
+    Integer periodoId = crearPeriodo(5);
+    EstudianteResponse estudiante = crearEstudiante();
+    CuentaUsuario cuenta = cuentas.findByPersonaDni(estudiante.dni()).orElseThrow();
+    cuenta.setActive(false);
+    entityManager.flush();
+
+    matricular(periodoId, estudiante.estudianteId())
+        .andExpect(status().isConflict())
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "La cuenta del estudiante está inactiva: reactívala en Usuarios para"
+                        + " matricularlo"));
+
+    cuenta.setActive(true);
+    entityManager.flush();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
   }
 
   private org.springframework.test.web.servlet.ResultActions matricular(
@@ -241,7 +320,7 @@ class MatriculaControllerIntegrationTest {
     EstudianteCreateRequest request =
         new EstudianteCreateRequest(
             "alumno" + suffix,
-            "ClaveSegura123",
+            "ClaveSegura123!",
             "DNI",
             dni,
             "Estudiante",
@@ -279,9 +358,13 @@ class MatriculaControllerIntegrationTest {
   }
 
   private String compromisoRequestContent() throws Exception {
-    return objectMapper.writeValueAsString(new CompromisoPagoRequest(
-        "Pensión escolar", new java.math.BigDecimal("1200.00"), 12,
-        YearMonth.from(LocalDate.now().plusMonths(1)).atDay(10), 10));
+    return objectMapper.writeValueAsString(
+        new CompromisoPagoRequest(
+            "Pensión escolar",
+            new java.math.BigDecimal("1200.00"),
+            12,
+            YearMonth.from(LocalDate.now().plusMonths(1)).atDay(10),
+            10));
   }
 
   private Integer crearPeriodo(Integer vacantes) {

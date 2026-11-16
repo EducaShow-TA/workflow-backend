@@ -8,36 +8,36 @@ import jakarta.persistence.Table;
 @Table(name = "aulas")
 public class Aula extends EntidadBase {
 
-    @Column(nullable = false, length = 30, unique = true)
-    private String codigo;
+  @Column(nullable = false, length = 30, unique = true)
+  private String codigo;
 
-    @Column(nullable = false)
-    private Integer capacidad;
+  @Column(nullable = false)
+  private Integer capacidad;
 
-    @Column(length = 200)
-    private String descripcion;
+  @Column(length = 200)
+  private String descripcion;
 
-    public String getCodigo() {
-        return codigo;
-    }
+  public String getCodigo() {
+    return codigo;
+  }
 
-    public void setCodigo(String codigo) {
-        this.codigo = codigo;
-    }
+  public void setCodigo(String codigo) {
+    this.codigo = codigo;
+  }
 
-    public Integer getCapacidad() {
-        return capacidad;
-    }
+  public Integer getCapacidad() {
+    return capacidad;
+  }
 
-    public void setCapacidad(Integer capacidad) {
-        this.capacidad = capacidad;
-    }
+  public void setCapacidad(Integer capacidad) {
+    this.capacidad = capacidad;
+  }
 
-    public String getDescripcion() {
-        return descripcion;
-    }
+  public String getDescripcion() {
+    return descripcion;
+  }
 
-    public void setDescripcion(String descripcion) {
-        this.descripcion = descripcion;
-    }
+  public void setDescripcion(String descripcion) {
+    this.descripcion = descripcion;
+  }
 }

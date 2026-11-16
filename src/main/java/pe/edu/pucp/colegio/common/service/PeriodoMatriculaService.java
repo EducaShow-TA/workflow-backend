@@ -33,6 +33,7 @@ public class PeriodoMatriculaService {
 
   @Transactional
   public PeriodoMatriculaResponse crear(PeriodoMatriculaRequest request) {
+    validarInicioDesdeHoy(request);
     validar(request, null);
     PeriodoMatricula periodo = new PeriodoMatricula();
     periodo.setFechaInicio(request.fechaInicio());
@@ -55,9 +56,15 @@ public class PeriodoMatriculaService {
   @Transactional
   public PeriodoMatriculaResponse actualizar(Integer id, PeriodoMatriculaRequest request) {
     PeriodoMatricula periodo = buscarEntidad(id);
-    if (calcularEstado(periodo) == EstadoPeriodoMatricula.VENCIDO && tieneMatriculas(periodo)) {
+    EstadoPeriodoMatricula estado = calcularEstado(periodo);
+    if (estado == EstadoPeriodoMatricula.VENCIDO && tieneMatriculas(periodo)) {
       throw new BusinessException(
           "No se puede modificar un periodo de matrícula vencido con matrículas registradas");
+    }
+    if (estado == EstadoPeriodoMatricula.VIGENTE) {
+      validarEdicionVigente(periodo, request);
+    } else {
+      validarInicioDesdeHoy(request);
     }
     validar(request, id);
     periodo.setFechaInicio(request.fechaInicio());
@@ -68,6 +75,10 @@ public class PeriodoMatriculaService {
   @Transactional
   public void desactivar(Integer id) {
     PeriodoMatricula periodo = buscarEntidad(id);
+    if (calcularEstado(periodo) == EstadoPeriodoMatricula.VENCIDO && tieneMatriculas(periodo)) {
+      throw new ConflictException(
+          "El periodo de matrícula tiene matrículas registradas y se conserva como historial");
+    }
     periodo.setActive(false);
     periodos.save(periodo);
   }
@@ -79,10 +90,26 @@ public class PeriodoMatriculaService {
         hoy, hoy);
   }
 
-  private void validar(PeriodoMatriculaRequest request, Integer idEnEdicion) {
+  private void validarInicioDesdeHoy(PeriodoMatriculaRequest request) {
     if (request.fechaInicio().isBefore(LocalDate.now())) {
       throw new BusinessException("La fecha de inicio no puede ser anterior a hoy");
     }
+  }
+
+  /** Un periodo vigente ya abrió la matrícula: solo se puede mover su fecha límite. */
+  private void validarEdicionVigente(PeriodoMatricula periodo, PeriodoMatriculaRequest request) {
+    if (!request.fechaInicio().equals(periodo.getFechaInicio())) {
+      throw new BusinessException("El periodo ya inició; su fecha de inicio no se puede modificar");
+    }
+    if (request.fechaLimite().isBefore(LocalDate.now())) {
+      throw new BusinessException(
+          "La fecha límite no puede ser anterior a hoy ("
+              + LocalDate.now().format(FORMATO_FECHA)
+              + ")");
+    }
+  }
+
+  private void validar(PeriodoMatriculaRequest request, Integer idEnEdicion) {
     if (request.fechaInicio().getYear() < request.fechaLimite().getYear() - 1) {
       throw new BusinessException(
           "El inicio del período no puede ser más de un año calendario anterior al año escolar de la fecha límite");

@@ -4,7 +4,12 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "calificaciones", uniqueConstraints = @UniqueConstraint(name = "uk_calificacion_periodo_matricula_competencia", columnNames = {"periodo_id", "matricula_id", "competencia_codigo"}))
+@Table(
+    name = "calificaciones",
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uk_calificacion_periodo_matricula_competencia",
+            columnNames = {"periodo_id", "matricula_id", "competencia_codigo"}))
 public class Calificacion extends EntidadBase {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "periodo_id", nullable = false)
@@ -48,30 +53,107 @@ public class Calificacion extends EntidadBase {
   @Column(name = "fecha_registro", nullable = false)
   private LocalDateTime fechaRegistro;
 
-  public Periodo getPeriodo() { return periodo; }
-  public void setPeriodo(Periodo periodo) { this.periodo = periodo; }
-  public Matricula getMatricula() { return matricula; }
-  public void setMatricula(Matricula matricula) { this.matricula = matricula; }
-  public Competencia getCompetencia() { return competencia; }
-  public void setCompetencia(Competencia competencia) { this.competencia = competencia; }
-  public String getNota() { return nota; }
-  public void setNota(String nota) { this.nota = nota; }
-  public java.math.BigDecimal getPuntajeConsolidado() { return puntajeConsolidado; }
-  public void setPuntajeConsolidado(java.math.BigDecimal puntajeConsolidado) { this.puntajeConsolidado = puntajeConsolidado; }
-  public Boolean getConsolidada() { return consolidada; }
-  public void setConsolidada(Boolean consolidada) { this.consolidada = consolidada; }
-  public String getObservacion() { return observacion; }
-  public void setObservacion(String observacion) { this.observacion = observacion; }
-  public String getEvidenciaUrl() { return evidenciaUrl; }
-  public void setEvidenciaUrl(String evidenciaUrl) { this.evidenciaUrl = evidenciaUrl; }
-  public String getEvidenciaArchivo() { return evidenciaArchivo; }
-  public void setEvidenciaArchivo(String evidenciaArchivo) { this.evidenciaArchivo = evidenciaArchivo; }
-  public String getEvidenciaNombre() { return evidenciaNombre; }
-  public void setEvidenciaNombre(String evidenciaNombre) { this.evidenciaNombre = evidenciaNombre; }
-  public String getEvidenciaTipo() { return evidenciaTipo; }
-  public void setEvidenciaTipo(String evidenciaTipo) { this.evidenciaTipo = evidenciaTipo; }
-  public Long getEvidenciaTamanio() { return evidenciaTamanio; }
-  public void setEvidenciaTamanio(Long evidenciaTamanio) { this.evidenciaTamanio = evidenciaTamanio; }
-  public LocalDateTime getFechaRegistro() { return fechaRegistro; }
-  public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
+  public Periodo getPeriodo() {
+    return periodo;
+  }
+
+  public void setPeriodo(Periodo periodo) {
+    this.periodo = periodo;
+  }
+
+  public Matricula getMatricula() {
+    return matricula;
+  }
+
+  public void setMatricula(Matricula matricula) {
+    this.matricula = matricula;
+  }
+
+  public Competencia getCompetencia() {
+    return competencia;
+  }
+
+  public void setCompetencia(Competencia competencia) {
+    this.competencia = competencia;
+  }
+
+  public String getNota() {
+    return nota;
+  }
+
+  public void setNota(String nota) {
+    this.nota = nota;
+  }
+
+  public java.math.BigDecimal getPuntajeConsolidado() {
+    return puntajeConsolidado;
+  }
+
+  public void setPuntajeConsolidado(java.math.BigDecimal puntajeConsolidado) {
+    this.puntajeConsolidado = puntajeConsolidado;
+  }
+
+  public Boolean getConsolidada() {
+    return consolidada;
+  }
+
+  public void setConsolidada(Boolean consolidada) {
+    this.consolidada = consolidada;
+  }
+
+  public String getObservacion() {
+    return observacion;
+  }
+
+  public void setObservacion(String observacion) {
+    this.observacion = observacion;
+  }
+
+  public String getEvidenciaUrl() {
+    return evidenciaUrl;
+  }
+
+  public void setEvidenciaUrl(String evidenciaUrl) {
+    this.evidenciaUrl = evidenciaUrl;
+  }
+
+  public String getEvidenciaArchivo() {
+    return evidenciaArchivo;
+  }
+
+  public void setEvidenciaArchivo(String evidenciaArchivo) {
+    this.evidenciaArchivo = evidenciaArchivo;
+  }
+
+  public String getEvidenciaNombre() {
+    return evidenciaNombre;
+  }
+
+  public void setEvidenciaNombre(String evidenciaNombre) {
+    this.evidenciaNombre = evidenciaNombre;
+  }
+
+  public String getEvidenciaTipo() {
+    return evidenciaTipo;
+  }
+
+  public void setEvidenciaTipo(String evidenciaTipo) {
+    this.evidenciaTipo = evidenciaTipo;
+  }
+
+  public Long getEvidenciaTamanio() {
+    return evidenciaTamanio;
+  }
+
+  public void setEvidenciaTamanio(Long evidenciaTamanio) {
+    this.evidenciaTamanio = evidenciaTamanio;
+  }
+
+  public LocalDateTime getFechaRegistro() {
+    return fechaRegistro;
+  }
+
+  public void setFechaRegistro(LocalDateTime fechaRegistro) {
+    this.fechaRegistro = fechaRegistro;
+  }
 }

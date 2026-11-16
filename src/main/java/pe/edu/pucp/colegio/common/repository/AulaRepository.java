@@ -6,9 +6,9 @@ import pe.edu.pucp.colegio.common.model.Aula;
 
 public interface AulaRepository extends JpaRepository<Aula, Integer> {
 
-    List<Aula> findAllByOrderByCodigoAsc();
+  List<Aula> findAllByOrderByCodigoAsc();
 
-    boolean existsByCodigoIgnoreCase(String codigo);
+  boolean existsByCodigoIgnoreCase(String codigo);
 
-    boolean existsByCodigoIgnoreCaseAndIdNot(String codigo, Integer id);
+  boolean existsByCodigoIgnoreCaseAndIdNot(String codigo, Integer id);
 }

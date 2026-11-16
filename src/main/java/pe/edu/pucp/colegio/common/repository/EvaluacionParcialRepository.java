@@ -14,6 +14,12 @@ public interface EvaluacionParcialRepository extends JpaRepository<EvaluacionPar
   List<EvaluacionParcial> findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrueOrderById(
       Integer periodoId, String competenciaCodigo);
 
+  List<EvaluacionParcial> findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(
+      Integer periodoId, Integer bimestre);
+
+  List<EvaluacionParcial> findAllByPeriodoIdAndBimestreIsNullAndActiveTrueOrderById(
+      Integer periodoId);
+
   List<EvaluacionParcial> findAllByPeriodoIdAndActiveTrueOrderById(Integer periodoId);
 
   @Query(

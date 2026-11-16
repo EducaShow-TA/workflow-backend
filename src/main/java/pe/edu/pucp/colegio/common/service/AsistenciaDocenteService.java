@@ -105,8 +105,7 @@ public class AsistenciaDocenteService {
                     new ResponseStatusException(
                         HttpStatus.CONFLICT, "Debe marcar su entrada antes de la salida"));
     if (asistencia.getHoraSalida() != null) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "La salida de hoy ya está registrada");
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "La salida de hoy ya está registrada");
     }
     LocalTime hora = ahora.toLocalTime().truncatedTo(ChronoUnit.SECONDS);
     asistencia.marcarSalida(hora);

@@ -34,8 +34,9 @@ public class LibretaNotasController {
   public LibretaNotasResponse generar(
       @PathVariable Integer estudianteId,
       @RequestParam Integer periodoId,
+      @RequestParam Integer bimestre,
       Authentication authentication) {
-    return libretas.generar(estudianteId, periodoId, authentication.getName());
+    return libretas.generar(estudianteId, periodoId, bimestre, authentication.getName());
   }
 
   @GetMapping(value = "/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
@@ -43,9 +44,10 @@ public class LibretaNotasController {
   public ResponseEntity<byte[]> descargarPdf(
       @PathVariable Integer estudianteId,
       @RequestParam Integer periodoId,
+      @RequestParam Integer bimestre,
       Authentication authentication) {
     LibretaNotasResponse libreta =
-        libretas.generar(estudianteId, periodoId, authentication.getName());
+        libretas.generar(estudianteId, periodoId, bimestre, authentication.getName());
     boolean preliminar =
         libreta.periodos().stream()
             .filter(periodo -> Objects.equals(periodo.periodoId(), periodoId))
@@ -59,6 +61,8 @@ public class LibretaNotasController {
             + estudianteId
             + "-periodo-"
             + periodoId
+            + "-bimestre-"
+            + bimestre
             + "-"
             + tipoDocumento
             + ".pdf";

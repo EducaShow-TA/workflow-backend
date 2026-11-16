@@ -17,14 +17,20 @@ public class EvidenciaStorageService {
   private static final long MAX_BYTES = 10L * 1024 * 1024;
   private final Path raiz;
 
-  public EvidenciaStorageService(@Value("${app.storage.evidence-dir:uploads/evidencias}") String directorio) {
+  public EvidenciaStorageService(
+      @Value("${app.storage.evidence-dir:uploads/evidencias}") String directorio) {
     this.raiz = Path.of(directorio).toAbsolutePath().normalize();
   }
 
   public ArchivoGuardado guardar(MultipartFile archivo) {
-    if (archivo == null || archivo.isEmpty()) throw new BusinessException("Debe adjuntar un archivo no vacío");
-    if (archivo.getSize() > MAX_BYTES) throw new BusinessException("El archivo supera el máximo de 10 MB");
-    String nombre = Path.of(archivo.getOriginalFilename() == null ? "evidencia" : archivo.getOriginalFilename()).getFileName().toString();
+    if (archivo == null || archivo.isEmpty())
+      throw new BusinessException("Debe adjuntar un archivo no vacío");
+    if (archivo.getSize() > MAX_BYTES)
+      throw new BusinessException("El archivo supera el máximo de 10 MB");
+    String nombre =
+        Path.of(archivo.getOriginalFilename() == null ? "evidencia" : archivo.getOriginalFilename())
+            .getFileName()
+            .toString();
     String extension = "";
     int punto = nombre.lastIndexOf('.');
     if (punto >= 0) extension = nombre.substring(punto).replaceAll("[^A-Za-z0-9.]", "");
@@ -43,7 +49,8 @@ public class EvidenciaStorageService {
     if (!archivo.startsWith(raiz)) throw new BusinessException("Evidencia no encontrada");
     try {
       Resource recurso = new UrlResource(archivo.toUri());
-      if (!recurso.exists() || !recurso.isReadable()) throw new BusinessException("Evidencia no encontrada");
+      if (!recurso.exists() || !recurso.isReadable())
+        throw new BusinessException("Evidencia no encontrada");
       return recurso;
     } catch (IOException e) {
       throw new BusinessException("Evidencia no encontrada");

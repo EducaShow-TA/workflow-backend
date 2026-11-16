@@ -18,11 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.edu.pucp.colegio.common.dto.AsistenciaEstudianteAjusteRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaEstudianteRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaEstudianteResponse;
+import pe.edu.pucp.colegio.common.dto.GeneracionSesionesResponse;
 import pe.edu.pucp.colegio.common.dto.ListaAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.RegistroAsistenciaSesionRequest;
 import pe.edu.pucp.colegio.common.dto.SesionClaseRequest;
 import pe.edu.pucp.colegio.common.dto.SesionClaseResponse;
 import pe.edu.pucp.colegio.common.dto.SesionClaseResumenResponse;
+import pe.edu.pucp.colegio.common.service.GeneracionSesionClaseService;
 import pe.edu.pucp.colegio.common.service.SesionClaseService;
 
 /** Endpoints para sesiones de clase y asistencia de alumnos por sesión. */
@@ -32,9 +34,18 @@ import pe.edu.pucp.colegio.common.service.SesionClaseService;
 public class SesionClaseController {
 
   private final SesionClaseService sesiones;
+  private final GeneracionSesionClaseService generacion;
 
-  public SesionClaseController(SesionClaseService sesiones) {
+  public SesionClaseController(
+      SesionClaseService sesiones, GeneracionSesionClaseService generacion) {
     this.sesiones = sesiones;
+    this.generacion = generacion;
+  }
+
+  @PostMapping("/generar")
+  @PreAuthorize("hasRole('ADMINISTRADOR')")
+  public GeneracionSesionesResponse generar(@RequestParam Integer periodoId) {
+    return generacion.generarPeriodo(periodoId);
   }
 
   @PostMapping

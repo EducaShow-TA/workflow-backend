@@ -33,6 +33,7 @@ La ponderación es opcional y, si se informa, admite valores de 0 a 100.
 - Los archivos se descargan mediante `GET /api/v1/evidencias/{calificacionId}/archivo`. El límite por archivo es 10 MB.
 - El docente obtiene sus clases con `GET /api/v1/docentes/mis-clases`: una fila por sección y área que dicta (según sus sesiones de clase), con el periodo vigente de la sección, el total de alumnos y las competencias activas del área.
 - `GET /api/v1/docentes/mis-clases/{periodoId}/alumnos` devuelve los alumnos con matrícula confirmada en ese periodo (`matriculaId`, `estudianteId`, `dni`, `nombreCompleto`). Responde `403` si el docente no dicta en esa sección.
+- `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={n}` devuelve por alumno el número de calificaciones finales `C` en las competencias activas del área y si alcanza el umbral. El umbral opcional va de 1 a 5 y por defecto es 2. Solo está disponible para el docente que dicta esa área en la sección del período; no cuenta inasistencias ni notas parciales.
 
 El directorio de almacenamiento puede configurarse con la propiedad `app.storage.evidence-dir`; el valor predeterminado es `uploads/evidencias`. El acceso a estas rutas está restringido a los roles docente y administrador.
 

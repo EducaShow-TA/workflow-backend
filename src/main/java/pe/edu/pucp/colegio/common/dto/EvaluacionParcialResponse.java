@@ -8,4 +8,5 @@ public record EvaluacionParcialResponse(
     String competenciaCodigo,
     String titulo,
     String descripcion,
-    BigDecimal ponderacion) {}
+    BigDecimal ponderacion,
+    Integer bimestre) {}

@@ -52,7 +52,8 @@ public class PeriodoController {
   }
 
   @org.springframework.web.bind.annotation.PutMapping("/anhio")
-  public List<VacantesPeriodoResponse> actualizarAnhio(@Valid @RequestBody AperturaAnhioRequest request) {
+  public List<VacantesPeriodoResponse> actualizarAnhio(
+      @Valid @RequestBody AperturaAnhioRequest request) {
     return periodos.actualizarAnhio(request);
   }
 

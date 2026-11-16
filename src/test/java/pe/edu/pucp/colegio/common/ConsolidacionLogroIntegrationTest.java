@@ -170,6 +170,30 @@ class ConsolidacionLogroIntegrationTest {
   }
 
   @Test
+  void registraBimestreEnEvaluacionYRechazaValoresFueraDeRango() throws Exception {
+    crearEvaluacion("100.00", 4);
+
+    mvc.perform(
+            get("/api/v1/evaluaciones-parciales")
+                .param("periodoId", periodoId.toString())
+                .param("competenciaCodigo", competenciaCodigo))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].bimestre").value(4));
+
+    String solicitudFueraDeRango =
+        """
+        {"periodoId":%d,"competenciaCodigo":"%s","titulo":"Evaluación inválida",
+        "descripcion":"Evidencia","ponderacion":100.00,"bimestre":5}
+        """
+            .formatted(periodoId, competenciaCodigo);
+    mvc.perform(
+            post("/api/v1/evaluaciones-parciales")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(solicitudFueraDeRango))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void cierreConvierteFaltantesEnCYEImpideCambiosPosteriores() throws Exception {
     int primera = crearEvaluacion("40.00");
     int segunda = crearEvaluacion("60.00");
@@ -300,12 +324,16 @@ class ConsolidacionLogroIntegrationTest {
   }
 
   private int crearEvaluacion(String ponderacion) throws Exception {
+    return crearEvaluacion(ponderacion, 1);
+  }
+
+  private int crearEvaluacion(String ponderacion, int bimestre) throws Exception {
     String solicitud =
         """
         {"periodoId":%d,"competenciaCodigo":"%s","titulo":"Evaluación parcial",
-        "descripcion":"Evidencia de aprendizaje","ponderacion":%s}
+        "descripcion":"Evidencia de aprendizaje","ponderacion":%s,"bimestre":%d}
         """
-            .formatted(periodoId, competenciaCodigo, ponderacion);
+            .formatted(periodoId, competenciaCodigo, ponderacion, bimestre);
     MvcResult resultado =
         mvc.perform(
                 post("/api/v1/evaluaciones-parciales")

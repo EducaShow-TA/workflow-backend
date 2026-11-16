@@ -29,6 +29,11 @@ public class ProcesadorFilaCargaMasiva {
 
   private static final String ALFABETO =
       "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  private static final String MAYUSCULAS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  private static final String MINUSCULAS = "abcdefghijkmnopqrstuvwxyz";
+  private static final String DIGITOS = "23456789";
+  private static final String SIMBOLOS = "!@#$%&*?";
+  private static final String ALFABETO_COMPLETO = ALFABETO + SIMBOLOS;
   private static final int LARGO_CONTRASENHA = 12;
   private static final SecureRandom ALEATORIO = new SecureRandom();
 
@@ -197,10 +202,20 @@ public class ProcesadorFilaCargaMasiva {
   }
 
   private static String generarContrasenha() {
-    StringBuilder clave = new StringBuilder(LARGO_CONTRASENHA);
-    for (int i = 0; i < LARGO_CONTRASENHA; i++) {
-      clave.append(ALFABETO.charAt(ALEATORIO.nextInt(ALFABETO.length())));
+    char[] clave = new char[LARGO_CONTRASENHA];
+    clave[0] = MAYUSCULAS.charAt(ALEATORIO.nextInt(MAYUSCULAS.length()));
+    clave[1] = MINUSCULAS.charAt(ALEATORIO.nextInt(MINUSCULAS.length()));
+    clave[2] = DIGITOS.charAt(ALEATORIO.nextInt(DIGITOS.length()));
+    clave[3] = SIMBOLOS.charAt(ALEATORIO.nextInt(SIMBOLOS.length()));
+    for (int i = 4; i < clave.length; i++) {
+      clave[i] = ALFABETO_COMPLETO.charAt(ALEATORIO.nextInt(ALFABETO_COMPLETO.length()));
     }
-    return clave.toString();
+    for (int i = clave.length - 1; i > 0; i--) {
+      int j = ALEATORIO.nextInt(i + 1);
+      char temporal = clave[i];
+      clave[i] = clave[j];
+      clave[j] = temporal;
+    }
+    return new String(clave);
   }
 }

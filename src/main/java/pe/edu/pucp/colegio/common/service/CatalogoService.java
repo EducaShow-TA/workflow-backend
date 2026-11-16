@@ -25,6 +25,8 @@ import pe.edu.pucp.colegio.common.dto.CompetenciaResponse;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Competencia;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
 
 /** Gestiona las reglas de negocio del catálogo de áreas y competencias. */
@@ -34,12 +36,20 @@ public class CatalogoService {
 
   private final AreaRepository areas;
   private final CompetenciaRepository competencias;
+  private final CalificacionRepository calificaciones;
+  private final CalificacionParcialRepository calificacionesParciales;
   private final EntityManager entityManager;
 
   public CatalogoService(
-      AreaRepository areas, CompetenciaRepository competencias, EntityManager entityManager) {
+      AreaRepository areas,
+      CompetenciaRepository competencias,
+      CalificacionRepository calificaciones,
+      CalificacionParcialRepository calificacionesParciales,
+      EntityManager entityManager) {
     this.areas = areas;
     this.competencias = competencias;
+    this.calificaciones = calificaciones;
+    this.calificacionesParciales = calificacionesParciales;
     this.entityManager = entityManager;
   }
 
@@ -208,6 +218,9 @@ public class CatalogoService {
             .orElseThrow(
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "Competencia no encontrada"));
+    if (!request.activo() && tieneNotasRegistradas(competencia)) {
+      throw conflict("No se puede desactivar una competencia con calificaciones registradas");
+    }
     competencia.setActivo(request.activo());
     competencias.save(competencia);
     return toCatalogoCompetencia(
@@ -216,6 +229,9 @@ public class CatalogoService {
 
   public void eliminarCompetencia(String identificador) {
     Competencia competencia = buscarCompetencia(identificador, false);
+    if (tieneNotasRegistradas(competencia)) {
+      throw conflict("No se puede desactivar una competencia con calificaciones registradas");
+    }
     // DELETE conserva el catálogo y sus vínculos históricos mediante una baja lógica.
     competencia.setActivo(false);
     competencias.save(competencia);
@@ -424,8 +440,9 @@ public class CatalogoService {
   }
 
   private boolean tieneNotasRegistradas(Competencia competencia) {
-    // El módulo de calificaciones aún no tiene entidad ni tabla de notas en este backend.
-    return false;
+    String codigo = competencia.getCodigo();
+    return calificaciones.existsByCompetenciaCodigo(codigo)
+        || calificacionesParciales.existsByCompetenciaCodigo(codigo);
   }
 
   private String nuevoCodigo(String prefijo) {

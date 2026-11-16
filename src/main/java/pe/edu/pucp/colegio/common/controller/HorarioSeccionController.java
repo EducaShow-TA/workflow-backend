@@ -34,15 +34,15 @@ public class HorarioSeccionController {
 
   @PostMapping
   public ResponseEntity<HorarioSeccionResponse> crear(
-          @Valid @RequestBody HorarioSeccionCreateRequest request) {
+      @Valid @RequestBody HorarioSeccionCreateRequest request) {
     HorarioSeccionResponse creado = horarios.crear(request);
     return ResponseEntity.created(URI.create("/api/v1/horarios/secciones/" + creado.id()))
-            .body(creado);
+        .body(creado);
   }
 
   @GetMapping
   public HorarioSeccionResponse obtenerPorSeccion(
-          @RequestParam Integer seccionId, @RequestParam Integer anio) {
+      @RequestParam Integer seccionId, @RequestParam Integer anio) {
     return horarios.obtenerPorSeccion(seccionId, anio);
   }
 
@@ -53,32 +53,32 @@ public class HorarioSeccionController {
 
   @PostMapping("/{id}/sesiones")
   public ResponseEntity<SesionHorarioResponse> agregarSesion(
-          @PathVariable Integer id, @Valid @RequestBody SesionHorarioRequest request) {
+      @PathVariable Integer id, @Valid @RequestBody SesionHorarioRequest request) {
     SesionHorarioResponse creada = horarios.agregarSesion(id, request);
     return ResponseEntity.created(
-                    URI.create("/api/v1/horarios/secciones/" + id + "/sesiones/" + creada.id()))
-            .body(creada);
+            URI.create("/api/v1/horarios/secciones/" + id + "/sesiones/" + creada.id()))
+        .body(creada);
   }
 
   @PostMapping("/{id}/sesiones/validar")
   public ValidacionSesionResponse validarSesion(
-          @PathVariable Integer id,
-          @RequestParam(required = false) Integer excluirSesionId,
-          @Valid @RequestBody SesionHorarioRequest request) {
+      @PathVariable Integer id,
+      @RequestParam(required = false) Integer excluirSesionId,
+      @Valid @RequestBody SesionHorarioRequest request) {
     return horarios.validarSesion(id, request, excluirSesionId);
   }
 
   @PutMapping("/{id}/sesiones/{sesionId}")
   public SesionHorarioResponse actualizarSesion(
-          @PathVariable Integer id,
-          @PathVariable Integer sesionId,
-          @Valid @RequestBody SesionHorarioRequest request) {
+      @PathVariable Integer id,
+      @PathVariable Integer sesionId,
+      @Valid @RequestBody SesionHorarioRequest request) {
     return horarios.actualizarSesion(id, sesionId, request);
   }
 
   @DeleteMapping("/{id}/sesiones/{sesionId}")
   public ResponseEntity<Void> eliminarSesion(
-          @PathVariable Integer id, @PathVariable Integer sesionId) {
+      @PathVariable Integer id, @PathVariable Integer sesionId) {
     horarios.eliminarSesion(id, sesionId);
     return ResponseEntity.noContent().build();
   }

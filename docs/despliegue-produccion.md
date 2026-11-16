@@ -45,6 +45,11 @@ Todos están en la región **us-east-2 (Ohio)**.
 | `/opt/colegio/bin/desplegar-{backend,frontend}.sh` | Scripts de despliegue (propiedad de root) |
 | `/var/log/colegio/colegio-backend.log` | Log del backend (también en `journalctl -u colegio-backend`) |
 
+El reloj de negocio usa la zona `America/Lima`. En `/etc/colegio/backend.env`, configura
+`JAVA_TOOL_OPTIONS=-Duser.timezone=America/Lima` para que las llamadas restantes a `LocalDate.now()` y
+`LocalDateTime.now()` también usen esa zona, incluso si la EC2 está configurada en UTC. Luego reinicia el servicio
+con `sudo systemctl restart colegio-backend`. El cron diario de finanzas declara `America/Lima` directamente.
+
 ## 2. Encender y apagar
 
 Los servidores **solo se encienden para las demos**. Con todo apagado se paga únicamente la IP elástica y el

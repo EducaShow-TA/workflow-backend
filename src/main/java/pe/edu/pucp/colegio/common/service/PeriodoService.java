@@ -89,6 +89,9 @@ public class PeriodoService {
       throw new BusinessException(
           "La fecha de fin de clases debe ser posterior a la fecha de inicio");
     }
+    if (request.fechaInicio().isBefore(LocalDate.now())) {
+      throw new BusinessException("El inicio de clases no puede ser una fecha pasada");
+    }
 
     List<Seccion> activas = secciones.findAllByActiveTrueOrderByGradoNumeroAscCodigoAsc();
     if (activas.isEmpty()) {
@@ -122,26 +125,60 @@ public class PeriodoService {
   @Transactional
   public List<VacantesPeriodoResponse> actualizarAnhio(AperturaAnhioRequest request) {
     int anhio = request.anhio();
-    if (request.fechaInicio().getYear() != anhio || !request.fechaFin().isAfter(request.fechaInicio())) {
-      throw new BusinessException("Las fechas del periodo deben ser válidas y corresponder al año escolar");
+    if (request.fechaInicio().getYear() != anhio
+        || !request.fechaFin().isAfter(request.fechaInicio())) {
+      throw new BusinessException(
+          "Las fechas del periodo deben ser válidas y corresponder al año escolar");
     }
     LocalDate desde = LocalDate.of(anhio, 1, 1);
     LocalDate hasta = LocalDate.of(anhio, 12, 31);
     List<Periodo> existentes = periodos.buscar(desde, hasta, null, null);
-    if (existentes.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El año escolar no está abierto");
+    if (existentes.isEmpty())
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El año escolar no está abierto");
+    validarFechasEdicionAnhio(existentes, request);
     List<Integer> ids = existentes.stream().map(Periodo::getId).toList();
     for (Periodo periodo : existentes) {
-      List<Periodo> cruces = periodos.buscarCruces(periodo.getSeccion().getId(), request.fechaInicio(), request.fechaFin());
+      List<Periodo> cruces =
+          periodos.buscarCruces(
+              periodo.getSeccion().getId(), request.fechaInicio(), request.fechaFin());
       if (cruces.stream().anyMatch(cruce -> !ids.contains(cruce.getId()))) {
-        throw new ConflictException("Las fechas se cruzan con otro periodo de la sección " + periodo.getSeccion().getCodigo());
+        throw new ConflictException(
+            "Las fechas se cruzan con otro periodo de la sección "
+                + periodo.getSeccion().getCodigo());
       }
     }
-    existentes.forEach(periodo -> {
-      periodo.setFechaInicio(request.fechaInicio());
-      periodo.setFechaFin(request.fechaFin());
-      periodo.setEstado(periodo.calcularEstado(LocalDate.now()));
-    });
+    existentes.forEach(
+        periodo -> {
+          periodo.setFechaInicio(request.fechaInicio());
+          periodo.setFechaFin(request.fechaFin());
+          periodo.setEstado(periodo.calcularEstado(LocalDate.now()));
+        });
     return periodos.saveAll(existentes).stream().map(vacantes::describir).toList();
+  }
+
+  /**
+   * Si las clases del año ya empezaron, el inicio no se mueve y el fin no puede quedar en el
+   * pasado; si aún no empiezan, el nuevo inicio no puede ser una fecha pasada.
+   */
+  private void validarFechasEdicionAnhio(List<Periodo> existentes, AperturaAnhioRequest request) {
+    LocalDate hoy = LocalDate.now();
+    LocalDate inicioActual =
+        existentes.stream().map(Periodo::getFechaInicio).min(LocalDate::compareTo).orElseThrow();
+    if (inicioActual.isAfter(hoy)) {
+      if (request.fechaInicio().isBefore(hoy)) {
+        throw new BusinessException("El inicio de clases no puede ser una fecha pasada");
+      }
+      return;
+    }
+    if (!request.fechaInicio().equals(inicioActual)) {
+      throw new BusinessException(
+          "Las clases ya empezaron el "
+              + inicioActual.format(FORMATO_FECHA)
+              + "; la fecha de inicio no se puede modificar");
+    }
+    if (request.fechaFin().isBefore(hoy)) {
+      throw new BusinessException("El fin de clases no puede ser una fecha pasada");
+    }
   }
 
   private void validarCruces(Seccion seccion, LocalDate fechaInicio, LocalDate fechaFin) {

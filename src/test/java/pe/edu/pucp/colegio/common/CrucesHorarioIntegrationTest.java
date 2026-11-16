@@ -22,12 +22,14 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Aula;
+import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.AulaRepository;
+import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
@@ -53,6 +55,7 @@ class CrucesHorarioIntegrationTest {
   @Autowired AulaRepository aulas;
   @Autowired PersonaRepository personas;
   @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired DocenteRepository docentes;
 
   // ---------- docente ----------
 
@@ -70,7 +73,9 @@ class CrucesHorarioIntegrationTest {
         .andExpect(status().isConflict())
         .andExpect(
             jsonPath("$.message")
-                .value(containsString("El docente Marta Quispe ya tiene clase el lunes de 07:30 a 08:15")));
+                .value(
+                    containsString(
+                        "El docente Marta Quispe ya tiene clase el lunes de 07:30 a 08:15")));
   }
 
   @Test
@@ -334,7 +339,10 @@ class CrucesHorarioIntegrationTest {
   private int docente(String nombre) {
     String s = UUID.randomUUID().toString().substring(0, 8);
     Persona persona = personas.save(new Persona("2" + s, nombre, "Quispe", "Salas"));
-    return cuentas.save(new CuentaUsuario("docente-" + s, "hash", Rol.DOCENTE, persona)).getId();
+    cuentas.save(new CuentaUsuario("docente-" + s, "hash", Rol.DOCENTE, persona));
+    Docente perfil = new Docente();
+    perfil.setPersona(persona);
+    return docentes.save(perfil).getId();
   }
 
   private int horario(int seccionId, JsonNode plantilla, int anio) throws Exception {

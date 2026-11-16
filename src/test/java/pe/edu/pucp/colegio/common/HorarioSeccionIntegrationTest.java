@@ -1,5 +1,7 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,6 +24,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Aula;
+import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Persona;
@@ -29,6 +32,7 @@ import pe.edu.pucp.colegio.common.model.PlantillaHorario;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.AulaRepository;
+import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.PlantillaHorarioRepository;
@@ -54,6 +58,7 @@ class HorarioSeccionIntegrationTest {
   @Autowired AulaRepository aulas;
   @Autowired PersonaRepository personas;
   @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired DocenteRepository docentes;
   @Autowired PlantillaHorarioRepository plantillas;
 
   /** Datos mínimos que necesita un horario: sección, plantilla, área, docente y aula. */
@@ -65,6 +70,7 @@ class HorarioSeccionIntegrationTest {
       int recreoId,
       String areaCodigo,
       int docenteId,
+      int cuentaDocenteId,
       int aulaId,
       String sufijo) {}
 
@@ -98,8 +104,7 @@ class HorarioSeccionIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     cuerpo(
-                        Map.of(
-                            "seccionId", 999999, "anio", ANIO, "plantillaId", e.plantillaId()))))
+                        Map.of("seccionId", 999999, "anio", ANIO, "plantillaId", e.plantillaId()))))
         .andExpect(status().isNotFound());
   }
 
@@ -120,8 +125,7 @@ class HorarioSeccionIntegrationTest {
             get(BASE).param("seccionId", String.valueOf(e.seccionId())).param("anio", "" + ANIO))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(horarioId));
-    mvc.perform(
-            get(BASE).param("seccionId", String.valueOf(e.seccionId())).param("anio", "2099"))
+    mvc.perform(get(BASE).param("seccionId", String.valueOf(e.seccionId())).param("anio", "2099"))
         .andExpect(status().isNotFound());
   }
 
@@ -185,16 +189,65 @@ class HorarioSeccionIntegrationTest {
   }
 
   @Test
+  void agregarSesion_conIdDelRegistroDocente_loDevuelveEnLaRespuesta() throws Exception {
+    Escenario e = escenario();
+    // Si coincidieran, la prueba no distinguiria el id del docente del id de su cuenta.
+    assertThat(e.docenteId()).isNotEqualTo(e.cuentaDocenteId());
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY")
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.docenteId").value(e.docenteId()));
+  }
+
+  @Test
+  void miHorario_sesionAsignadaAlDocente_apareceEnSuHorario() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY").andExpect(status().isCreated());
+    mvc.perform(
+            get("/api/v1/docentes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].areaCodigo").value(e.areaCodigo()));
+  }
+
+  @Test
   void rechazaDocenteQueNoTieneRolDocente() throws Exception {
     Escenario e = escenario();
     int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
     Persona persona = personas.save(new Persona("3" + e.sufijo(), "Luis", "Rojas", "Luna"));
-    CuentaUsuario alumno =
-        cuentas.save(new CuentaUsuario("alumno-" + e.sufijo(), "hash", Rol.ALUMNO, persona));
+    cuentas.save(new CuentaUsuario("alumno-" + e.sufijo(), "hash", Rol.ALUMNO, persona));
+    Docente perfil = new Docente();
+    perfil.setPersona(persona);
+    perfil = docentes.save(perfil);
     mvc.perform(
             post(BASE + "/" + horarioId + "/sesiones")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(sesion(e, e.bloque1Id(), "MONDAY", alumno.getId(), e.aulaId())))
+                .content(sesion(e, e.bloque1Id(), "MONDAY", perfil.getId(), e.aulaId())))
+        .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void rechazaDocenteConCuentaDesactivada() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    CuentaUsuario cuenta = cuentas.findById(e.cuentaDocenteId()).orElseThrow();
+    cuenta.setActive(false);
+    cuentas.save(cuenta);
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY")
+        .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void rechazaDocenteInactivo() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    Docente perfil = docentes.findById(e.docenteId()).orElseThrow();
+    perfil.setActive(false);
+    docentes.save(perfil);
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY")
         .andExpect(status().isUnprocessableEntity());
   }
 
@@ -205,7 +258,8 @@ class HorarioSeccionIntegrationTest {
     Aula aula = aulas.findById(e.aulaId()).orElseThrow();
     aula.setActive(false);
     aulas.save(aula);
-    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY").andExpect(status().isUnprocessableEntity());
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY")
+        .andExpect(status().isUnprocessableEntity());
   }
 
   @Test
@@ -267,9 +321,15 @@ class HorarioSeccionIntegrationTest {
     aula.setCapacidad(30);
     aula = aulas.save(aula);
 
+    // Una cuenta extra sin perfil docente desfasa los ids de cuentas y de docentes.
+    Persona otraPersona = personas.save(new Persona("4" + s, "Rosa", "Huaman", "Paz"));
+    cuentas.save(new CuentaUsuario("apoderado-" + s, "hash", Rol.APODERADO, otraPersona));
     Persona persona = personas.save(new Persona("2" + s, "Marta", "Quispe", "Salas"));
-    CuentaUsuario docente =
+    CuentaUsuario cuenta =
         cuentas.save(new CuentaUsuario("docente-" + s, "hash", Rol.DOCENTE, persona));
+    Docente docente = new Docente();
+    docente.setPersona(persona);
+    docente = docentes.save(docente);
 
     JsonNode bloques = plantilla.get("bloques");
     return new Escenario(
@@ -280,6 +340,7 @@ class HorarioSeccionIntegrationTest {
         bloques.get(2).get("id").asInt(),
         area.getCodigo(),
         docente.getId(),
+        cuenta.getId(),
         aula.getId(),
         s);
   }
@@ -308,7 +369,12 @@ class HorarioSeccionIntegrationTest {
             .content(
                 cuerpo(
                     Map.of(
-                        "seccionId", e.seccionId(), "anio", ANIO, "plantillaId", e.plantillaId()))));
+                        "seccionId",
+                        e.seccionId(),
+                        "anio",
+                        ANIO,
+                        "plantillaId",
+                        e.plantillaId()))));
   }
 
   private ResultActions agregarSesion(int horarioId, Escenario e, int bloqueId, String dia)

@@ -46,8 +46,7 @@ public class AuthServiceImpl implements AuthService {
     String identificador = request.getUsername().trim();
     CuentaUsuario user = users.findByUsernameIgnoreCase(identificador).orElse(null);
     if (user == null) {
-      List<CuentaUsuario> coincidencias =
-          users.findAllByPersonaCorreoIgnoreCase(identificador);
+      List<CuentaUsuario> coincidencias = users.findAllByPersonaCorreoIgnoreCase(identificador);
       user = coincidencias.size() == 1 ? coincidencias.getFirst() : null;
     }
     if (user == null) {
@@ -58,7 +57,8 @@ public class AuthServiceImpl implements AuthService {
       if (!encoder.matches(request.getPassword(), user.getPassword())) {
         throw new UnauthorizedException("Credenciales inválidas");
       }
-      throw new UnauthorizedException("Esta cuenta se encuentra desactivada. Contacta al administrador del colegio.");
+      throw new UnauthorizedException(
+          "Esta cuenta se encuentra desactivada. Contacta al administrador del colegio.");
     }
     if (user.estaBloqueada()) {
       encoder.matches(request.getPassword(), hashPasswordDummy);
