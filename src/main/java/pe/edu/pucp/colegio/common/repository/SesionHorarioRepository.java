@@ -27,11 +27,11 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
           + "join fetch s.area "
           + "join fetch s.docente "
           + "join fetch s.aula "
-          + "where s.docente.id = :cuentaId and h.anio = :anio "
+          + "where s.docente.id = :docenteId and h.anio = :anio "
           + "and s.vigenteDesde <= :hasta and (s.vigenteHasta is null or s.vigenteHasta >= :desde) "
           + "order by s.dia, b.horaInicio")
   List<SesionHorario> listarHorarioDocente(
-      @Param("cuentaId") Integer cuentaId,
+      @Param("docenteId") Integer docenteId,
       @Param("anio") Integer anio,
       @Param("desde") java.time.LocalDate desde,
       @Param("hasta") java.time.LocalDate hasta);

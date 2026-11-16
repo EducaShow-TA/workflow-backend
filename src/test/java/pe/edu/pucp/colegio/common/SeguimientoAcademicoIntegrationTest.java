@@ -12,7 +12,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,7 +97,9 @@ class SeguimientoAcademicoIntegrationTest {
         seccion,
         area,
         USUARIO_DOCENTE,
-        LocalDate.now(),
+        // El horario solo admite lunes a viernes (chk_sesion_dia): con LocalDate.now() la prueba
+        // fallaba los fines de semana.
+        LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
         java.time.LocalTime.of(8, 0),
         java.time.LocalTime.of(8, 45));
 

@@ -24,6 +24,8 @@ public interface CuentaUsuarioRepository extends JpaRepository<CuentaUsuario, In
 
   boolean existsByUsername(String username);
 
+  boolean existsByPersonaIdAndRolAndActiveTrue(Integer personaId, Rol rol);
+
   boolean existsByUsernameIgnoreCase(String username);
 
   boolean existsByUsernameAndIdNot(String username, Integer id);

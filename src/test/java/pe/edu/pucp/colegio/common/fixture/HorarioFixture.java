@@ -7,13 +7,13 @@ import java.util.UUID;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Aula;
 import pe.edu.pucp.colegio.common.model.BloqueHorario;
+import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.HorarioSeccion;
 import pe.edu.pucp.colegio.common.model.PlantillaHorario;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.model.SesionHorario;
 import pe.edu.pucp.colegio.common.model.TipoBloqueHorario;
 import pe.edu.pucp.colegio.common.model.TurnoEscolar;
-import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 
 /** Crea una asignación semanal persistida para probar permisos y horarios. */
 public final class HorarioFixture {
@@ -29,10 +29,12 @@ public final class HorarioFixture {
       LocalTime inicio,
       LocalTime fin) {
     String sufijo = UUID.randomUUID().toString().substring(0, 8);
-    CuentaUsuario cuenta =
+    Docente docente =
         entityManager
             .createQuery(
-                "select c from CuentaUsuario c where c.username = :username", CuentaUsuario.class)
+                "select d from Docente d, CuentaUsuario c"
+                    + " where c.username = :username and d.persona = c.persona",
+                Docente.class)
             .setParameter("username", usernameDocente)
             .getSingleResult();
 
@@ -70,7 +72,7 @@ public final class HorarioFixture {
     asignacion.setBloque(bloque);
     asignacion.setDia(fecha.getDayOfWeek());
     asignacion.setArea(area);
-    asignacion.setDocente(cuenta);
+    asignacion.setDocente(docente);
     asignacion.setAula(aula);
     asignacion.setVigenteDesde(LocalDate.of(fecha.getYear(), 1, 1));
     entityManager.persist(asignacion);

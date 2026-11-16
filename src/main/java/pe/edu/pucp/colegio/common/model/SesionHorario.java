@@ -14,7 +14,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 
 /** Celda de la grilla: qué área dicta qué docente, en qué aula, en un día y bloque. */
 @Entity
@@ -48,7 +47,7 @@ public class SesionHorario {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "docente_id", nullable = false)
-  private CuentaUsuario docente;
+  private Docente docente;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "aula_id", nullable = false)
@@ -96,11 +95,11 @@ public class SesionHorario {
     this.area = area;
   }
 
-  public CuentaUsuario getDocente() {
+  public Docente getDocente() {
     return docente;
   }
 
-  public void setDocente(CuentaUsuario docente) {
+  public void setDocente(Docente docente) {
     this.docente = docente;
   }
 

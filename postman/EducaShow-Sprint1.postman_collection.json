@@ -3208,8 +3208,7 @@
                   "pm.test('Se encuentra el docente creado para la prueba', () => pm.response.to.have.status(200));",
                   "const docente = pm.response.json().find(x => x.username === pm.environment.get('cuentaUsuarioUsernameEditado'));",
                   "pm.expect(docente, 'la cuenta DOCENTE aparece en el catálogo').to.exist;",
-                  "pm.environment.set('docenteId', String(docente.id));",
-                  "pm.environment.set('docenteCuentaId', String(docente.cuentaId));"
+                  "pm.environment.set('docenteId', String(docente.id));"
                 ]
               }
             }
@@ -3363,7 +3362,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"bloqueId\": {{bloqueDocenteId}},\n  \"dia\": \"MONDAY\",\n  \"areaCodigo\": \"{{areaTareasCodigo}}\",\n  \"docenteId\": {{docenteCuentaId}},\n  \"aulaId\": {{aulaDocenteId}}\n}",
+              "raw": "{\n  \"bloqueId\": {{bloqueDocenteId}},\n  \"dia\": \"MONDAY\",\n  \"areaCodigo\": \"{{areaTareasCodigo}}\",\n  \"docenteId\": {{docenteId}},\n  \"aulaId\": {{aulaDocenteId}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
