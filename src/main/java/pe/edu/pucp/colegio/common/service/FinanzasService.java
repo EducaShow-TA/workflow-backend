@@ -199,7 +199,7 @@ public class FinanzasService {
    */
   @Transactional
   public ComprobantePagoResponse registrarPago(Integer boletaId, RegistrarPagoRequest request) {
-    BoletaPension boleta = buscarBoleta(boletaId);
+    BoletaPension boleta = buscarBoletaParaPago(boletaId);
     if (boleta.getEstadoPago() == EstadoBoleta.PAGADA
         || comprobantes.existsByBoletaIdAndActiveTrue(boletaId)) {
       throw new ConflictException("La boleta ya tiene un pago registrado");
@@ -415,6 +415,15 @@ public class FinanzasService {
   private BoletaPension buscarBoleta(Integer id) {
     return boletas
         .findByIdAndActiveTrue(id)
+        .orElseThrow(
+            () ->
+                new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "No existe la boleta de pensión"));
+  }
+
+  private BoletaPension buscarBoletaParaPago(Integer id) {
+    return boletas
+        .findByIdAndActiveTrueForUpdate(id)
         .orElseThrow(
             () ->
                 new ResponseStatusException(
