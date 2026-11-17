@@ -95,6 +95,20 @@ public class FinanzasService {
                 () ->
                     new BusinessException(
                         "El estudiante debe tener un apoderado principal para generar el compromiso"));
+    CompromisoPago existente = compromisos.findByMatriculaId(matricula.getId()).orElse(null);
+    if (existente != null) {
+      existente.setActive(true);
+      LocalDate primerMes = YearMonth.from(existente.getPrimerVencimiento()).atDay(1);
+      boolean yaTieneBoletaDelCompromiso =
+          boletas.existsByCompromisoIdAndMesCobroAndActiveTrue(existente.getId(), primerMes);
+      boolean yaTieneBoletaDelEstudiante =
+          boletas.existsByEstudianteConceptoMes(
+              matricula.getEstudiante().getId(), existente.getConcepto(), primerMes);
+      if (!yaTieneBoletaDelCompromiso && !yaTieneBoletaDelEstudiante) {
+        generarBoleta(existente, YearMonth.from(primerMes), MecanismoGeneracion.AUTOMATICO);
+      }
+      return respuesta(existente);
+    }
     CompromisoPago c = new CompromisoPago();
     c.setMatricula(matricula);
     c.setApoderado(vinculo.getApoderado());
