@@ -1,6 +1,8 @@
 package pe.edu.pucp.colegio.common.service;
 
 import java.net.URI;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ public class SeguimientoAcademicoService {
   private final MatriculaRepository matriculas;
   private final EvidenciaStorageService storage;
   private final AuditoriaCalificacionService auditoriaCalificaciones;
+  private final Clock clock;
 
   public SeguimientoAcademicoService(
       TareaRepository tareas,
@@ -32,7 +35,8 @@ public class SeguimientoAcademicoService {
       MatriculaRepository matriculas,
       EvaluacionParcialRepository evaluaciones,
       EvidenciaStorageService storage,
-      AuditoriaCalificacionService auditoriaCalificaciones) {
+      AuditoriaCalificacionService auditoriaCalificaciones,
+      Clock clock) {
     this.tareas = tareas;
     this.entregas = entregas;
     this.calificaciones = calificaciones;
@@ -42,6 +46,7 @@ public class SeguimientoAcademicoService {
     this.evaluaciones = evaluaciones;
     this.storage = storage;
     this.auditoriaCalificaciones = auditoriaCalificaciones;
+    this.clock = clock;
   }
 
   @Transactional
@@ -103,10 +108,14 @@ public class SeguimientoAcademicoService {
           "No se pueden modificar calificaciones: las actas están cerradas");
     }
     Competencia competencia = competencia(request.competenciaCodigo());
-    if (evaluaciones.existsByPeriodoIdAndCompetenciaCodigoAndActiveTrue(
-        periodo.getId(), competencia.getCodigo())) {
+    Integer bimestre =
+        request.bimestre() == null
+            ? BimestreAcademico.actual(periodo, LocalDate.now(clock))
+            : request.bimestre();
+    if (evaluaciones.existsByPeriodoIdAndCompetenciaCodigoAndBimestreAndActiveTrue(
+        periodo.getId(), competencia.getCodigo(), bimestre)) {
       throw new BusinessException(
-          "Esta competencia ya tiene evaluaciones parciales; registre la nota en la evaluación correspondiente");
+          "Esta competencia ya tiene evaluaciones parciales en el bimestre; registre la nota en la evaluación correspondiente");
     }
     Matricula matricula =
         matriculas
@@ -124,19 +133,25 @@ public class SeguimientoAcademicoService {
     validarUrl(request.evidenciaUrl(), archivo);
     Calificacion calificacion =
         calificaciones
-            .findByPeriodoIdAndMatriculaIdAndCompetenciaCodigo(
-                periodo.getId(), matricula.getId(), competencia.getCodigo())
+            .findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndBimestreAndConsolidadaFalse(
+                periodo.getId(), matricula.getId(), competencia.getCodigo(), bimestre)
+            .or(
+                () ->
+                    calificaciones
+                        .findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndBimestreIsNullAndConsolidadaFalse(
+                            periodo.getId(), matricula.getId(), competencia.getCodigo()))
             .orElseGet(Calificacion::new);
     var calificacionAnterior = auditoriaCalificaciones.capturarFinal(calificacion);
     calificacion.setPeriodo(periodo);
     calificacion.setMatricula(matricula);
     calificacion.setCompetencia(competencia);
+    calificacion.setBimestre(bimestre);
     calificacion.setNota(request.nota());
     calificacion.setObservacion(request.observacion());
     calificacion.setPuntajeConsolidado(null);
     calificacion.setConsolidada(false);
     calificacion.setActive(true);
-    calificacion.setFechaRegistro(LocalDateTime.now());
+    calificacion.setFechaRegistro(LocalDateTime.now(clock));
     if (archivo != null && !archivo.isEmpty()) {
       EvidenciaStorageService.ArchivoGuardado guardado = storage.guardar(archivo);
       calificacion.setEvidenciaArchivo(guardado.clave());
@@ -159,13 +174,18 @@ public class SeguimientoAcademicoService {
 
   @Transactional(readOnly = true)
   public List<CalificacionResponse> seguimientoCompetencia(
-      Integer periodoId, String competenciaCodigo) {
-    return calificaciones
-        .findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrueOrderByMatriculaId(
-            periodoId, competenciaCodigo)
-        .stream()
-        .map(this::calificacionResponse)
-        .toList();
+      Integer periodoId, String competenciaCodigo, Integer bimestre) {
+    if (bimestre != null && (bimestre < 1 || bimestre > 4)) {
+      throw new BusinessException("El bimestre debe estar entre 1 y 4");
+    }
+    List<Calificacion> notas =
+        bimestre == null
+            ? calificaciones.findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrueOrderByMatriculaId(
+                periodoId, competenciaCodigo)
+            : calificaciones
+                .findAllByPeriodoIdAndCompetenciaCodigoAndBimestreAndActiveTrueOrderByMatriculaId(
+                    periodoId, competenciaCodigo, bimestre);
+    return notas.stream().map(this::calificacionResponse).toList();
   }
 
   @Transactional(readOnly = true)
@@ -238,6 +258,7 @@ public class SeguimientoAcademicoService {
         c.getMatricula().getEstudiante().getId(),
         c.getMatricula().getEstudiante().getPersona().getNombreCompleto(),
         c.getCompetencia().getCodigo(),
+        c.getBimestre(),
         c.getNota(),
         c.getObservacion(),
         c.getEvidenciaArchivo() != null ? "ARCHIVO" : c.getEvidenciaUrl() != null ? "URL" : null,

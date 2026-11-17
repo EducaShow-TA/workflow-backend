@@ -47,6 +47,8 @@ public class AuditoriaCalificacion {
   @Column(name = "evaluacion_id")
   private Integer evaluacionId;
 
+  @Column private Integer bimestre;
+
   @Column(name = "nota_anterior", length = 2)
   private String notaAnterior;
 
@@ -90,6 +92,7 @@ public class AuditoriaCalificacion {
       Integer estudianteId,
       String competenciaCodigo,
       Integer evaluacionId,
+      Integer bimestre,
       String notaAnterior,
       String notaNueva,
       BigDecimal puntajeAnterior,
@@ -110,6 +113,7 @@ public class AuditoriaCalificacion {
     this.estudianteId = estudianteId;
     this.competenciaCodigo = competenciaCodigo;
     this.evaluacionId = evaluacionId;
+    this.bimestre = bimestre;
     this.notaAnterior = notaAnterior;
     this.notaNueva = notaNueva;
     this.puntajeAnterior = puntajeAnterior;
@@ -164,6 +168,10 @@ public class AuditoriaCalificacion {
 
   public Integer getEvaluacionId() {
     return evaluacionId;
+  }
+
+  public Integer getBimestre() {
+    return bimestre;
   }
 
   public String getNotaAnterior() {

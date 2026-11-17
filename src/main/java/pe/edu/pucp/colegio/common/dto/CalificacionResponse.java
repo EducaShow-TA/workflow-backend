@@ -9,6 +9,7 @@ public record CalificacionResponse(
     Integer estudianteId,
     String estudiante,
     String competenciaCodigo,
+    Integer bimestre,
     String nota,
     String observacion,
     String evidenciaTipo,

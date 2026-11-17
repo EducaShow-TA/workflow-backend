@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import pe.edu.pucp.colegio.common.model.CompromisoPago;
 
 public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, Integer> {
+  Optional<CompromisoPago> findByMatriculaId(Integer matriculaId);
+
   Optional<CompromisoPago> findByMatriculaIdAndActiveTrue(Integer matriculaId);
 
   @EntityGraph(attributePaths = {"matricula", "matricula.estudiante", "apoderado"})

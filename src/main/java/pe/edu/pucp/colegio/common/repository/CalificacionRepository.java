@@ -15,6 +15,28 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Inte
   Optional<Calificacion> findByPeriodoIdAndMatriculaIdAndCompetenciaCodigo(
       Integer periodoId, Integer matriculaId, String competenciaCodigo);
 
+  Optional<Calificacion> findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndBimestre(
+      Integer periodoId, Integer matriculaId, String competenciaCodigo, Integer bimestre);
+
+  Optional<Calificacion>
+      findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndBimestreAndConsolidadaFalse(
+          Integer periodoId, Integer matriculaId, String competenciaCodigo, Integer bimestre);
+
+  Optional<Calificacion>
+      findByPeriodoIdAndMatriculaIdAndCompetenciaCodigoAndBimestreIsNullAndConsolidadaFalse(
+          Integer periodoId, Integer matriculaId, String competenciaCodigo);
+
+  @EntityGraph(
+      attributePaths = {
+        "matricula",
+        "matricula.estudiante",
+        "matricula.estudiante.persona",
+        "competencia"
+      })
+  List<Calificacion>
+      findAllByPeriodoIdAndCompetenciaCodigoAndBimestreAndActiveTrueOrderByMatriculaId(
+          Integer periodoId, String competenciaCodigo, Integer bimestre);
+
   @EntityGraph(
       attributePaths = {
         "matricula",

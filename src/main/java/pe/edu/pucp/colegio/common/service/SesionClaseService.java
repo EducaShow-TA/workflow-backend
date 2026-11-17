@@ -129,9 +129,15 @@ public class SesionClaseService {
     }
   }
 
-  @Transactional(readOnly = true)
-  public List<SesionClaseResumenResponse> listar(LocalDate fecha, Integer seccionId) {
-    return sesiones.buscar(fecha, seccionId).stream().map(this::resumen).toList();
+  @Transactional
+  public List<SesionClaseResumenResponse> listar(
+      LocalDate fecha, Integer seccionId, Acceso acceso) {
+    Docente docente =
+        acceso.administrador() ? null : docenteService.obtenerDeCuenta(acceso.usuario());
+    return sesiones.buscar(fecha, seccionId).stream()
+        .filter(sesion -> acceso.administrador() || puedeConsultar(sesion, docente))
+        .map(this::resumen)
+        .toList();
   }
 
   @Transactional
@@ -149,7 +155,7 @@ public class SesionClaseService {
   @Transactional
   public ListaAsistenciaResponse obtenerLista(Integer sesionId, Acceso acceso) {
     SesionClase sesion = buscarSesion(sesionId);
-    exigirAcceso(sesion, acceso);
+    exigirAccesoConsulta(sesion, acceso);
     return lista(sesion);
   }
 
@@ -227,8 +233,10 @@ public class SesionClaseService {
   }
 
   @Transactional(readOnly = true)
-  public SesionClaseResponse obtener(Integer id) {
-    return respuesta(buscarSesion(id));
+  public SesionClaseResponse obtener(Integer id, Acceso acceso) {
+    SesionClase sesion = buscarSesion(id);
+    exigirAccesoConsulta(sesion, acceso);
+    return respuesta(sesion);
   }
 
   @Transactional
@@ -280,8 +288,8 @@ public class SesionClaseService {
   }
 
   @Transactional(readOnly = true)
-  public List<AsistenciaEstudianteResponse> listarAsistencias(Integer sesionId) {
-    buscarSesion(sesionId);
+  public List<AsistenciaEstudianteResponse> listarAsistencias(Integer sesionId, Acceso acceso) {
+    exigirAccesoConsulta(buscarSesion(sesionId), acceso);
     return asistencias.findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(sesionId).stream()
         .map(this::respuesta)
         .toList();
@@ -313,6 +321,24 @@ public class SesionClaseService {
       throw new ResponseStatusException(
           HttpStatus.FORBIDDEN, "Solo el docente de la sesión puede gestionar su asistencia");
     }
+  }
+
+  private void exigirAccesoConsulta(SesionClase sesion, Acceso acceso) {
+    Docente docente =
+        acceso.administrador() ? null : docenteService.obtenerDeCuenta(acceso.usuario());
+    if (!acceso.administrador() && !puedeConsultar(sesion, docente)) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Solo puede consultar sesiones de las secciones que dicta");
+    }
+  }
+
+  private boolean puedeConsultar(SesionClase sesion, Docente docente) {
+    return sesiones.docenteTieneClaseEnSeccion(
+            docente.getPersona().getId(),
+            sesion.getSeccion().getId(),
+            sesion.getFecha(),
+            sesion.getFecha())
+        || docente.getId().equals(sesion.getDocente().getId());
   }
 
   /** Alumnos con matrícula confirmada en la sección durante el periodo de la sesión. */

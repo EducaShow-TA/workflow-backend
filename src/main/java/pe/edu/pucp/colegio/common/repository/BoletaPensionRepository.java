@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse;
@@ -44,7 +46,9 @@ public interface BoletaPensionRepository
       "select distinct new pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse("
           + "e.id, concat(p.nombre, ' ', p.apellidoPaterno, ' ', p.apellidoMaterno)) "
           + "from BoletaPension b join b.compromiso c join c.matricula m join m.estudiante e join e.persona p "
-          + "where b.active = true order by 2, 1")
+          + "where b.active = true "
+          + "and m.estado <> pe.edu.pucp.colegio.common.model.EstadoMatricula.RETIRADA "
+          + "order by 2, 1")
   List<EstudianteConBoletasResponse> listarEstudiantesConBoletas();
 
   boolean existsByCompromisoIdAndMesCobroAndActiveTrue(Integer compromisoId, LocalDate mesCobro);
@@ -60,6 +64,10 @@ public interface BoletaPensionRepository
       @Param("mes") LocalDate mes);
 
   Optional<BoletaPension> findByIdAndActiveTrue(Integer id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select b from BoletaPension b where b.id = :id and b.active = true")
+  Optional<BoletaPension> findByIdAndActiveTrueForUpdate(@Param("id") Integer id);
 
   @EntityGraph(
       attributePaths = {

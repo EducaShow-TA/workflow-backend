@@ -121,9 +121,12 @@ public class SeguimientoAcademicoController {
 
   @GetMapping("/api/v1/seguimiento/competencias/{codigo}")
   public List<CalificacionResponse> seguimientoCompetencia(
-      @PathVariable String codigo, @RequestParam Integer periodoId, Authentication authentication) {
+      @PathVariable String codigo,
+      @RequestParam Integer periodoId,
+      @RequestParam(required = false) Integer bimestre,
+      Authentication authentication) {
     validarAccesoCompetenciaEnPeriodo(periodoId, codigo, authentication);
-    return service.seguimientoCompetencia(periodoId, codigo);
+    return service.seguimientoCompetencia(periodoId, codigo, bimestre);
   }
 
   @GetMapping("/api/v1/evidencias/{calificacionId}/archivo")

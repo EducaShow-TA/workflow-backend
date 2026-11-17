@@ -57,8 +57,9 @@ public class SesionClaseController {
   @GetMapping
   public List<SesionClaseResumenResponse> listar(
       @RequestParam(required = false) LocalDate fecha,
-      @RequestParam(required = false) Integer seccionId) {
-    return sesiones.listar(fecha, seccionId);
+      @RequestParam(required = false) Integer seccionId,
+      Authentication authentication) {
+    return sesiones.listar(fecha, seccionId, acceso(authentication));
   }
 
   @GetMapping("/mias")
@@ -83,8 +84,9 @@ public class SesionClaseController {
   }
 
   @GetMapping("/{sesionId}")
-  public SesionClaseResponse obtener(@PathVariable Integer sesionId) {
-    return sesiones.obtener(sesionId);
+  public SesionClaseResponse obtener(
+      @PathVariable Integer sesionId, Authentication authentication) {
+    return sesiones.obtener(sesionId, acceso(authentication));
   }
 
   @PostMapping("/{sesionId}/asistencias")
@@ -97,8 +99,9 @@ public class SesionClaseController {
   }
 
   @GetMapping("/{sesionId}/asistencias")
-  public List<AsistenciaEstudianteResponse> listarAsistencias(@PathVariable Integer sesionId) {
-    return sesiones.listarAsistencias(sesionId);
+  public List<AsistenciaEstudianteResponse> listarAsistencias(
+      @PathVariable Integer sesionId, Authentication authentication) {
+    return sesiones.listarAsistencias(sesionId, acceso(authentication));
   }
 
   @PatchMapping("/{sesionId}/asistencias/{estudianteId}")

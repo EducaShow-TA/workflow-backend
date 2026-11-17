@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import org.springframework.data.jpa.domain.Specification;
 import pe.edu.pucp.colegio.common.model.BoletaPension;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 
 /** Predicados reutilizados por las consultas SQL de detalle, conteo y totales. */
 public final class BoletaPensionFiltros {
@@ -40,6 +41,9 @@ public final class BoletaPensionFiltros {
     return (raiz, consulta, cb) -> {
       var condiciones = new ArrayList<Predicate>();
       condiciones.add(cb.isTrue(raiz.get("active")));
+      condiciones.add(
+          cb.notEqual(
+              raiz.get("compromiso").get("matricula").get("estado"), EstadoMatricula.RETIRADA));
       if (estudianteId != null)
         condiciones.add(
             cb.equal(

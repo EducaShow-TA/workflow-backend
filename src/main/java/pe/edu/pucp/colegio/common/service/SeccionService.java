@@ -53,11 +53,15 @@ public class SeccionService {
     Grado grado =
         grados
             .findByNumeroAndNivelEducativoAndActiveTrue(
-                request.gradoNumero(), NivelEducativo.SECUNDARIA)
+                request.gradoNumero(),
+                request.nivelEducativo() == null
+                    ? NivelEducativo.SECUNDARIA
+                    : request.nivelEducativo())
             .orElseThrow(
                 () ->
                     new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "No existe el grado de secundaria indicado"));
+                        HttpStatus.NOT_FOUND,
+                        "No existe el grado indicado para el nivel educativo"));
     if (secciones.existsByGradoIdAndCodigoIgnoreCase(grado.getId(), request.nombre())) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "La sección ya existe para el grado indicado");
@@ -146,6 +150,7 @@ public class SeccionService {
     return new SeccionResponse(
         seccion.getId(),
         seccion.getGrado().getNumero(),
+        seccion.getGrado().getNivelEducativo().name(),
         seccion.getCodigo(),
         capacidadVisible,
         matriculados,

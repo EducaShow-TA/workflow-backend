@@ -95,6 +95,20 @@ public class FinanzasService {
                 () ->
                     new BusinessException(
                         "El estudiante debe tener un apoderado principal para generar el compromiso"));
+    CompromisoPago existente = compromisos.findByMatriculaId(matricula.getId()).orElse(null);
+    if (existente != null) {
+      existente.setActive(true);
+      LocalDate primerMes = YearMonth.from(existente.getPrimerVencimiento()).atDay(1);
+      boolean yaTieneBoletaDelCompromiso =
+          boletas.existsByCompromisoIdAndMesCobroAndActiveTrue(existente.getId(), primerMes);
+      boolean yaTieneBoletaDelEstudiante =
+          boletas.existsByEstudianteConceptoMes(
+              matricula.getEstudiante().getId(), existente.getConcepto(), primerMes);
+      if (!yaTieneBoletaDelCompromiso && !yaTieneBoletaDelEstudiante) {
+        generarBoleta(existente, YearMonth.from(primerMes), MecanismoGeneracion.AUTOMATICO);
+      }
+      return respuesta(existente);
+    }
     CompromisoPago c = new CompromisoPago();
     c.setMatricula(matricula);
     c.setApoderado(vinculo.getApoderado());
@@ -185,7 +199,7 @@ public class FinanzasService {
    */
   @Transactional
   public ComprobantePagoResponse registrarPago(Integer boletaId, RegistrarPagoRequest request) {
-    BoletaPension boleta = buscarBoleta(boletaId);
+    BoletaPension boleta = buscarBoletaParaPago(boletaId);
     if (boleta.getEstadoPago() == EstadoBoleta.PAGADA
         || comprobantes.existsByBoletaIdAndActiveTrue(boletaId)) {
       throw new ConflictException("La boleta ya tiene un pago registrado");
@@ -401,6 +415,15 @@ public class FinanzasService {
   private BoletaPension buscarBoleta(Integer id) {
     return boletas
         .findByIdAndActiveTrue(id)
+        .orElseThrow(
+            () ->
+                new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "No existe la boleta de pensión"));
+  }
+
+  private BoletaPension buscarBoletaParaPago(Integer id) {
+    return boletas
+        .findByIdAndActiveTrueForUpdate(id)
         .orElseThrow(
             () ->
                 new ResponseStatusException(

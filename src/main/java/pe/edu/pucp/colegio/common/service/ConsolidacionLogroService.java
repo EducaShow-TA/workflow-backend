@@ -489,8 +489,8 @@ public class ConsolidacionLogroService {
 
     ReglaConsolidacionResponse regla = obtenerRegla(codigo);
     Map<Integer, Calificacion> finalesExistentes = new HashMap<>();
-    calificaciones
-        .findAllByPeriodoIdAndCompetenciaCodigo(periodo.getId(), codigo)
+    calificaciones.findAllByPeriodoIdAndCompetenciaCodigo(periodo.getId(), codigo).stream()
+        .filter(c -> Boolean.TRUE.equals(c.getConsolidada()))
         .forEach(c -> finalesExistentes.put(c.getMatricula().getId(), c));
     Map<Integer, List<CalificacionParcial>> porMatricula = new HashMap<>();
     for (CalificacionParcial nota : existentes) {

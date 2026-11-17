@@ -11,6 +11,9 @@ public interface EvaluacionParcialRepository extends JpaRepository<EvaluacionPar
   boolean existsByPeriodoIdAndCompetenciaCodigoAndActiveTrue(
       Integer periodoId, String competenciaCodigo);
 
+  boolean existsByPeriodoIdAndCompetenciaCodigoAndBimestreAndActiveTrue(
+      Integer periodoId, String competenciaCodigo, Integer bimestre);
+
   List<EvaluacionParcial> findAllByPeriodoIdAndCompetenciaCodigoAndActiveTrueOrderById(
       Integer periodoId, String competenciaCodigo);
 

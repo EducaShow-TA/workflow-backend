@@ -19,13 +19,16 @@ import pe.edu.pucp.colegio.common.dto.MiClaseResponse;
 import pe.edu.pucp.colegio.common.dto.RiesgoAcademicoResponse;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Calificacion;
+import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
+import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
@@ -43,6 +46,8 @@ public class MisClasesService {
   private final AreaRepository areas;
   private final MatriculaRepository matriculas;
   private final CalificacionRepository calificaciones;
+  private final CalificacionParcialRepository notasParciales;
+  private final EvaluacionParcialRepository evaluaciones;
   private final Clock clock;
 
   public MisClasesService(
@@ -52,6 +57,8 @@ public class MisClasesService {
       AreaRepository areas,
       MatriculaRepository matriculas,
       CalificacionRepository calificaciones,
+      CalificacionParcialRepository notasParciales,
+      EvaluacionParcialRepository evaluaciones,
       Clock clock) {
     this.docenteService = docenteService;
     this.sesiones = sesiones;
@@ -59,6 +66,8 @@ public class MisClasesService {
     this.areas = areas;
     this.matriculas = matriculas;
     this.calificaciones = calificaciones;
+    this.notasParciales = notasParciales;
+    this.evaluaciones = evaluaciones;
     this.clock = clock;
   }
 
@@ -168,13 +177,35 @@ public class MisClasesService {
             .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
             .map(competencia -> competencia.getCodigo())
             .toList();
+    int bimestre = BimestreAcademico.actual(periodo, LocalDate.now(clock));
     Map<Integer, Integer> notasCPorMatricula = new HashMap<>();
     if (!competencias.isEmpty()) {
       for (Calificacion nota :
           calificaciones.findAllByPeriodoIdAndCompetenciaCodigoInAndActiveTrue(
               periodoId, competencias)) {
-        if ("C".equalsIgnoreCase(nota.getNota())) {
+        int bimestreNota =
+            nota.getBimestre() == null
+                ? BimestreAcademico.actual(periodo, nota.getFechaRegistro().toLocalDate())
+                : nota.getBimestre();
+        if (!Boolean.TRUE.equals(nota.getConsolidada())
+            && bimestre == bimestreNota
+            && "C".equalsIgnoreCase(nota.getNota())) {
           notasCPorMatricula.merge(nota.getMatricula().getId(), 1, Integer::sum);
+        }
+      }
+      List<Integer> evaluacionIds =
+          evaluaciones
+              .findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodoId, bimestre)
+              .stream()
+              .filter(e -> competencias.contains(e.getCompetencia().getCodigo()))
+              .map(e -> e.getId())
+              .toList();
+      if (!evaluacionIds.isEmpty()) {
+        for (CalificacionParcial nota :
+            notasParciales.findAllByEvaluacionIdInAndActiveTrue(evaluacionIds)) {
+          if (!Boolean.TRUE.equals(nota.getJustificada()) && "C".equalsIgnoreCase(nota.getNota())) {
+            notasCPorMatricula.merge(nota.getMatricula().getId(), 1, Integer::sum);
+          }
         }
       }
     }
@@ -195,7 +226,7 @@ public class MisClasesService {
             .toList();
     int enRiesgo = (int) alumnos.stream().filter(AlumnoRiesgoAcademicoResponse::enRiesgo).count();
     return new RiesgoAcademicoResponse(
-        periodoId, areaCodigo, umbral, alumnos.size(), enRiesgo, alumnos);
+        periodoId, bimestre, areaCodigo, umbral, alumnos.size(), enRiesgo, alumnos);
   }
 
   /** Periodo de la sección que incluye hoy; si no hay, el más reciente. */
