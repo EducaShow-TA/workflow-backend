@@ -31,7 +31,12 @@ public class AsistenciaHistorialService {
           HttpStatus.BAD_REQUEST, "La fecha inicial no puede ser posterior a la fecha final");
     }
     acceso.exigirAccesoHistorial(estudianteId, username);
+    boolean docente = acceso.esDocente(username);
     return asistencias.buscarHistorial(estudianteId, desde, hasta).stream()
+        .filter(
+            asistencia ->
+                !docente
+                    || acceso.docentePuedeConsultarSesion(username, asistencia.getSesionClase()))
         .map(this::respuesta)
         .toList();
   }

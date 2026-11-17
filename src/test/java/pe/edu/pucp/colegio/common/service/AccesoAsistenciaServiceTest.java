@@ -19,7 +19,9 @@ import pe.edu.pucp.colegio.common.model.Apoderado;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.AsistenciaEstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -32,6 +34,8 @@ class AccesoAsistenciaServiceTest {
   @Mock EstudianteRepository estudiantes;
   @Mock ApoderadoRepository apoderados;
   @Mock VinculoFamiliarRepository vinculos;
+  @Mock AsistenciaEstudianteRepository asistencias;
+  @Mock SesionClaseRepository sesiones;
   @InjectMocks AccesoAsistenciaService service;
 
   private Estudiante estudiante;
@@ -85,13 +89,18 @@ class AccesoAsistenciaServiceTest {
   }
 
   @Test
-  void docenteYAdministradorPuedenConsultarCualquierHistorial() {
+  void docenteNoPuedeConsultarHistorialSinDictarLaSeccionYAdministradorSi() {
     CuentaUsuario docente = cuenta(Rol.DOCENTE, persona(88));
     CuentaUsuario admin = cuenta(Rol.ADMINISTRADOR, persona(89));
     when(cuentas.findByUsername("docente")).thenReturn(Optional.of(docente));
     when(cuentas.findByUsername("admin")).thenReturn(Optional.of(admin));
 
-    assertSame(estudiante, service.exigirAccesoHistorial(4, "docente"));
+    assertEquals(
+        403,
+        assertThrows(
+                ResponseStatusException.class, () -> service.exigirAccesoHistorial(4, "docente"))
+            .getStatusCode()
+            .value());
     assertSame(estudiante, service.exigirAccesoHistorial(4, "admin"));
   }
 

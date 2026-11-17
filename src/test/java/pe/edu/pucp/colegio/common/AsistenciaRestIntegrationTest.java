@@ -97,11 +97,12 @@ class AsistenciaRestIntegrationTest {
   }
 
   @Test
-  @WithMockUser(username = "docente-asistencia-test", roles = "DOCENTE")
   void docentePuedeVisualizarSesionDeClase() throws Exception {
     Fixture f = crearFixture();
+    String usuario = crearCuentaDocente(f);
 
-    mvc.perform(get("/api/v1/sesiones-clase/{id}", f.sesionId()))
+    mvc.perform(
+            get("/api/v1/sesiones-clase/{id}", f.sesionId()).with(user(usuario).roles("DOCENTE")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(f.sesionId()))
         .andExpect(jsonPath("$.docenteId").value(f.docenteId()));
