@@ -14,6 +14,9 @@ public record AuditoriaCalificacionResponse(
     Integer periodoId,
     Integer matriculaId,
     Integer estudianteId,
+    String estudianteNombre,
+    String competenciaNombre,
+    String areaNombre,
     String competenciaCodigo,
     Integer evaluacionId,
     Integer bimestre,
@@ -29,6 +32,14 @@ public record AuditoriaCalificacionResponse(
     String observacionNueva) {
 
   public static AuditoriaCalificacionResponse desde(AuditoriaCalificacion registro) {
+    return desde(registro, null, null, null);
+  }
+
+  public static AuditoriaCalificacionResponse desde(
+      AuditoriaCalificacion registro,
+      String estudianteNombre,
+      String competenciaNombre,
+      String areaNombre) {
     return new AuditoriaCalificacionResponse(
         registro.getId(),
         registro.getFechaHora(),
@@ -39,6 +50,9 @@ public record AuditoriaCalificacionResponse(
         registro.getPeriodoId(),
         registro.getMatriculaId(),
         registro.getEstudianteId(),
+        estudianteNombre,
+        competenciaNombre,
+        areaNombre,
         registro.getCompetenciaCodigo(),
         registro.getEvaluacionId(),
         registro.getBimestre(),

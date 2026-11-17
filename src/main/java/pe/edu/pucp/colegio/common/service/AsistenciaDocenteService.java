@@ -68,7 +68,7 @@ public class AsistenciaDocenteService {
     LocalDate hoy = ahora.toLocalDate();
     LocalTime hora = ahora.toLocalTime().truncatedTo(ChronoUnit.SECONDS);
     LocalTime inicioJornada = inicioJornada(docente.getId(), hoy);
-    validarAperturaMarcaje(inicioJornada, hora);
+    validarVentanaMarcaje(inicioJornada, hora);
 
     AsistenciaDocente asistencia =
         asistencias
@@ -178,6 +178,9 @@ public class AsistenciaDocenteService {
         asistencia.marcarIngreso(request.horaEntrada());
         clasificarTardanza(
             asistencia, inicioJornada(asistencia.getDocente().getId(), asistencia.getFecha()));
+        if (request.motivoAjuste() != null && !request.motivoAjuste().isBlank()) {
+          asistencia.ajustar(asistencia.getEstado(), request.motivoAjuste());
+        }
         if (request.horaSalida() != null) {
           asistencia.marcarSalida(request.horaSalida());
         }
@@ -195,6 +198,7 @@ public class AsistenciaDocenteService {
         }
       }
       case INASISTENCIA -> {
+        exigirMotivoRegistro(request.motivoAjuste());
         if (request.horaEntrada() != null || request.horaSalida() != null) {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST, "Una inasistencia no puede incluir horas marcadas");
@@ -225,14 +229,26 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void validarAperturaMarcaje(LocalTime inicioJornada, LocalTime hora) {
+  private void validarVentanaMarcaje(LocalTime inicioJornada, LocalTime hora) {
     if (inicioJornada == null) {
       return;
     }
     LocalTime apertura = inicioJornada.minusMinutes(properties.getVentanaDocenteAntesMinutos());
+    LocalTime cierre = inicioJornada.plusMinutes(properties.getVentanaDocenteDespuesMinutos());
     if (hora.isBefore(apertura)) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "El marcaje de entrada se habilita a partir de las " + apertura);
+    }
+    if (hora.isAfter(cierre)) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El marcaje de entrada cerró a las " + cierre);
+    }
+  }
+
+  private void exigirMotivoRegistro(String motivo) {
+    if (motivo == null || motivo.isBlank()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El motivo es obligatorio para registrar la asistencia docente");
     }
   }
 

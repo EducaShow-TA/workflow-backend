@@ -74,9 +74,12 @@ public class SeguimientoAcademicoService {
     return tareaResponse(tarea);
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public List<TareaResponse> listarTareas(Integer periodoId) {
-    return tareas.buscarPorPeriodo(periodoId).stream().map(this::tareaResponse).toList();
+    return tareas.buscarPorPeriodo(periodoId).stream()
+        .peek(this::asegurarEntregas)
+        .map(this::tareaResponse)
+        .toList();
   }
 
   @Transactional
@@ -85,6 +88,7 @@ public class SeguimientoAcademicoService {
         tareas
             .buscarActiva(tareaId)
             .orElseThrow(() -> new BusinessException("Tarea no encontrada"));
+    asegurarEntregas(tarea);
     EntregaTarea entrega =
         entregas
             .findByTareaIdAndMatriculaIdAndActiveTrue(tareaId, matriculaId)
@@ -126,9 +130,11 @@ public class SeguimientoAcademicoService {
         || matricula.getEstado() != EstadoMatricula.CONFIRMADA) {
       throw new BusinessException("La matrícula no está confirmada en el período indicado");
     }
-    if ((archivo == null || archivo.isEmpty())
-        == (request.evidenciaUrl() == null || request.evidenciaUrl().isBlank())) {
-      throw new BusinessException("Adjunte un archivo o indique una URL de evidencia");
+    if (archivo != null
+        && !archivo.isEmpty()
+        && request.evidenciaUrl() != null
+        && !request.evidenciaUrl().isBlank()) {
+      throw new BusinessException("Adjunte un archivo o indique una URL, no ambos");
     }
     validarUrl(request.evidenciaUrl(), archivo);
     Calificacion calificacion =
@@ -245,6 +251,24 @@ public class SeguimientoAcademicoService {
         tarea.getFechaLimite(),
         tarea.getPonderacion(),
         estados);
+  }
+
+  private void asegurarEntregas(Tarea tarea) {
+    List<Integer> matriculasConEntrega =
+        entregas.findAllByTareaIdAndActiveTrueOrderByMatriculaId(tarea.getId()).stream()
+            .map(entrega -> entrega.getMatricula().getId())
+            .toList();
+    for (Matricula matricula :
+        matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
+            tarea.getPeriodo().getId(), List.of(EstadoMatricula.CONFIRMADA))) {
+      if (!matriculasConEntrega.contains(matricula.getId())) {
+        EntregaTarea entrega = new EntregaTarea();
+        entrega.setTarea(tarea);
+        entrega.setMatricula(matricula);
+        entrega.setCumplida(false);
+        entregas.save(entrega);
+      }
+    }
   }
 
   private CalificacionResponse calificacionResponse(Calificacion c) {

@@ -30,12 +30,14 @@ import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.AsistenciaEstudiante;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistencia;
+import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.model.SesionClase;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
+import pe.edu.pucp.colegio.common.repository.AsistenciaDocenteRepository;
 import pe.edu.pucp.colegio.common.repository.AsistenciaEstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
@@ -53,6 +55,7 @@ public class SesionClaseService {
 
   private final SesionClaseRepository sesiones;
   private final AsistenciaEstudianteRepository asistencias;
+  private final AsistenciaDocenteRepository asistenciasDocentes;
   private final SeccionRepository secciones;
   private final AreaRepository areas;
   private final DocenteRepository docentes;
@@ -66,6 +69,7 @@ public class SesionClaseService {
   public SesionClaseService(
       SesionClaseRepository sesiones,
       AsistenciaEstudianteRepository asistencias,
+      AsistenciaDocenteRepository asistenciasDocentes,
       SeccionRepository secciones,
       AreaRepository areas,
       DocenteRepository docentes,
@@ -77,6 +81,7 @@ public class SesionClaseService {
       Clock clock) {
     this.sesiones = sesiones;
     this.asistencias = asistencias;
+    this.asistenciasDocentes = asistenciasDocentes;
     this.secciones = secciones;
     this.areas = areas;
     this.docentes = docentes;
@@ -207,7 +212,8 @@ public class SesionClaseService {
               || existente.getEstadoAsistencia() == EstadoAsistencia.PENDIENTE_MARCAJE;
     }
     if (hayNuevos && !acceso.administrador()) {
-      ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio());
+      ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
+      exigirDocentePresente(sesion);
     }
 
     LocalDateTime ahora = LocalDateTime.now(clock);
@@ -244,7 +250,10 @@ public class SesionClaseService {
       Integer sesionId, AsistenciaEstudianteRequest request, Acceso acceso) {
     SesionClase sesion = buscarSesion(sesionId);
     exigirAcceso(sesion, acceso);
-    ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio());
+    if (!acceso.administrador()) {
+      ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
+      exigirDocentePresente(sesion);
+    }
     Estudiante estudiante = buscarEstudiante(request.estudianteId());
     if (asistencias.existsBySesionClaseIdAndEstudianteIdAndActiveTrue(
         sesionId, estudiante.getId())) {
@@ -309,6 +318,22 @@ public class SesionClaseService {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST,
               "Use el endpoint de justificación y adjunte el documento de sustento");
+    }
+  }
+
+  private void exigirDocentePresente(SesionClase sesion) {
+    boolean docentePresente =
+        asistenciasDocentes
+            .findByDocenteIdAndFechaAndActiveTrue(sesion.getDocente().getId(), sesion.getFecha())
+            .filter(asistencia -> asistencia.getHoraEntrada() != null)
+            .filter(
+                asistencia ->
+                    asistencia.getEstado() == EstadoAsistenciaDocente.PRESENTE
+                        || asistencia.getEstado() == EstadoAsistenciaDocente.TARDANZA)
+            .isPresent();
+    if (!docentePresente) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El docente debe marcar su entrada antes de tomar asistencia");
     }
   }
 
@@ -392,8 +417,8 @@ public class SesionClaseService {
         conteo.getOrDefault(EstadoAsistencia.AUSENTE, 0),
         conteo.getOrDefault(EstadoAsistencia.JUSTIFICADA, 0),
         ventanaMarcado.apertura(sesion.getFecha(), sesion.getHoraInicio()),
-        ventanaMarcado.cierre(sesion.getFecha(), sesion.getHoraInicio()),
-        ventanaMarcado.estaAbierta(sesion.getFecha(), sesion.getHoraInicio()),
+        ventanaMarcado.cierre(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin()),
+        ventanaMarcado.estaAbierta(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin()),
         registradaEn);
   }
 
