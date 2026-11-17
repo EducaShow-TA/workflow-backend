@@ -5,6 +5,8 @@ import jakarta.persistence.criteria.Subquery;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -40,6 +43,7 @@ public class RegistroErrorService {
   private static final int MAX_TRAZA = 4000;
   private static final String PREFIJO_API = "/api/v1/";
   private static final int MAX_TEXTO_BUSQUEDA = 100;
+  private static final int DIAS_RETENCION = 90;
   private static final char ESCAPE = '!';
 
   private final RegistroErrorRepository errores;
@@ -59,6 +63,9 @@ public class RegistroErrorService {
       int estado,
       String mensaje,
       Throwable causa) {
+    if (estado < 500) {
+      return;
+    }
     try {
       RegistroError registro =
           new RegistroError(
@@ -71,6 +78,20 @@ public class RegistroErrorService {
       errores.save(registro);
     } catch (RuntimeException e) {
       log.error("event=registro_error_fallido codigo={} causa={}", codigo, e.toString());
+    }
+  }
+
+  /** Poda diaria los errores técnicos después de 90 días para mantener acotada la tabla. */
+  @Scheduled(cron = "0 30 3 * * *", zone = "America/Lima")
+  @Transactional
+  public void purgarErroresAntiguos() {
+    LocalDateTime limite = LocalDateTime.now().minus(DIAS_RETENCION, ChronoUnit.DAYS);
+    int eliminados = errores.eliminarAnterioresA(limite);
+    if (eliminados > 0) {
+      log.info(
+          "event=errores_antiguos_purgados cantidad={} retencion_dias={}",
+          eliminados,
+          DIAS_RETENCION);
     }
   }
 

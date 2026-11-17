@@ -4095,7 +4095,9 @@
                   "pm.test('Consulta paginada disponible', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "const entries = body.content || body._embedded?.registroErrorResponseDTOList || [];",
-                  "if (entries.length) pm.environment.set('errorId', String(entries[0].id));"
+                  "const serverError = entries.find(entry => entry.codigoEstado >= 500);",
+                  "if (serverError) pm.environment.set('errorId', String(serverError.id));",
+                  "else pm.environment.unset('errorId');"
                 ]
               }
             }
@@ -4120,6 +4122,15 @@
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('errorId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
