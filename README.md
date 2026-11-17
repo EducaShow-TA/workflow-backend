@@ -99,7 +99,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marcar salida propia (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases` | Secciones y áreas del docente con sus competencias activas (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases/{periodoId}/alumnos` | Alumnos confirmados de una de sus clases, para calificar (solo DOCENTE) |
-| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={1..5}` | Contar notas C del bimestre actual según las fechas del período (solo DOCENTE) |
+| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}` | Contar notas C del bimestre actual con el umbral persistido (solo DOCENTE) |
+| `GET/PATCH` | `/api/v1/configuracion/riesgo-academico` | Consultar o cambiar el umbral global de notas C (solo ADMINISTRADOR, valor inicial 1) |
 | `POST` | `/api/v1/asistencias-docentes` | Registrar asistencia de cualquier docente (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes?fecha=&docenteId=` | Consultar asistencias de docentes (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes/{asistenciaId}` | Consultar una asistencia docente (solo ADMINISTRADOR) |
@@ -185,6 +186,7 @@ La ventana para marcar asistencia de alumnos y la tolerancia docente se configur
 | --- | ---: | --- |
 | `ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS` | `15` | Minutos antes del inicio de sesión en que se abre el marcaje |
 | `ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS` | `30` | Minutos después del inicio en que se cierra el marcaje |
+| `ASISTENCIA_VENTANA_DOCENTE_DESPUES_MINUTOS` | `30` | Minutos después del inicio de la primera sesión en que se cierra el marcaje de entrada docente |
 | `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
 | `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` | `30` | Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada |
 
@@ -852,19 +854,19 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-1.6 Morosidad | **Completa**: el proceso diario marca como `EN_MORA` las boletas vencidas impagas; la historia no incluye recargo monetario. |
 | US-1.10 Reporte de cobranza | **Completa**: filtros por grado, sección, estado y fechas; incluye monto pendiente y familias morosas distintas. |
 | US-1.12 Pago en línea | **Parcial**: la interfaz y API registran un pago como verificado por administración; no hay integración con una pasarela externa. |
-| US-2.1 Asistencia de estudiantes por sesión | **Completa**: creación de sesiones, listas, registro en bloque o individual, ajustes e historial. |
-| US-2.3 Marcaje de entrada y salida docente | **Completa**: marcaje propio sujeto a las ventanas de tiempo configuradas. |
-| US-2.4 Gestión de asistencia docente | **Completa**: consulta, registro y ajuste administrativo con motivo. |
+| US-2.1 Asistencia de estudiantes por sesión | **Completa**: registro de docentes dentro de la primera hora de clase y con marcaje docente de presencia; administración puede corregir fuera de la ventana. |
+| US-2.3 Marcaje de entrada y salida docente | **Completa**: marcaje propio sujeto a apertura previa y cierre 30 minutos después del inicio de la primera sesión. |
+| US-2.4 Gestión de asistencia docente | **Completa**: consulta, registro y ajuste administrativo con motivo obligatorio para estados que requieren justificación. |
 | US-3.1 Reglas de consolidación | **Completa**: umbrales configurables por competencia. |
 | US-3.2 Calificaciones por competencia | **Completa**: evaluaciones parciales ponderadas, calificaciones cualitativas y auditoría de cambios. |
 | US-3.3 Libretas e informes de progreso | **Completa**: consulta de libreta y descarga PDF, con cierre de actas y modo preliminar. |
-| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área, con umbral de 1 a 5 notas `C` manuales o parciales del bimestre actual; devuelve el bimestre usado, el conteo por alumno y el resumen de riesgo. |
-| US-3.7 Seguimiento de tareas | **Completa**: creación de tareas y actualización/consulta de entregas por matrícula. |
+| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área; el umbral global persistido (inicialmente 1) marca riesgo cuando las notas `C` manuales o parciales del bimestre actual superan ese valor. Solo administración puede cambiarlo. |
+| US-3.7 Seguimiento de tareas | **Completa**: las entregas se crean para las matrículas confirmadas, incluso cuando se confirman después de crear la tarea. |
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
 | US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según capacidad y matrícula de la sección. |
-| US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada de cambios y eventos de consolidación/cierre. |
+| US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada con nombres de estudiante, competencia y área, además de cambios y eventos de consolidación/cierre. |
 
 El inventario de pantallas por rol está en el [README del frontend](https://github.com/EducaShow-TA/workflow-frontend/blob/Development/README.md). La carga de datos manual para explorar varios de estos flujos está en [`postman/README.md`](postman/README.md). La colección de carga prepara un escenario reutilizable; la colección de pruebas ejecuta aserciones automatizadas. Ninguna sustituye la verificación de la interfaz ni cubre por sí sola todos los criterios de aceptación.
 

@@ -12,6 +12,9 @@ import pe.edu.pucp.colegio.common.model.Matricula;
 
 public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
 
+  @EntityGraph(attributePaths = {"estudiante", "estudiante.persona"})
+  List<Matricula> findAllByIdIn(List<Integer> ids);
+
   @org.springframework.data.jpa.repository.EntityGraph(
       attributePaths = {"periodo", "periodo.grado", "periodo.seccion"})
   List<Matricula> findAllByEstudianteIdIn(List<Integer> estudianteIds);

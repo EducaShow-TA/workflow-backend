@@ -28,6 +28,7 @@ import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
+import pe.edu.pucp.colegio.common.repository.ConfiguracionRiesgoAcademicoRepository;
 import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
@@ -48,6 +49,7 @@ public class MisClasesService {
   private final CalificacionRepository calificaciones;
   private final CalificacionParcialRepository notasParciales;
   private final EvaluacionParcialRepository evaluaciones;
+  private final ConfiguracionRiesgoAcademicoRepository configuracionRiesgo;
   private final Clock clock;
 
   public MisClasesService(
@@ -59,6 +61,7 @@ public class MisClasesService {
       CalificacionRepository calificaciones,
       CalificacionParcialRepository notasParciales,
       EvaluacionParcialRepository evaluaciones,
+      ConfiguracionRiesgoAcademicoRepository configuracionRiesgo,
       Clock clock) {
     this.docenteService = docenteService;
     this.sesiones = sesiones;
@@ -68,6 +71,7 @@ public class MisClasesService {
     this.calificaciones = calificaciones;
     this.notasParciales = notasParciales;
     this.evaluaciones = evaluaciones;
+    this.configuracionRiesgo = configuracionRiesgo;
     this.clock = clock;
   }
 
@@ -146,10 +150,24 @@ public class MisClasesService {
 
   @Transactional(readOnly = true)
   public RiesgoAcademicoResponse riesgoAcademico(
+      String usuario, Integer periodoId, String areaCodigo) {
+    int umbral =
+        configuracionRiesgo
+            .findById(1)
+            .orElseThrow(() -> new IllegalStateException("Falta configurar el riesgo académico"))
+            .getUmbral();
+    return calcularRiesgoAcademico(usuario, periodoId, areaCodigo, umbral);
+  }
+
+  /** Compatibilidad para llamadas internas antiguas; se utiliza la configuración persistida. */
+  @Transactional(readOnly = true)
+  public RiesgoAcademicoResponse riesgoAcademico(
+      String usuario, Integer periodoId, String areaCodigo, int ignorado) {
+    return riesgoAcademico(usuario, periodoId, areaCodigo);
+  }
+
+  private RiesgoAcademicoResponse calcularRiesgoAcademico(
       String usuario, Integer periodoId, String areaCodigo, int umbral) {
-    if (umbral < 1 || umbral > 5) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El umbral debe estar entre 1 y 5");
-    }
     Docente docente = docenteService.obtenerDeCuenta(usuario);
     Periodo periodo =
         periodos
@@ -221,7 +239,7 @@ public class MisClasesService {
                       estudiante.getPersona().getDni(),
                       nombreLista(estudiante.getPersona()),
                       notasC,
-                      notasC >= umbral);
+                      notasC > umbral);
                 })
             .toList();
     int enRiesgo = (int) alumnos.stream().filter(AlumnoRiesgoAcademicoResponse::enRiesgo).count();

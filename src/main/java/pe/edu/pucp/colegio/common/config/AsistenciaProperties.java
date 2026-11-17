@@ -23,6 +23,9 @@ public class AsistenciaProperties {
   @Min(0)
   private int ventanaDocenteAntesMinutos = 30;
 
+  @Min(0)
+  private int ventanaDocenteDespuesMinutos = 30;
+
   public int getVentanaMarcadoAntesMinutos() {
     return ventanaMarcadoAntesMinutos;
   }
@@ -53,5 +56,13 @@ public class AsistenciaProperties {
 
   public void setVentanaDocenteAntesMinutos(int ventanaDocenteAntesMinutos) {
     this.ventanaDocenteAntesMinutos = ventanaDocenteAntesMinutos;
+  }
+
+  public int getVentanaDocenteDespuesMinutos() {
+    return ventanaDocenteDespuesMinutos;
+  }
+
+  public void setVentanaDocenteDespuesMinutos(int ventanaDocenteDespuesMinutos) {
+    this.ventanaDocenteDespuesMinutos = ventanaDocenteDespuesMinutos;
   }
 }
