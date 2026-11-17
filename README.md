@@ -148,7 +148,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 
 ### Asistencia de alumnos y docentes (US-2.1, US-2.3 y US-2.4)
 
-Las sesiones se crean con sección, área, docente, fecha y horas. Un alumno solo puede tener un registro por sesión. DOCENTE y ADMINISTRADOR pueden registrar y ajustar estados (`PRESENTE`, `AUSENTE`, `TARDANZA`, `JUSTIFICADA` o `PENDIENTE_MARCAJE`). La creación de sesiones está restringida a ADMINISTRADOR.
+Las sesiones se crean con sección, área, docente, fecha y horas. Al iniciar la aplicación se materializan automáticamente las sesiones pendientes desde hoy hasta el fin de cada período activo que tenga horario; el administrador también puede generarlas manualmente. Un alumno solo puede tener un registro por sesión. DOCENTE y ADMINISTRADOR pueden registrar y ajustar estados (`PRESENTE`, `AUSENTE`, `TARDANZA`, `JUSTIFICADA` o `PENDIENTE_MARCAJE`). La creación manual de sesiones está restringida a ADMINISTRADOR.
 
 Para registrar una asistencia, envía `POST /api/v1/sesiones-clase/{sesionId}/asistencias` con:
 
@@ -159,7 +159,7 @@ Para registrar una asistencia, envía `POST /api/v1/sesiones-clase/{sesionId}/as
 }
 ```
 
-El historial se consulta con `GET /api/v1/asistencias-estudiantes/{estudianteId}/historial`, opcionalmente con `desde=YYYY-MM-DD` y `hasta=YYYY-MM-DD`. Un alumno solo puede consultar su propio historial; un apoderado, el de los alumnos con quienes tiene un vínculo familiar activo. DOCENTE y ADMINISTRADOR pueden consultar cualquier historial.
+El historial se consulta con `GET /api/v1/asistencias-estudiantes/{estudianteId}/historial`, opcionalmente con `desde=YYYY-MM-DD` y `hasta=YYYY-MM-DD`. Un alumno solo puede consultar su propio historial; un apoderado, el de los alumnos con quienes tiene un vínculo familiar activo. Un docente solo puede consultar los registros de secciones que dicta; ADMINISTRADOR puede consultar cualquier historial.
 
 Para justificar una inasistencia registrada como `AUSENTE`, alumno o apoderado envía `PATCH /api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` como `multipart/form-data`, con las partes `motivo` y `documento`. El archivo se guarda usando el almacenamiento de evidencias (`app.storage.evidence-dir`, máximo 10 MB); el historial devuelve la URL para descargarlo. La justificación cambia el estado a `JUSTIFICADA`.
 
@@ -258,7 +258,7 @@ Las rutas `/api/v1/aulas` y `/api/v1/horarios/secciones` requieren el rol `ADMIN
 }
 ```
 
-`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`.
+`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`.
 
 ### Autenticación
 
@@ -290,7 +290,7 @@ Respuesta `200`:
 }
 ```
 
-Contraseña incorrecta, cuenta inexistente, inactiva o bloqueada producen `401` con el mismo mensaje: `Credenciales inválidas`. Para reducir diferencias de tiempo que podrían revelar si el usuario existe, el backend también ejecuta una verificación BCrypt ficticia al rechazar cuentas inexistentes, inactivas o bloqueadas. Los datos de login vacíos producen `400`.
+Una contraseña incorrecta para una cuenta activa produce `401` con `Credenciales inválidas`. Según la decisión del equipo documentada en el caso BE-01b, un username o correo sin cuenta asociada devuelve `401` con `No encontramos una cuenta con ese usuario o correo.`; este mensaje permite distinguir una cuenta inexistente. Para reducir diferencias de tiempo, en ese caso el backend ejecuta una verificación BCrypt ficticia. Una cuenta inactiva devuelve un mensaje específico solo cuando la contraseña es correcta; una cuenta bloqueada devuelve `Tu cuenta está bloqueada temporalmente. Intenta más tarde.` Los datos de login vacíos producen `400`.
 
 #### `GET /api/v1/auth/me`
 
@@ -559,7 +559,7 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 
 ### Logs de errores
 
-`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
+`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. Solo se persisten errores 5xx; las respuestas 4xx, incluidas las de autenticación y rutas inexistentes, se registran en el log de aplicación, no en esta tabla. La purga diaria elimina registros con más de 90 días. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres y no se devuelven al cliente.
 
 ### Auditoría de cambios de calificaciones
 
@@ -569,7 +569,7 @@ Cada registro identifica usuario, rol, fecha/hora, acción y los valores anterio
 
 ### Pensiones y cobranza (US-1.3–US-1.6, US-1.10, US-1.12)
 
-Todas las rutas de este módulo requieren rol `ADMINISTRADOR`. La confirmación de matrícula crea el compromiso asociado a la matrícula y una primera boleta automática. Las cuotas dividen el monto total en partes de dos decimales; cualquier residuo de redondeo se asigna a la última cuota. Las siguientes boletas se generan con el proceso diario, que también marca como `EN_MORA` las boletas `PENDIENTE` cuyo vencimiento ya pasó. La mora no agrega recargo monetario porque no hay una regla de penalidad configurada.
+Todas las rutas de este módulo requieren rol `ADMINISTRADOR`. La confirmación de matrícula crea el compromiso asociado a la matrícula y una primera boleta automática. Las cuotas dividen el monto total en partes de dos decimales; cualquier residuo de redondeo se asigna a la última cuota. Las siguientes boletas se generan con el proceso diario de la 01:10 (hora de Lima), que también marca como `EN_MORA` las boletas `PENDIENTE` cuyo vencimiento ya pasó. Al iniciar la aplicación se ejecuta un catch-up idempotente para generar las cuotas vencidas del cronograma y aplicar la mora acumulada mientras estuvo apagada. La mora no agrega recargo monetario porque no hay una regla de penalidad configurada.
 
 `GET /api/v1/compromisos-pago?estudianteId=31` lista compromisos; `GET /api/v1/compromisos-pago/{id}` consulta uno. Las boletas se consultan mediante `GET /api/v1/boletas-pension` con filtros opcionales `estudianteId`, `periodoId`, `mes` (`YYYY-MM`) y `estado` (`PENDIENTE`, `PAGADA`, `EN_MORA`). `GET /api/v1/boletas-pension/{id}` consulta el detalle.
 
@@ -771,6 +771,8 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 | `LOG_FILE` | Archivo de logs | `logs/colegio-backend.log` |
 | `MAIL_USERNAME` | Cuenta SMTP para la recuperación de contraseña | Vacío |
 | `MAIL_PASSWORD` | Contraseña SMTP (en Gmail, una contraseña de aplicación) | Vacío |
+
+Al iniciar, el backend ejecuta catch-up de finanzas y sesiones automáticamente. Puede desactivarse con `APP_JOBS_CATCH_UP_ON_STARTUP=false` (propiedad `app.jobs.catch-up-on-startup`).
 
 ## Verificación manual
 
