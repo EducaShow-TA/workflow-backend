@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
     uniqueConstraints =
         @UniqueConstraint(
             name = "uk_calificacion_periodo_matricula_competencia",
-            columnNames = {"periodo_id", "matricula_id", "competencia_codigo"}))
+            columnNames = {"periodo_id", "matricula_id", "competencia_codigo", "bimestre"}))
 public class Calificacion extends EntidadBase {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "periodo_id", nullable = false)
@@ -25,6 +25,8 @@ public class Calificacion extends EntidadBase {
 
   @Column(nullable = false, length = 2)
   private String nota;
+
+  @Column private Integer bimestre;
 
   @Column(name = "puntaje_consolidado", precision = 6, scale = 4)
   private java.math.BigDecimal puntajeConsolidado;
@@ -83,6 +85,14 @@ public class Calificacion extends EntidadBase {
 
   public void setNota(String nota) {
     this.nota = nota;
+  }
+
+  public Integer getBimestre() {
+    return bimestre;
+  }
+
+  public void setBimestre(Integer bimestre) {
+    this.bimestre = bimestre;
   }
 
   public java.math.BigDecimal getPuntajeConsolidado() {

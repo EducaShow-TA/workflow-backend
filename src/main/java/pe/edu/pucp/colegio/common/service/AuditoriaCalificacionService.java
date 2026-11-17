@@ -32,7 +32,8 @@ public class AuditoriaCalificacionService {
             calificacion.getNota(),
             calificacion.getPuntajeConsolidado(),
             calificacion.getObservacion(),
-            calificacion.getConsolidada());
+            calificacion.getConsolidada(),
+            calificacion.getBimestre());
   }
 
   @Transactional
@@ -51,9 +52,12 @@ public class AuditoriaCalificacionService {
         nueva == null || !Boolean.TRUE.equals(nueva.getActive()) ? null : nueva.getConsolidada();
     String observacionNueva =
         nueva == null || !Boolean.TRUE.equals(nueva.getActive()) ? null : nueva.getObservacion();
+    Integer bimestreNuevo =
+        nueva == null || !Boolean.TRUE.equals(nueva.getActive()) ? null : nueva.getBimestre();
     if (Objects.equals(notaAnterior, notaNueva)
         && Objects.equals(puntajeAnterior, puntajeNuevo)
         && Objects.equals(anterior == null ? null : anterior.consolidada(), consolidadaNueva)
+        && Objects.equals(anterior == null ? null : anterior.bimestre(), bimestreNuevo)
         && Objects.equals(observacionAnterior, observacionNueva)) {
       return;
     }
@@ -74,6 +78,7 @@ public class AuditoriaCalificacionService {
             referencia.getMatricula().getEstudiante().getId(),
             referencia.getCompetencia().getCodigo(),
             null,
+            referencia.getBimestre(),
             notaAnterior,
             notaNueva,
             puntajeAnterior,
@@ -126,6 +131,7 @@ public class AuditoriaCalificacionService {
             referencia.getMatricula().getEstudiante().getId(),
             referencia.getEvaluacion().getCompetencia().getCodigo(),
             referencia.getEvaluacion().getId(),
+            referencia.getEvaluacion().getBimestre(),
             notaAnterior,
             notaNueva,
             null,
@@ -152,7 +158,7 @@ public class AuditoriaCalificacionService {
   }
 
   public record FinalAnterior(
-      String nota, BigDecimal puntaje, String observacion, Boolean consolidada) {}
+      String nota, BigDecimal puntaje, String observacion, Boolean consolidada, Integer bimestre) {}
 
   public record ParcialAnterior(String nota, Boolean justificada) {}
 }

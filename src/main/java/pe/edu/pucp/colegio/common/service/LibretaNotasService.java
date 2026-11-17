@@ -18,6 +18,7 @@ import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.CompetenciaLibreta;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.EvaluacionLibreta;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.PeriodoLibreta;
 import pe.edu.pucp.colegio.common.model.Area;
+import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.model.Competencia;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
@@ -27,6 +28,7 @@ import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
@@ -49,6 +51,7 @@ public class LibretaNotasService {
   private final MatriculaRepository matriculas;
   private final AreaRepository areas;
   private final EvaluacionParcialRepository evaluaciones;
+  private final CalificacionRepository calificaciones;
   private final CalificacionParcialRepository notasParciales;
   private final ConsolidacionLogroService consolidacion;
   private final SesionHorarioRepository asignacionesHorario;
@@ -63,6 +66,7 @@ public class LibretaNotasService {
       MatriculaRepository matriculas,
       AreaRepository areas,
       EvaluacionParcialRepository evaluaciones,
+      CalificacionRepository calificaciones,
       CalificacionParcialRepository notasParciales,
       ConsolidacionLogroService consolidacion,
       SesionHorarioRepository asignacionesHorario) {
@@ -75,6 +79,7 @@ public class LibretaNotasService {
     this.matriculas = matriculas;
     this.areas = areas;
     this.evaluaciones = evaluaciones;
+    this.calificaciones = calificaciones;
     this.notasParciales = notasParciales;
     this.consolidacion = consolidacion;
     this.asignacionesHorario = asignacionesHorario;
@@ -168,6 +173,21 @@ public class LibretaNotasService {
                 evaluacionIds, matriculaSolicitada.getId());
     Map<Integer, CalificacionParcial> notasPorEvaluacion = new HashMap<>();
     notas.forEach(nota -> notasPorEvaluacion.put(nota.getEvaluacion().getId(), nota));
+    Map<String, Calificacion> notasManualesPorCompetenciaYBimestre = new HashMap<>();
+    calificaciones
+        .findAllByPeriodoIdAndMatriculaIdAndActiveTrue(periodoId, matriculaSolicitada.getId())
+        .stream()
+        .filter(nota -> !Boolean.TRUE.equals(nota.getConsolidada()))
+        .forEach(
+            nota -> {
+              Integer bimestreNota =
+                  nota.getBimestre() == null
+                      ? BimestreAcademico.actual(
+                          periodoSolicitado, nota.getFechaRegistro().toLocalDate())
+                      : nota.getBimestre();
+              notasManualesPorCompetenciaYBimestre.put(
+                  claveManual(nota.getCompetencia().getCodigo(), bimestreNota), nota);
+            });
     List<PeriodoLibreta> periodosLibreta =
         List.of(
             periodoLibreta(
@@ -175,7 +195,9 @@ public class LibretaNotasService {
                 competenciasPermitidas,
                 areasActivas,
                 evaluacionesBimestre,
-                notasPorEvaluacion));
+                notasPorEvaluacion,
+                notasManualesPorCompetenciaYBimestre,
+                bimestre));
     return new LibretaNotasResponse(
         estudianteId,
         estudiante.getPersona().getNombreCompleto(),
@@ -191,7 +213,9 @@ public class LibretaNotasService {
       Set<String> competenciasPermitidas,
       List<Area> areasActivas,
       List<EvaluacionParcial> evaluacionesBimestre,
-      Map<Integer, CalificacionParcial> notasPorEvaluacion) {
+      Map<Integer, CalificacionParcial> notasPorEvaluacion,
+      Map<String, Calificacion> notasManualesPorCompetenciaYBimestre,
+      Integer bimestre) {
     Periodo periodo = matricula.getPeriodo();
     Map<String, List<EvaluacionParcial>> evaluacionesPorCompetencia = new HashMap<>();
     evaluacionesBimestre.forEach(
@@ -221,7 +245,9 @@ public class LibretaNotasService {
                                       competencia,
                                       evaluacionesPorCompetencia.getOrDefault(
                                           competencia.getCodigo(), List.of()),
-                                      notasPorEvaluacion))
+                                      notasPorEvaluacion,
+                                      notasManualesPorCompetenciaYBimestre.get(
+                                          claveManual(competencia.getCodigo(), bimestre))))
                           .toList();
                   return competenciasLibreta.isEmpty()
                       ? null
@@ -244,7 +270,17 @@ public class LibretaNotasService {
   private CompetenciaLibreta competenciaLibreta(
       Competencia competencia,
       List<EvaluacionParcial> evaluacionesCompetencia,
-      Map<Integer, CalificacionParcial> notasPorEvaluacion) {
+      Map<Integer, CalificacionParcial> notasPorEvaluacion,
+      Calificacion notaManual) {
+    if (evaluacionesCompetencia.isEmpty() && notaManual != null) {
+      return new CompetenciaLibreta(
+          competencia.getCodigo(),
+          competencia.getNombre(),
+          notaManual.getNota(),
+          notaManual.getPuntajeConsolidado(),
+          notaManual.getObservacion(),
+          List.of());
+    }
     List<CalificacionParcial> notas =
         evaluacionesCompetencia.stream()
             .map(evaluacion -> notasPorEvaluacion.get(evaluacion.getId()))
@@ -271,6 +307,10 @@ public class LibretaNotasService {
         logro.puntajeConsolidado(),
         null,
         detalle);
+  }
+
+  private String claveManual(String competenciaCodigo, Integer bimestre) {
+    return competenciaCodigo + ":" + (bimestre == null ? "LEGADO" : bimestre);
   }
 
   private Set<String> exigirAccesoDocente(CuentaUsuario cuenta, Periodo periodo) {

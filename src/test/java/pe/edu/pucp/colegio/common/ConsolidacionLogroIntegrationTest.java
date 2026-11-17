@@ -108,6 +108,7 @@ class ConsolidacionLogroIntegrationTest {
                                 periodoId,
                                 matriculaId,
                                 competenciaCodigo,
+                                1,
                                 "AD",
                                 null,
                                 "https://example.org/evidencia")))))
@@ -375,6 +376,7 @@ class ConsolidacionLogroIntegrationTest {
       Integer periodoId,
       Integer matriculaId,
       String competenciaCodigo,
+      Integer bimestre,
       String nota,
       String observacion,
       String evidenciaUrl) {}

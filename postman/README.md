@@ -48,6 +48,6 @@ Esta carga facilita explorar matrícula, vacantes, apoderados, pagos, roles, cat
 - **US-1.6 Morosidad:** el proceso diario actualiza las boletas vencidas impagas y recupera el trabajo pendiente al iniciar la aplicación. No hay una ruta para adelantar el reloj ni una comprobación Postman determinista.
 - **US-1.12 Pago en línea:** la API registra un pago y genera comprobante, pero no procesa pagos mediante un proveedor externo.
 - **Recuperación de contraseña:** el flujo completo depende de un servicio SMTP y de un buzón accesible.
-- **Riesgo académico (US-3.4):** `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={n}` devuelve las notas finales `C` por alumno para las competencias activas del área y marca los que alcanzan el umbral (1–5; predeterminado 2). Requiere que el docente autenticado dicte esa área en la sección.
+- **Riesgo académico (US-3.4):** `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={n}` devuelve las notas `C` manuales y parciales no justificadas del bimestre actual del período y marca a quienes alcanzan el umbral (1–5; predeterminado 2). El bimestre se calcula en cuatro tramos según las fechas del período. Requiere que el docente autenticado dicte esa área en la sección.
 
 Los pagos del módulo de pensiones requieren rol `ADMINISTRADOR`. Para contratos de rutas, formatos de respuesta y limitaciones adicionales, consulta [el README principal](../README.md).

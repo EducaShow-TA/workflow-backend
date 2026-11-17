@@ -67,14 +67,17 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/tareas` | Crear una tarea con seguimiento por matrícula |
 | `GET` | `/api/v1/tareas?periodoId=` | Consultar tareas y entregas del periodo |
 | `PATCH` | `/api/v1/tareas/{tareaId}/entregas/{matriculaId}` | Actualizar cumplimiento de una entrega |
-| `POST` | `/api/v1/calificaciones` | Registrar calificación final y evidencia mediante multipart |
-| `GET` | `/api/v1/seguimiento/competencias/{codigo}` | Consultar calificaciones y evidencias de una competencia |
+| `POST` | `/api/v1/calificaciones` | Registrar calificación manual por bimestre y evidencia mediante multipart |
+| `GET` | `/api/v1/seguimiento/competencias/{codigo}?periodoId=&bimestre=` | Consultar calificaciones y evidencias de una competencia y bimestre |
 | `GET` | `/api/v1/evidencias/{calificacionId}/archivo` | Descargar archivo adjunto a una calificación |
 | `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
 | `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}` | Descargar PDF oficial tras cierre de actas o informe preliminar con marca de borrador (ADMINISTRADOR, DOCENTE, apoderado vinculado) |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/apoderados` | Listar vínculos familiares activos del estudiante |
+| `POST` | `/api/v1/estudiantes/{estudianteId}/apoderados` | Crear o reactivar el vínculo con un apoderado |
+| `PUT` | `/api/v1/estudiantes/{estudianteId}/apoderados/{apoderadoId}` | Editar parentesco y condición de apoderado principal |
 | `GET` | `/api/v1/apoderados/mis-estudiantes` | Listar estudiantes vinculados al apoderado autenticado |
 | `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
 | `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
@@ -95,7 +98,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marcar salida propia (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases` | Secciones y áreas del docente con sus competencias activas (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases/{periodoId}/alumnos` | Alumnos confirmados de una de sus clases, para calificar (solo DOCENTE) |
-| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={1..5}` | Contar notas finales C y detectar alumnos en riesgo en una de sus áreas (solo DOCENTE) |
+| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={1..5}` | Contar notas C del bimestre actual según las fechas del período (solo DOCENTE) |
 | `POST` | `/api/v1/asistencias-docentes` | Registrar asistencia de cualquier docente (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes?fecha=&docenteId=` | Consultar asistencias de docentes (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes/{asistenciaId}` | Consultar una asistencia docente (solo ADMINISTRADOR) |
@@ -382,7 +385,7 @@ Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las
 
 #### `POST /api/v1/estudiantes`
 
-Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO` y sus vínculos familiares en una sola transacción. No se recibe el rol en el cuerpo; la contraseña se almacena con BCrypt. Admite DNI de 8 dígitos o pasaporte alfanumérico de 6 a 12 caracteres. Devuelve `201` con:
+Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO`, sus vínculos familiares y las cuentas `APODERADO` que hagan falta en una sola transacción. No se recibe el rol en el cuerpo; las contraseñas se almacenan con BCrypt. Admite DNI de 8 dígitos o pasaporte alfanumérico de 6 a 12 caracteres. Devuelve `201`; cuando se crea una cuenta de apoderado incluye su username y contraseña temporal de un solo envío en `cuentasApoderados` (si ya tenía cuenta APODERADO, se reutiliza y no se devuelve contraseña):
 
 ```json
 {
@@ -391,7 +394,10 @@ Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO` y s
   "username": "alumno01",
   "rol": "ALUMNO",
   "dni": "12345678",
-  "nombreCompleto": "Ana Pérez Rojas"
+  "nombreCompleto": "Ana Pérez Rojas",
+  "cuentasApoderados": [
+    { "dni": "87654321", "username": "usuario87654321", "contrasenhaTemporal": "Temporal1!xYz" }
+  ]
 }
 ```
 
@@ -422,6 +428,12 @@ Lista estudiantes activos y sus matrículas en una página. Acepta filtros opcio
 #### `POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar`
 
 `cuentaUsuarioId` es el ID entero de una cuenta existente. No recibe cuerpo. Asigna el rol `ALUMNO` y crea el perfil de estudiante asociado a la Persona de la cuenta; responde `200` con la misma estructura de `EstudianteResponse`. La cuenta debe existir y estar vinculada a una Persona. Si no existe, responde `404`; si no tiene Persona o ya tiene perfil de estudiante, responde `400` o `409`.
+
+#### Vínculos de apoderados
+
+Las tres rutas de vínculos requieren rol `ADMINISTRADOR`. `GET /api/v1/estudiantes/{estudianteId}/apoderados` lista los vínculos activos. `POST` en la misma ruta recibe los campos de un elemento de `apoderados` de la creación de estudiante (documento, nombres, apellidos, celular, correo opcional, parentesco y `esPrincipal`); crea o reutiliza la Persona y el perfil APODERADO, crea una cuenta `APODERADO` si no existe y responde `201`. Para cuentas nuevas devuelve `username` y `contrasenhaTemporal` en esa respuesta; la contraseña solo se muestra al crearla. El username se genera como `usuario` más el documento.
+
+`PUT /api/v1/estudiantes/{estudianteId}/apoderados/{apoderadoId}` recibe `{ "parentesco": "MADRE", "esPrincipal": true }` y permite editar el vínculo y, opcionalmente, los datos de contacto (`nombres`, `apellidoPaterno`, `apellidoMaterno`, `celular`, `correoElectronico`). Al marcar uno como principal, los demás vínculos activos dejan de ser principales. Si el estudiante todavía no tiene vínculos, el `POST` permite crear el primero; debe marcarse principal para poder confirmar su matrícula. Las rutas de vínculos responden `404` si el estudiante o vínculo no existe y `409` si el apoderado ya está vinculado.
 
 ### Ventana de matrícula (US-1.1)
 
@@ -820,7 +832,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-1.1 Ventana de matrícula | **Completa**: permite configurar, consultar, editar y dar de baja ventanas; muestra estados `PENDIENTE`, `VIGENTE` y `VENCIDO`, valida superposiciones y el backend bloquea matrículas fuera de vigencia. |
 | US-1.2 Registro y asignación de estudiantes | **Completa**: alta de estudiantes y apoderados, listado filtrado/paginado, matrícula por periodo, confirmación y retiro lógico. |
 | US-1.7 Vacantes por grado y sección | **Completa**: capacidad, vacantes disponibles y rechazo de una reducción inferior a la ocupación activa. |
-| US-1.9 Datos de apoderados | **Parcial**: el alta de estudiantes y la carga CSV registran o actualizan datos y vínculos familiares; no hay una pantalla o ruta independiente para editar un vínculo existente. |
+| US-1.9 Datos de apoderados | **Completa en backend**: el alta de estudiante crea cuentas APODERADO cuando faltan; las rutas administrativas permiten consultar, agregar/reactivar y editar vínculos familiares. |
 | US-3.5 Áreas y competencias | **Completa**: CRUD y baja lógica; la baja de una competencia se bloquea con `409` cuando existen calificaciones finales o parciales, y `tieneNotasRegistradas` refleja esos registros. |
 | US-4.3 Bloques y franjas horarias | **Completa**: plantillas, bloques y recreos calculados, con validación de duración y estado; la interfaz permite administrar plantillas. |
 | US-5.1 Baja lógica de usuarios | **Completa**: se conserva el historial y una cuenta inactiva no puede iniciar sesión ni usar tokens previos. |
@@ -841,7 +853,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-3.1 Reglas de consolidación | **Completa**: umbrales configurables por competencia. |
 | US-3.2 Calificaciones por competencia | **Completa**: evaluaciones parciales ponderadas, calificaciones cualitativas y auditoría de cambios. |
 | US-3.3 Libretas e informes de progreso | **Completa**: consulta de libreta y descarga PDF, con cierre de actas y modo preliminar. |
-| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área, con umbral de 1 a 5 notas finales `C`; devuelve el conteo por alumno y el resumen de riesgo. |
+| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área, con umbral de 1 a 5 notas `C` manuales o parciales del bimestre actual; devuelve el bimestre usado, el conteo por alumno y el resumen de riesgo. |
 | US-3.7 Seguimiento de tareas | **Completa**: creación de tareas y actualización/consulta de entregas por matrícula. |
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
