@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CambiarRolCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
@@ -52,5 +53,13 @@ public class CuentaUsuarioController {
       @Valid @RequestBody CambiarEstadoCuentaRequestDTO request,
       Authentication authentication) {
     return ResponseEntity.ok(servicio.cambiarEstado(id, request, authentication.getName()));
+  }
+
+  @PatchMapping("/{id}/rol")
+  public ResponseEntity<CuentaResponseDTO> cambiarRol(
+      @PathVariable Integer id,
+      @Valid @RequestBody CambiarRolCuentaRequestDTO request,
+      Authentication authentication) {
+    return ResponseEntity.ok(servicio.cambiarRol(id, request, authentication.getName()));
   }
 }

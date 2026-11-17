@@ -11,6 +11,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
+import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
+import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.dto.CuentaTemporalResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
@@ -51,6 +54,7 @@ public class EstudianteService {
   private final pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas;
   private final ApoderadoRepository apoderados;
   private final VinculoFamiliarRepository vinculos;
+  private final RegistroAuditoriaRepository auditorias;
 
   public EstudianteService(
       PersonaRepository personas,
@@ -59,7 +63,8 @@ public class EstudianteService {
       PasswordEncoder passwordEncoder,
       pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas,
       ApoderadoRepository apoderados,
-      VinculoFamiliarRepository vinculos) {
+      VinculoFamiliarRepository vinculos,
+      RegistroAuditoriaRepository auditorias) {
     this.personas = personas;
     this.estudiantes = estudiantes;
     this.cuentas = cuentas;
@@ -67,6 +72,7 @@ public class EstudianteService {
     this.matriculas = matriculas;
     this.apoderados = apoderados;
     this.vinculos = vinculos;
+    this.auditorias = auditorias;
   }
 
   @Transactional(readOnly = true)
@@ -429,7 +435,8 @@ public class EstudianteService {
   }
 
   @Transactional
-  public EstudianteResponse asignarCuentaExistente(Integer cuentaUsuarioId) {
+  public EstudianteResponse asignarCuentaExistente(
+      Integer cuentaUsuarioId, String usernameResponsable) {
     CuentaUsuario cuenta =
         cuentas
             .findById(cuentaUsuarioId)
@@ -459,8 +466,16 @@ public class EstudianteService {
     estudiante.setPersona(persona);
     estudiante = estudiantes.save(estudiante);
 
+    Rol rolAnterior = cuenta.getRol();
     cuenta.setRol(Rol.ALUMNO);
     cuentas.save(cuenta);
+    CuentaUsuario responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
+    auditorias.save(
+        new RegistroAuditoria(
+            responsable == null ? null : responsable.getId(),
+            responsable == null ? null : responsable.getRol().name(),
+            AccionAuditoria.ACTUALIZAR,
+            "Cambio de rol de cuenta " + cuenta.getUsername() + ": " + rolAnterior + " -> ALUMNO"));
 
     return new EstudianteResponse(
         estudiante.getId(),
