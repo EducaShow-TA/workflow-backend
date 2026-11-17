@@ -153,6 +153,28 @@ class FinanzasPaginacionIntegrationTest {
   }
 
   @Test
+  void excluyeBoletasDeMatriculasRetiradasDeListadosYTotales() throws Exception {
+    jdbc.update("update matriculas set estado='RETIRADA' where estudiante_id=?", estudiante1);
+
+    mvc.perform(get("/api/v1/boletas-pension"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2));
+    mvc.perform(get("/api/v1/reportes/boletas-pension"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.boletas.length()").value(2))
+        .andExpect(jsonPath("$.montoPendiente").value(400))
+        .andExpect(jsonPath("$.familiasMorosas").value(1));
+    mvc.perform(get("/api/v1/reportes/boletas-pension/pagina"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pagina.totalElements").value(2))
+        .andExpect(jsonPath("$.montoPendiente").value(400))
+        .andExpect(jsonPath("$.familiasMorosas").value(1));
+    mvc.perform(get("/api/v1/boletas-pension/estudiantes"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+  }
+
+  @Test
   void conservaContratosAnterioresYElCatalogoSoloDevuelveEstudiantes() throws Exception {
     mvc.perform(get("/api/v1/boletas-pension").param("estado", "PAGADA"))
         .andExpect(status().isOk())

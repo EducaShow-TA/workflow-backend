@@ -44,7 +44,9 @@ public interface BoletaPensionRepository
       "select distinct new pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse("
           + "e.id, concat(p.nombre, ' ', p.apellidoPaterno, ' ', p.apellidoMaterno)) "
           + "from BoletaPension b join b.compromiso c join c.matricula m join m.estudiante e join e.persona p "
-          + "where b.active = true order by 2, 1")
+          + "where b.active = true "
+          + "and m.estado <> pe.edu.pucp.colegio.common.model.EstadoMatricula.RETIRADA "
+          + "order by 2, 1")
   List<EstudianteConBoletasResponse> listarEstudiantesConBoletas();
 
   boolean existsByCompromisoIdAndMesCobroAndActiveTrue(Integer compromisoId, LocalDate mesCobro);
