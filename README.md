@@ -152,6 +152,9 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/auditoria-finanzas` | Consultar auditoría paginada de transacciones y pagos (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/auditoria-finanzas/resumen` | Totales de eventos, pagos y monto cobrado con los mismos filtros |
+| `GET` | `/api/v1/auditoria-finanzas/csv` | Exportar a CSV todos los eventos filtrados |
 
 ### Asistencia de alumnos y docentes (US-2.1, US-2.3 y US-2.4)
 
@@ -590,6 +593,12 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 
 Cada registro identifica usuario, rol, fecha/hora, acción y los valores anteriores/nuevos. En calificaciones finales se guardan nota, puntaje consolidado, indicador de consolidación y observación; en las parciales, nota y estado de justificación. También se auditan los resultados recalculados, la materialización de faltantes al cerrar actas y las calificaciones parciales desactivadas junto con una evaluación. Los eventos se conservan en `auditoria_calificaciones`, separada de las tablas académicas y sin una operación de edición o borrado expuesta por la API.
 
+### Auditoría de transacciones y pagos (US-5.4)
+
+`GET /api/v1/auditoria-finanzas` está restringido a `ADMINISTRADOR` y devuelve los eventos más recientes primero, paginados (20 por página por defecto, máximo 100). Admite filtros opcionales `desde` y `hasta` (fechas ISO, día completo), `accion` (`COMPROMISO_GENERADO`, `BOLETA_GENERADA`, `PAGO_REGISTRADO`, `BOLETA_EN_MORA`), `medioPago`, `estudiante` (nombre o DNI), `gradoId`, `seccionId`, `comprobante` y `boletaId`. `/resumen` devuelve los totales con los mismos filtros y `/csv` exporta todos los eventos filtrados.
+
+Cada evento se guarda en `auditoria_finanzas` con los datos tal como estaban en ese momento: usuario y rol, estudiante, grado y sección, apoderado titular del compromiso, boleta y mes, estado anterior y nuevo, monto, medio de pago y número de comprobante. La generación automática de boletas y el paso a mora del proceso diario se registran con el usuario `SISTEMA`. El registro empieza con la migración V36; los textos anteriores de `registros_auditoria` no se convierten.
+
 ### Pensiones y cobranza (US-1.3–US-1.6, US-1.10, US-1.12)
 
 Todas las rutas de este módulo requieren rol `ADMINISTRADOR`. La confirmación de matrícula crea el compromiso asociado a la matrícula y una primera boleta automática. Las cuotas dividen el monto total en partes de dos decimales; cualquier residuo de redondeo se asigna a la última cuota. Las siguientes boletas se generan con el proceso diario de la 01:10 (hora de Lima), que también marca como `EN_MORA` las boletas `PENDIENTE` cuyo vencimiento ya pasó. Al iniciar la aplicación se ejecuta un catch-up idempotente para generar las cuotas vencidas del cronograma y aplicar la mora acumulada mientras estuvo apagada. La mora no agrega recargo monetario porque no hay una regla de penalidad configurada.
@@ -871,6 +880,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
 | US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según capacidad y matrícula de la sección. |
 | US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada con nombres de estudiante, competencia y área, además de cambios y eventos de consolidación/cierre. |
+| US-5.4 Auditoría de transacciones y pagos | **Completa**: registro estructurado de compromisos, boletas generadas, pagos y pasos a mora con estado anterior y nuevo, apoderado titular, medio de pago, comprobante y usuario; consulta administrativa paginada con filtros, totales, historial por boleta y exportación CSV. |
 | US-2.6 Reporte de inasistencias y tardanzas | **Completa**: consolidado por rango de fechas, grado y sección con totales de asistencias, tardanzas e inasistencias, para administración y docentes, con exportación a CSV. |
 | US-2.7 Historial de asistencia del alumno o apoderado | **Completa**: historial diario filtrable por fechas, restringido al propio alumno o a los hijos vinculados del apoderado; `mi-ficha` identifica al alumno autenticado. La interfaz ofrece un portal del apoderado (panel por hijo e historial) y un portal del estudiante (panel y calendario mensual con cada clase). |
 | US-4.6 Horario consolidado del docente | **Completa**: grilla única con todas las secciones del docente, con área, grado, sección y aula en cada bloque, y vista semanal o del día actual. |

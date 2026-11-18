@@ -53,6 +53,7 @@ public class FinanzasService {
   private final CuentaUsuarioRepository usuarios;
   private final Clock clock;
   private final TransactionTemplate transaccionPorCompromiso;
+  private final AuditoriaFinancieraService auditoriaFinanciera;
 
   public FinanzasService(
       CompromisoPagoRepository compromisos,
@@ -62,7 +63,8 @@ public class FinanzasService {
       RegistroAuditoriaRepository auditoria,
       CuentaUsuarioRepository usuarios,
       Clock clock,
-      PlatformTransactionManager transactionManager) {
+      PlatformTransactionManager transactionManager,
+      AuditoriaFinancieraService auditoriaFinanciera) {
     this.compromisos = compromisos;
     this.boletas = boletas;
     this.comprobantes = comprobantes;
@@ -73,6 +75,7 @@ public class FinanzasService {
     this.transaccionPorCompromiso = new TransactionTemplate(transactionManager);
     this.transaccionPorCompromiso.setPropagationBehavior(
         TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    this.auditoriaFinanciera = auditoriaFinanciera;
   }
 
   @Transactional
@@ -120,6 +123,7 @@ public class FinanzasService {
     c.setPrimerVencimiento(request.primerVencimiento());
     c.setDiaVencimiento(request.diaVencimiento());
     c = compromisos.save(c);
+    auditoriaFinanciera.registrarCompromiso(c);
     generarBoleta(c, YearMonth.from(c.getPrimerVencimiento()), MecanismoGeneracion.AUTOMATICO);
     return respuesta(c);
   }
@@ -223,8 +227,10 @@ public class FinanzasService {
     }
     comprobante.setNumeroComprobante(numeroComprobante);
     comprobante = comprobantes.save(comprobante);
+    EstadoBoleta estadoAnterior = boleta.getEstadoPago();
     boleta.setEstadoPago(EstadoBoleta.PAGADA);
     boletas.save(boleta);
+    auditoriaFinanciera.registrarPago(boleta, estadoAnterior, comprobante);
     registrarAuditoria(
         AccionAuditoria.REGISTRAR_PAGO,
         "Comprobante "
@@ -337,7 +343,11 @@ public class FinanzasService {
               boletas.findAllByActiveTrueAndEstadoPagoInAndFechaVencimientoBefore(
                   List.of(EstadoBoleta.PENDIENTE), hoy)) {
             if (b.getCompromiso().getMatricula().getEstado() != EstadoMatricula.RETIRADA) {
+              EstadoBoleta estadoAnterior = b.getEstadoPago();
               b.marcarEnMora(hoy);
+              if (b.getEstadoPago() != estadoAnterior) {
+                auditoriaFinanciera.registrarMora(b, estadoAnterior);
+              }
             }
           }
         });
@@ -380,6 +390,7 @@ public class FinanzasService {
     b.setMecanismoGeneracion(mecanismo);
     b.setFechaGeneracion(LocalDateTime.now(clock));
     b = boletas.save(b);
+    auditoriaFinanciera.registrarBoletaGenerada(b);
     registrarAuditoria(
         AccionAuditoria.GENERAR_BOLETA,
         "Boleta " + b.getId() + " generada " + mecanismo + " para " + mes);
