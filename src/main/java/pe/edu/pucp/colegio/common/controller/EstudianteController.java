@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
+import pe.edu.pucp.colegio.common.dto.VerificacionApoderadoRequest;
+import pe.edu.pucp.colegio.common.dto.VerificacionApoderadoResponse;
+import pe.edu.pucp.colegio.common.dto.VincularApoderadoRequest;
 import pe.edu.pucp.colegio.common.dto.VinculoFamiliarResponse;
 import pe.edu.pucp.colegio.common.dto.VinculoFamiliarUpdateRequest;
 import pe.edu.pucp.colegio.common.service.EstudianteService;
@@ -62,10 +65,17 @@ public class EstudianteController {
     return estudiantes.listarApoderados(estudianteId);
   }
 
+  @PostMapping("/{estudianteId}/apoderados/verificacion")
+  public VerificacionApoderadoResponse verificarApoderado(
+      @PathVariable Integer estudianteId,
+      @Valid @RequestBody VerificacionApoderadoRequest request,
+      Authentication authentication) {
+    return estudiantes.verificarApoderado(estudianteId, request, authentication.getName());
+  }
+
   @PostMapping("/{estudianteId}/apoderados")
   public ResponseEntity<VinculoFamiliarResponse> agregarApoderado(
-      @PathVariable Integer estudianteId,
-      @Valid @RequestBody EstudianteCreateRequest.ApoderadoCreateRequest request) {
+      @PathVariable Integer estudianteId, @Valid @RequestBody VincularApoderadoRequest request) {
     return ResponseEntity.status(201).body(estudiantes.agregarApoderado(estudianteId, request));
   }
 

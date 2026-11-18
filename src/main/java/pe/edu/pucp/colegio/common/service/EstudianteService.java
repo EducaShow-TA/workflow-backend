@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.common.service;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,6 +20,9 @@ import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
+import pe.edu.pucp.colegio.common.dto.VerificacionApoderadoRequest;
+import pe.edu.pucp.colegio.common.dto.VerificacionApoderadoResponse;
+import pe.edu.pucp.colegio.common.dto.VincularApoderadoRequest;
 import pe.edu.pucp.colegio.common.dto.VinculoFamiliarResponse;
 import pe.edu.pucp.colegio.common.dto.VinculoFamiliarUpdateRequest;
 import pe.edu.pucp.colegio.common.model.Apoderado;
@@ -257,8 +261,61 @@ public class EstudianteService {
   }
 
   @Transactional
+  public VerificacionApoderadoResponse verificarApoderado(
+      Integer estudianteId, VerificacionApoderadoRequest request, String usernameResponsable) {
+    validarDocumento(request.tipoDocumento(), request.numeroDocumento());
+    Estudiante estudiante = obtenerEstudiante(estudianteId);
+    CuentaUsuario responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
+    auditorias.save(
+        new RegistroAuditoria(
+            responsable == null ? null : responsable.getId(),
+            responsable == null ? null : responsable.getRol().name(),
+            AccionAuditoria.CONSULTAR_DOCUMENTO,
+            "Verificación de "
+                + request.tipoDocumento()
+                + " "
+                + request.numeroDocumento()
+                + " para vincular apoderado al estudiante "
+                + estudiante.getId()));
+
+    if (estudiante.getPersona().getDni().equals(request.numeroDocumento())) {
+      return VerificacionApoderadoResponse.rechazada(
+          true, "El estudiante no puede registrarse como su propio apoderado");
+    }
+    Persona persona = personas.findByDni(request.numeroDocumento()).orElse(null);
+    if (persona == null) {
+      return VerificacionApoderadoResponse.nueva();
+    }
+    if (!request.tipoDocumento().equals(persona.getTipoDocumento())) {
+      return VerificacionApoderadoResponse.rechazada(
+          true, "El tipo de documento no coincide con el registrado");
+    }
+    Optional<CuentaUsuario> cuenta = cuentas.findByPersonaDni(persona.getDni());
+    if (cuenta.isPresent()
+        && (cuenta.get().getRol() != Rol.APODERADO
+            || !Boolean.TRUE.equals(cuenta.get().getActive()))) {
+      return VerificacionApoderadoResponse.rechazada(
+          true, "La persona ya tiene una cuenta con otro rol o inactiva");
+    }
+    boolean yaVinculado =
+        apoderados
+            .findByPersonaDni(persona.getDni())
+            .flatMap(a -> vinculos.findByEstudianteIdAndApoderadoId(estudianteId, a.getId()))
+            .filter(v -> Boolean.TRUE.equals(v.getActive()))
+            .isPresent();
+    return new VerificacionApoderadoResponse(
+        true,
+        !yaVinculado,
+        yaVinculado ? "El apoderado ya está vinculado al estudiante" : null,
+        persona.getNombreCompleto(),
+        enmascararCelular(persona.getTelefono()),
+        enmascararCorreo(persona.getCorreo()),
+        cuenta.isPresent());
+  }
+
+  @Transactional
   public VinculoFamiliarResponse agregarApoderado(
-      Integer estudianteId, EstudianteCreateRequest.ApoderadoCreateRequest datos) {
+      Integer estudianteId, VincularApoderadoRequest datos) {
     validarDocumento(datos.tipoDocumento(), datos.numeroDocumento());
     Estudiante estudiante = obtenerEstudiante(estudianteId);
     if (estudiante.getPersona().getDni().equals(datos.numeroDocumento())) {
@@ -267,12 +324,16 @@ public class EstudianteService {
     }
     Persona persona = personas.findByDni(datos.numeroDocumento()).orElse(null);
     if (persona == null) {
+      exigirDatoNuevo(datos.nombres(), "los nombres son obligatorios");
+      exigirDatoNuevo(datos.apellidoPaterno(), "el apellido paterno es obligatorio");
+      exigirDatoNuevo(datos.apellidoMaterno(), "el apellido materno es obligatorio");
+      exigirDatoNuevo(datos.celular(), "el celular es obligatorio");
       persona =
           new Persona(
               datos.numeroDocumento(),
-              datos.nombres(),
-              datos.apellidoPaterno(),
-              datos.apellidoMaterno());
+              datos.nombres().trim(),
+              datos.apellidoPaterno().trim(),
+              datos.apellidoMaterno().trim());
       persona.setTipoDocumento(datos.tipoDocumento());
       persona.setTelefono(datos.celular());
       persona.setCorreo(datos.correoElectronico());
@@ -311,6 +372,37 @@ public class EstudianteService {
         vinculos.save(vinculo), credencial == null ? null : credencial.contrasenhaTemporal());
   }
 
+  private void exigirDatoNuevo(String valor, String mensaje) {
+    if (valor == null || valor.isBlank()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Para un apoderado nuevo, " + mensaje);
+    }
+  }
+
+  private static String enmascararCelular(String celular) {
+    if (celular == null || celular.isBlank()) {
+      return null;
+    }
+    String limpio = celular.trim();
+    if (limpio.length() <= 5) {
+      return "\u2022".repeat(limpio.length());
+    }
+    return limpio.charAt(0)
+        + "\u2022".repeat(limpio.length() - 5)
+        + limpio.substring(limpio.length() - 4);
+  }
+
+  private static String enmascararCorreo(String correo) {
+    if (correo == null || correo.isBlank()) {
+      return null;
+    }
+    int arroba = correo.indexOf('@');
+    if (arroba <= 0) {
+      return "\u2022\u2022\u2022";
+    }
+    return correo.charAt(0) + "\u2022\u2022\u2022" + correo.substring(arroba);
+  }
+
   @Transactional
   public VinculoFamiliarResponse actualizarVinculo(
       Integer estudianteId, Integer apoderadoId, VinculoFamiliarUpdateRequest request) {
@@ -323,6 +415,12 @@ public class EstudianteService {
                 () ->
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "No existe el vínculo familiar indicado"));
+    if (vinculo.isEsPrincipal() && !request.esPrincipal()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "El estudiante debe tener un apoderado principal: designa a otro antes de quitarle esa"
+              + " condición");
+    }
     vinculo.setParentesco(Parentesco.valueOf(request.parentesco()));
     vinculo.setEsPrincipal(request.esPrincipal());
     Persona personaApoderado = vinculo.getApoderado().getPersona();
