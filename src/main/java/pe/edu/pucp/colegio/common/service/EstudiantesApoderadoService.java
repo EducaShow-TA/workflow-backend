@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.EstudianteVinculadoResponse;
-import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -49,31 +48,7 @@ public class EstudiantesApoderadoService {
                         HttpStatus.FORBIDDEN, "No existe un registro de apoderado activo"));
 
     return vinculos.listarEstudiantesActivosDeApoderado(apoderado.getId()).stream()
-        .map(
-            vinculo -> {
-              var estudiante = vinculo.getEstudiante();
-              var periodos =
-                  estudiante.getMatriculas().stream()
-                      .filter(matricula -> Boolean.TRUE.equals(matricula.getActive()))
-                      .filter(matricula -> matricula.getEstado() == EstadoMatricula.CONFIRMADA)
-                      .map(
-                          matricula -> {
-                            var periodo = matricula.getPeriodo();
-                            return new EstudianteVinculadoResponse.PeriodoVinculado(
-                                periodo.getId(),
-                                periodo.getGrado().getNumero(),
-                                periodo.getSeccion().getCodigo(),
-                                periodo.getFechaInicio(),
-                                periodo.getFechaFin());
-                          })
-                      .sorted(
-                          Comparator.comparing(
-                                  EstudianteVinculadoResponse.PeriodoVinculado::fechaInicio)
-                              .reversed())
-                      .toList();
-              return new EstudianteVinculadoResponse(
-                  estudiante.getId(), estudiante.getPersona().getNombreCompleto(), periodos);
-            })
+        .map(vinculo -> EstudianteVinculadoResponse.desde(vinculo.getEstudiante()))
         .sorted(Comparator.comparing(EstudianteVinculadoResponse::nombreCompleto))
         .toList();
   }
