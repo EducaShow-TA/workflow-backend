@@ -74,6 +74,22 @@ public class AccesoAsistenciaService {
     throw prohibido();
   }
 
+  /** Autoriza cambios solo para el docente titular de la sesión, no de otra sección. */
+  @Transactional(readOnly = true)
+  public void exigirDocenteDeSesion(String username, SesionClase sesion) {
+    CuentaUsuario cuenta = buscarCuenta(username);
+    if (cuenta.getRol() != Rol.DOCENTE
+        || sesion == null
+        || !Boolean.TRUE.equals(sesion.getActive())
+        || Boolean.TRUE.equals(sesion.getCancelada())
+        || sesion.getDocente() == null
+        || sesion.getDocente().getPersona() == null
+        || cuenta.getPersona() == null
+        || !cuenta.getPersona().getId().equals(sesion.getDocente().getPersona().getId())) {
+      throw prohibido();
+    }
+  }
+
   @Transactional(readOnly = true)
   public boolean esDocente(String username) {
     return buscarCuenta(username).getRol() == Rol.DOCENTE;

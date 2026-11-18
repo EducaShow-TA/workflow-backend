@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.LocalDateTime;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,31 @@ public class AsistenciaJustificacionService {
     return respuesta(asistencia);
   }
 
+  /** US-2.8: justificación docente con sustento opcional y trazabilidad del cambio. */
+  @Transactional
+  public AsistenciaJustificacionResponse justificarPorDocente(
+      Integer asistenciaId, String motivo, MultipartFile documento, String username) {
+    AsistenciaEstudiante asistencia = buscar(asistenciaId);
+    acceso.exigirDocenteDeSesion(username, asistencia.getSesionClase());
+    if (asistencia.getEstadoAsistencia() != EstadoAsistencia.AUSENTE) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "Solo se puede justificar una inasistencia registrada");
+    }
+    if (motivo == null || motivo.isBlank() || motivo.trim().length() > 500) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Indique un motivo de hasta 500 caracteres");
+    }
+    EvidenciaStorageService.ArchivoGuardado guardado =
+        documento == null || documento.isEmpty() ? null : storage.guardar(documento);
+    asistencia.justificar(motivo, guardado == null ? null : guardado.clave());
+    if (guardado != null) {
+      asistencia.setDocumentoJustificacion(
+          guardado.clave(), guardado.nombre(), guardado.tipo(), guardado.tamanio());
+    }
+    asistencia.anotarCorreccion(username, LocalDateTime.now());
+    return respuesta(asistencia);
+  }
+
   @Transactional(readOnly = true)
   public DocumentoJustificacion descargar(Integer asistenciaId, String username) {
     AsistenciaEstudiante asistencia = buscar(asistenciaId);
@@ -82,7 +108,9 @@ public class AsistenciaJustificacionService {
         asistencia.getDocumentoJustificacionNombre(),
         asistencia.getDocumentoJustificacionTipo(),
         asistencia.getDocumentoJustificacionTamanio(),
-        "/api/v1/asistencias-estudiantes/" + asistencia.getId() + "/justificacion/documento");
+        asistencia.getArchivoJustificacion() == null
+            ? null
+            : "/api/v1/asistencias-estudiantes/" + asistencia.getId() + "/justificacion/documento");
   }
 
   public record DocumentoJustificacion(Resource recurso, String nombre, String tipo) {}

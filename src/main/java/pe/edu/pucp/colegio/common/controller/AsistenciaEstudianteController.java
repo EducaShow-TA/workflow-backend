@@ -59,6 +59,20 @@ public class AsistenciaEstudianteController {
     return justificaciones.justificar(asistenciaId, motivo, documento, authentication.getName());
   }
 
+  /** US-2.8: solo el docente responsable de la sesión puede justificar al alumno. */
+  @PatchMapping(
+      value = "/{asistenciaId}/justificacion-docente",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PreAuthorize("hasRole('DOCENTE')")
+  public AsistenciaJustificacionResponse justificarDocente(
+      @PathVariable Integer asistenciaId,
+      @RequestPart("motivo") @Size(max = 500) String motivo,
+      @RequestPart(value = "documento", required = false) MultipartFile documento,
+      Authentication authentication) {
+    return justificaciones.justificarPorDocente(
+        asistenciaId, motivo, documento, authentication.getName());
+  }
+
   @GetMapping("/{asistenciaId}/justificacion/documento")
   public ResponseEntity<Resource> descargarDocumento(
       @PathVariable Integer asistenciaId, Authentication authentication) {
