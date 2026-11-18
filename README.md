@@ -81,6 +81,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/estudiantes/{estudianteId}/apoderados` | Crear o reactivar el vínculo con un apoderado |
 | `PUT` | `/api/v1/estudiantes/{estudianteId}/apoderados/{apoderadoId}` | Editar parentesco y condición de apoderado principal |
 | `GET` | `/api/v1/apoderados/mis-estudiantes` | Listar estudiantes vinculados al apoderado autenticado |
+| `GET` | `/api/v1/estudiantes/mi-ficha` | Datos del alumno autenticado y sus períodos de matrícula confirmada |
 | `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
 | `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
 | `GET` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion/documento` | Descargar el documento de sustento (con acceso al historial) |
@@ -828,7 +829,7 @@ El proyecto cuenta con pruebas unitarias y de integración para autenticación y
 ./mvnw verify     # pruebas, formato y umbral de cobertura
 ```
 
-## Estado actual de historias — Sprint 1 y Sprint 2
+## Estado actual de historias — Sprints 1, 2 y 3
 
 La tabla usa dos estados:
 
@@ -842,7 +843,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-1.1 Ventana de matrícula | **Completa**: permite configurar, consultar, editar y dar de baja ventanas; muestra estados `PENDIENTE`, `VIGENTE` y `VENCIDO`, valida superposiciones y el backend bloquea matrículas fuera de vigencia. |
 | US-1.2 Registro y asignación de estudiantes | **Completa**: alta de estudiantes y apoderados, listado filtrado/paginado, matrícula por periodo, confirmación y retiro lógico. |
 | US-1.7 Vacantes por grado y sección | **Completa**: capacidad y disponibilidad por sección en Inicial, Primaria y Secundaria, con rechazo de reducciones inferiores a la ocupación activa. |
-| US-1.9 Datos de apoderados | **Completa en backend**: alta y edición de vínculos, verificación previa del documento con contacto enmascarado y auditoría, correo validado y teléfono en formato internacional; las altas crean cuentas APODERADO cuando faltan y el principal no puede quedar vacío. |
+| US-1.9 Datos de apoderados | **Completa**: alta y edición de vínculos, verificación previa del documento con contacto enmascarado y auditoría, correo validado y teléfono en formato internacional; las altas crean cuentas APODERADO cuando faltan y el principal no puede quedar vacío. La interfaz administra los apoderados de cada estudiante desde el listado y muestra las credenciales de las cuentas nuevas. |
 | US-3.5 Áreas y competencias | **Completa**: CRUD y baja lógica; la baja de una competencia se bloquea con `409` cuando existen calificaciones finales o parciales, y `tieneNotasRegistradas` refleja esos registros. |
 | US-4.3 Bloques y franjas horarias | **Completa**: plantillas, bloques y recreos calculados, con validación de duración y estado; la interfaz permite administrar plantillas. |
 | US-5.1 Baja lógica de usuarios | **Completa**: se conserva el historial y una cuenta inactiva no puede iniciar sesión ni usar tokens previos. |
@@ -870,6 +871,9 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
 | US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según capacidad y matrícula de la sección. |
 | US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada con nombres de estudiante, competencia y área, además de cambios y eventos de consolidación/cierre. |
+| US-2.6 Reporte de inasistencias y tardanzas | **Completa**: consolidado por rango de fechas, grado y sección con totales de asistencias, tardanzas e inasistencias, para administración y docentes, con exportación a CSV. |
+| US-2.7 Historial de asistencia del alumno o apoderado | **Completa**: historial diario filtrable por fechas, restringido al propio alumno o a los hijos vinculados del apoderado; `mi-ficha` identifica al alumno autenticado. La interfaz ofrece un portal del apoderado (panel por hijo e historial) y un portal del estudiante (panel y calendario mensual con cada clase). |
+| US-4.6 Horario consolidado del docente | **Completa**: grilla única con todas las secciones del docente, con área, grado, sección y aula en cada bloque, y vista semanal o del día actual. |
 
 El inventario de pantallas por rol está en el [README del frontend](https://github.com/EducaShow-TA/workflow-frontend/blob/Development/README.md). La carga de datos manual para explorar varios de estos flujos está en [`postman/README.md`](postman/README.md). La colección de carga prepara un escenario reutilizable; la colección de pruebas ejecuta aserciones automatizadas. Ninguna sustituye la verificación de la interfaz ni cubre por sí sola todos los criterios de aceptación.
 

@@ -26,6 +26,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
 
   java.util.Optional<Estudiante> findByPersonaDni(String dni);
 
+  java.util.Optional<Estudiante> findByPersonaIdAndActiveTrue(Integer personaId);
+
   @EntityGraph(attributePaths = "persona")
   @org.springframework.data.jpa.repository.Query(
       "select e from Estudiante e where e.active = true "
