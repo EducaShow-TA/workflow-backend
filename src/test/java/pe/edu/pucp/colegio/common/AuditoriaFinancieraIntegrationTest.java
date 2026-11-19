@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -52,6 +53,7 @@ class AuditoriaFinancieraIntegrationTest {
   @Autowired AuditoriaFinancieraService auditoria;
   @Autowired MatriculaRepository matriculas;
   @Autowired BoletaPensionRepository boletas;
+  @Autowired Clock clock;
 
   private String dniEstudiante;
   private int gradoId;
@@ -91,7 +93,7 @@ class AuditoriaFinancieraIntegrationTest {
             periodo,
             estudiante);
 
-    LocalDate vencimiento = LocalDate.now().plusMonths(2).withDayOfMonth(15);
+    LocalDate vencimiento = LocalDate.now(clock).plusMonths(2).withDayOfMonth(15);
     finanzas.crearCompromiso(
         matriculas.findById(matriculaId).orElseThrow(),
         new CompromisoPagoRequest("Pensión", new BigDecimal("700.00"), 2, vencimiento, 15));
@@ -151,7 +153,7 @@ class AuditoriaFinancieraIntegrationTest {
         .andExpect(jsonPath("$.compromisosGenerados").value(1))
         .andExpect(jsonPath("$.boletasEnMora").value(0));
 
-    String hoy = LocalDate.now().toString();
+    String hoy = LocalDate.now(clock).toString();
     List<String[]> filtrosConUnEvento =
         List.of(
             new String[] {"accion", "PAGO_REGISTRADO"},
@@ -175,7 +177,7 @@ class AuditoriaFinancieraIntegrationTest {
     mvc.perform(
             get(RUTA)
                 .param("estudiante", dniEstudiante)
-                .param("desde", LocalDate.now().plusDays(1).toString()))
+                .param("desde", LocalDate.now(clock).plusDays(1).toString()))
         .andExpect(jsonPath("$.page.totalElements").value(0));
     mvc.perform(get(RUTA).param("estudiante", dniEstudiante).param("medioPago", "VIRTUAL"))
         .andExpect(jsonPath("$.page.totalElements").value(0));
