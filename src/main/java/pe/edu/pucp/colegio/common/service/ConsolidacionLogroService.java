@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
+import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.dto.*;
@@ -283,6 +285,12 @@ public class ConsolidacionLogroService {
             .findByEvaluacionIdAndMatriculaIdAndActiveTrue(evaluacionId, matriculaId)
             .orElseGet(CalificacionParcial::new);
     var notaAnterior = auditoriaCalificaciones.capturarParcial(nota);
+    boolean rectificacion =
+        nota.getId() != null
+            && notaAnterior != null
+            && (!Objects.equals(notaAnterior.nota(), request.nota())
+                || !Objects.equals(notaAnterior.justificada(), justificada));
+    String motivo = rectificacion ? MotivoRectificacion.exigir(request.motivo()) : null;
     nota.setEvaluacion(evaluacion);
     nota.setMatricula(matricula);
     nota.setNota(request.nota());
@@ -306,9 +314,12 @@ public class ConsolidacionLogroService {
     auditoriaCalificaciones.registrarParcial(
         username,
         administrador ? "ADMINISTRADOR" : "DOCENTE",
-        "REGISTRAR_O_ACTUALIZAR",
+        rectificacion
+            ? AccionesCalificacion.RECTIFICAR
+            : AccionesCalificacion.REGISTRAR_O_ACTUALIZAR,
         notaAnterior,
-        nota);
+        nota,
+        motivo);
     recalcularCompetencia(
         periodo,
         evaluacion.getCompetencia().getCodigo(),

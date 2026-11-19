@@ -129,6 +129,17 @@ public class SeguimientoAcademicoController {
     return service.seguimientoCompetencia(periodoId, codigo, bimestre);
   }
 
+  @GetMapping("/api/v1/calificaciones/{calificacionId}/historial")
+  public List<HistorialCalificacionResponse> historial(
+      @PathVariable Integer calificacionId, Authentication authentication) {
+    Calificacion calificacion = service.obtenerCalificacion(calificacionId);
+    validarAccesoCompetenciaEnPeriodo(
+        calificacion.getPeriodo().getId(),
+        calificacion.getCompetencia().getCodigo(),
+        authentication);
+    return service.historial(calificacion);
+  }
+
   @GetMapping("/api/v1/evidencias/{calificacionId}/archivo")
   public ResponseEntity<Resource> descargarEvidencia(
       @PathVariable Integer calificacionId, Authentication authentication) {

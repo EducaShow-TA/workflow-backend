@@ -5,9 +5,12 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
 import pe.edu.pucp.colegio.common.dto.*;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
 import pe.edu.pucp.colegio.common.model.*;
@@ -148,6 +151,27 @@ public class SeguimientoAcademicoService {
                             periodo.getId(), matricula.getId(), competencia.getCodigo()))
             .orElseGet(Calificacion::new);
     var calificacionAnterior = auditoriaCalificaciones.capturarFinal(calificacion);
+    boolean rectificacion = calificacion.getId() != null && calificacionAnterior != null;
+    boolean tieneArchivo = archivo != null && !archivo.isEmpty();
+    String evidenciaUrl =
+        request.evidenciaUrl() == null || request.evidenciaUrl().isBlank()
+            ? null
+            : request.evidenciaUrl().trim();
+    String motivo = null;
+    if (rectificacion) {
+      boolean mismaEvidencia =
+          !tieneArchivo
+              && (evidenciaUrl == null || evidenciaUrl.equals(calificacion.getEvidenciaUrl()));
+      if (calificacion.getNota().equals(request.nota())
+          && Objects.equals(texto(calificacion.getObservacion()), texto(request.observacion()))
+          && Objects.equals(calificacion.getBimestre(), bimestre)
+          && mismaEvidencia) {
+        throw new BusinessException("No hay cambios que guardar");
+      }
+      motivo = MotivoRectificacion.exigir(request.motivo());
+    } else if (!tieneArchivo && evidenciaUrl == null) {
+      throw new BusinessException("Adjunte un archivo o indique una URL de evidencia");
+    }
     calificacion.setPeriodo(periodo);
     calificacion.setMatricula(matricula);
     calificacion.setCompetencia(competencia);
@@ -158,24 +182,46 @@ public class SeguimientoAcademicoService {
     calificacion.setConsolidada(false);
     calificacion.setActive(true);
     calificacion.setFechaRegistro(LocalDateTime.now(clock));
-    if (archivo != null && !archivo.isEmpty()) {
+    if (tieneArchivo) {
       EvidenciaStorageService.ArchivoGuardado guardado = storage.guardar(archivo);
       calificacion.setEvidenciaArchivo(guardado.clave());
       calificacion.setEvidenciaNombre(guardado.nombre());
       calificacion.setEvidenciaTipo(guardado.tipo());
       calificacion.setEvidenciaTamanio(guardado.tamanio());
       calificacion.setEvidenciaUrl(null);
-    } else {
+    } else if (evidenciaUrl != null) {
       calificacion.setEvidenciaArchivo(null);
       calificacion.setEvidenciaNombre(null);
       calificacion.setEvidenciaTipo(null);
       calificacion.setEvidenciaTamanio(null);
-      calificacion.setEvidenciaUrl(request.evidenciaUrl().trim());
+      calificacion.setEvidenciaUrl(evidenciaUrl);
     }
     Calificacion guardada = calificaciones.save(calificacion);
     auditoriaCalificaciones.registrarFinal(
-        username, rol, "REGISTRAR_O_ACTUALIZAR", calificacionAnterior, guardada);
-    return calificacionResponse(guardada);
+        username,
+        rol,
+        rectificacion
+            ? AccionesCalificacion.RECTIFICAR
+            : AccionesCalificacion.REGISTRAR_O_ACTUALIZAR,
+        calificacionAnterior,
+        guardada,
+        motivo);
+    long rectificaciones =
+        auditoriaCalificaciones
+            .rectificacionesFinales(periodo.getId(), competencia.getCodigo(), bimestre)
+            .getOrDefault(AuditoriaCalificacionService.claveNota(matricula.getId(), bimestre), 0L);
+    return calificacionResponse(guardada, rectificaciones);
+  }
+
+  @Transactional(readOnly = true)
+  public List<HistorialCalificacionResponse> historial(Calificacion calificacion) {
+    return auditoriaCalificaciones.historialFinal(calificacion).stream()
+        .map(HistorialCalificacionResponse::desde)
+        .toList();
+  }
+
+  private static String texto(String valor) {
+    return valor == null || valor.isBlank() ? null : valor.trim();
   }
 
   @Transactional(readOnly = true)
@@ -191,7 +237,18 @@ public class SeguimientoAcademicoService {
             : calificaciones
                 .findAllByPeriodoIdAndCompetenciaCodigoAndBimestreAndActiveTrueOrderByMatriculaId(
                     periodoId, competenciaCodigo, bimestre);
-    return notas.stream().map(this::calificacionResponse).toList();
+    Map<String, Long> rectificaciones =
+        auditoriaCalificaciones.rectificacionesFinales(periodoId, competenciaCodigo, bimestre);
+    return notas.stream()
+        .map(
+            nota ->
+                calificacionResponse(
+                    nota,
+                    rectificaciones.getOrDefault(
+                        AuditoriaCalificacionService.claveNota(
+                            nota.getMatricula().getId(), nota.getBimestre()),
+                        0L)))
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -271,7 +328,7 @@ public class SeguimientoAcademicoService {
     }
   }
 
-  private CalificacionResponse calificacionResponse(Calificacion c) {
+  private CalificacionResponse calificacionResponse(Calificacion c, long rectificaciones) {
     String url =
         c.getEvidenciaArchivo() == null
             ? c.getEvidenciaUrl()
@@ -291,6 +348,7 @@ public class SeguimientoAcademicoService {
         c.getEvidenciaTamanio(),
         c.getPuntajeConsolidado(),
         Boolean.TRUE.equals(c.getConsolidada()),
-        c.getFechaRegistro());
+        c.getFechaRegistro(),
+        rectificaciones);
   }
 }

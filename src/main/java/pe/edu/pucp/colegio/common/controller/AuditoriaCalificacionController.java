@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.edu.pucp.colegio.common.audit.GrupoAccionCalificacion;
 import pe.edu.pucp.colegio.common.audit.TipoCalificacionAuditoria;
 import pe.edu.pucp.colegio.common.dto.AuditoriaCalificacionResponse;
 import pe.edu.pucp.colegio.common.service.AuditoriaCalificacionService;
@@ -31,6 +32,7 @@ public class AuditoriaCalificacionController {
       @RequestParam(required = false) Integer estudianteId,
       @RequestParam(required = false) String competenciaCodigo,
       @RequestParam(required = false) TipoCalificacionAuditoria tipo,
+      @RequestParam(required = false) GrupoAccionCalificacion accion,
       @PageableDefault(
               size = 20,
               sort = {"fechaHora", "id"},
@@ -43,6 +45,7 @@ public class AuditoriaCalificacionController {
             estudianteId,
             competenciaCodigo,
             tipo == null ? null : tipo.name(),
+            accion,
             pageable));
   }
 }
