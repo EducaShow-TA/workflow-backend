@@ -1,7 +1,10 @@
 package pe.edu.pucp.colegio.common.service;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -9,8 +12,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
 import pe.edu.pucp.colegio.common.audit.AuditoriaCalificacion;
 import pe.edu.pucp.colegio.common.audit.AuditoriaCalificacionRepository;
+import pe.edu.pucp.colegio.common.audit.GrupoAccionCalificacion;
 import pe.edu.pucp.colegio.common.dto.AuditoriaCalificacionResponse;
 import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.model.CalificacionParcial;
@@ -26,14 +31,17 @@ public class AuditoriaCalificacionService {
   private final AuditoriaCalificacionRepository auditoria;
   private final MatriculaRepository matriculas;
   private final CompetenciaRepository competencias;
+  private final Clock clock;
 
   public AuditoriaCalificacionService(
       AuditoriaCalificacionRepository auditoria,
       MatriculaRepository matriculas,
-      CompetenciaRepository competencias) {
+      CompetenciaRepository competencias,
+      Clock clock) {
     this.auditoria = auditoria;
     this.matriculas = matriculas;
     this.competencias = competencias;
+    this.clock = clock;
   }
 
   public FinalAnterior capturarFinal(Calificacion calificacion) {
@@ -50,6 +58,17 @@ public class AuditoriaCalificacionService {
   @Transactional
   public void registrarFinal(
       String usuario, String rol, String accion, FinalAnterior anterior, Calificacion nueva) {
+    registrarFinal(usuario, rol, accion, anterior, nueva, null);
+  }
+
+  @Transactional
+  public void registrarFinal(
+      String usuario,
+      String rol,
+      String accion,
+      FinalAnterior anterior,
+      Calificacion nueva,
+      String motivo) {
     String notaAnterior = anterior == null ? null : anterior.nota();
     BigDecimal puntajeAnterior = anterior == null ? null : anterior.puntaje();
     String observacionAnterior = anterior == null ? null : anterior.observacion();
@@ -65,7 +84,8 @@ public class AuditoriaCalificacionService {
         nueva == null || !Boolean.TRUE.equals(nueva.getActive()) ? null : nueva.getObservacion();
     Integer bimestreNuevo =
         nueva == null || !Boolean.TRUE.equals(nueva.getActive()) ? null : nueva.getBimestre();
-    if (Objects.equals(notaAnterior, notaNueva)
+    if (motivo == null
+        && Objects.equals(notaAnterior, notaNueva)
         && Objects.equals(puntajeAnterior, puntajeNuevo)
         && Objects.equals(anterior == null ? null : anterior.consolidada(), consolidadaNueva)
         && Objects.equals(anterior == null ? null : anterior.bimestre(), bimestreNuevo)
@@ -77,9 +97,9 @@ public class AuditoriaCalificacionService {
     if (referencia == null) {
       return;
     }
-    auditoria.save(
+    AuditoriaCalificacion registro =
         new AuditoriaCalificacion(
-            LocalDateTime.now(),
+            LocalDateTime.now(clock),
             usuario,
             rol,
             accion,
@@ -99,7 +119,9 @@ public class AuditoriaCalificacionService {
             null,
             null,
             observacionAnterior,
-            observacionNueva));
+            observacionNueva);
+    registro.setMotivo(motivo);
+    auditoria.save(registro);
   }
 
   public ParcialAnterior capturarParcial(CalificacionParcial calificacion) {
@@ -115,6 +137,17 @@ public class AuditoriaCalificacionService {
       String accion,
       ParcialAnterior anterior,
       CalificacionParcial nueva) {
+    registrarParcial(usuario, rol, accion, anterior, nueva, null);
+  }
+
+  @Transactional
+  public void registrarParcial(
+      String usuario,
+      String rol,
+      String accion,
+      ParcialAnterior anterior,
+      CalificacionParcial nueva,
+      String motivo) {
     String notaAnterior = anterior == null ? null : anterior.nota();
     Boolean justificadaAnterior = anterior == null ? null : anterior.justificada();
     String notaNueva =
@@ -130,9 +163,9 @@ public class AuditoriaCalificacionService {
     if (referencia == null) {
       return;
     }
-    auditoria.save(
+    AuditoriaCalificacion registro =
         new AuditoriaCalificacion(
-            LocalDateTime.now(),
+            LocalDateTime.now(clock),
             usuario,
             rol,
             accion,
@@ -152,7 +185,9 @@ public class AuditoriaCalificacionService {
             justificadaAnterior,
             justificadaNueva,
             null,
-            null));
+            null);
+    registro.setMotivo(motivo);
+    auditoria.save(registro);
   }
 
   @Transactional(readOnly = true)
@@ -162,10 +197,18 @@ public class AuditoriaCalificacionService {
       Integer estudianteId,
       String competenciaCodigo,
       String tipoCalificacion,
+      GrupoAccionCalificacion grupo,
       Pageable pageable) {
     var registros =
         auditoria.buscar(
-            periodoId, matriculaId, estudianteId, competenciaCodigo, tipoCalificacion, pageable);
+            periodoId,
+            matriculaId,
+            estudianteId,
+            competenciaCodigo,
+            tipoCalificacion,
+            grupo == null,
+            grupo == null ? List.of("") : grupo.acciones(),
+            pageable);
     var estudiantesPorMatricula =
         matriculas
             .findAllByIdIn(
@@ -199,6 +242,32 @@ public class AuditoriaCalificacionService {
               competencia == null ? null : competencia.getNombre(),
               area);
         });
+  }
+
+  @Transactional(readOnly = true)
+  public List<AuditoriaCalificacion> historialFinal(Calificacion calificacion) {
+    return auditoria.historialFinal(
+        calificacion.getMatricula().getId(),
+        calificacion.getCompetencia().getCodigo(),
+        calificacion.getBimestre(),
+        List.of(AccionesCalificacion.REGISTRAR_O_ACTUALIZAR, AccionesCalificacion.RECTIFICAR));
+  }
+
+  @Transactional(readOnly = true)
+  public Map<String, Long> rectificacionesFinales(
+      Integer periodoId, String competenciaCodigo, Integer bimestre) {
+    return auditoria
+        .contarPorMatricula(AccionesCalificacion.RECTIFICAR, periodoId, competenciaCodigo, bimestre)
+        .stream()
+        .collect(
+            Collectors.toMap(
+                fila -> claveNota((Integer) fila[0], (Integer) fila[1]),
+                fila -> (Long) fila[2],
+                Long::sum));
+  }
+
+  public static String claveNota(Integer matriculaId, Integer bimestre) {
+    return matriculaId + "-" + bimestre;
   }
 
   public record FinalAnterior(

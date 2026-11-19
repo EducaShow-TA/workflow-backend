@@ -14,4 +14,5 @@ public record CalificacionRequest(
     @Min(1) @Max(4) Integer bimestre,
     @NotBlank @Pattern(regexp = "AD|A|B|C", message = "La nota debe ser AD, A, B o C") String nota,
     @Size(max = 1000) String observacion,
-    @Size(max = 2048) String evidenciaUrl) {}
+    @Size(max = 2048) String evidenciaUrl,
+    @Size(max = 500) String motivo) {}

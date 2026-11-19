@@ -79,6 +79,9 @@ public class AuditoriaCalificacion {
   @Column(name = "observacion_nueva", length = 1000)
   private String observacionNueva;
 
+  @Column(length = 500)
+  private String motivo;
+
   protected AuditoriaCalificacion() {}
 
   public AuditoriaCalificacion(
@@ -212,5 +215,13 @@ public class AuditoriaCalificacion {
 
   public String getObservacionNueva() {
     return observacionNueva;
+  }
+
+  public String getMotivo() {
+    return motivo;
+  }
+
+  public void setMotivo(String motivo) {
+    this.motivo = motivo;
   }
 }

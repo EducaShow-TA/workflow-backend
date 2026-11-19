@@ -29,7 +29,8 @@ public record AuditoriaCalificacionResponse(
     Boolean justificadaAnterior,
     Boolean justificadaNueva,
     String observacionAnterior,
-    String observacionNueva) {
+    String observacionNueva,
+    String motivo) {
 
   public static AuditoriaCalificacionResponse desde(AuditoriaCalificacion registro) {
     return desde(registro, null, null, null);
@@ -65,6 +66,7 @@ public record AuditoriaCalificacionResponse(
         registro.getJustificadaAnterior(),
         registro.getJustificadaNueva(),
         registro.getObservacionAnterior(),
-        registro.getObservacionNueva());
+        registro.getObservacionNueva(),
+        registro.getMotivo());
   }
 }

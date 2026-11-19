@@ -60,7 +60,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/evaluaciones-parciales?periodoId=&competenciaCodigo=` | Listar evaluaciones parciales |
 | `PUT/DELETE` | `/api/v1/evaluaciones-parciales/{id}` | Editar/desactivar evaluación parcial (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/evaluaciones-parciales/{id}/calificaciones` | Listar notas de la evaluación |
-| `PUT` | `/api/v1/evaluaciones-parciales/{evaluacionId}/matriculas/{matriculaId}` | Registrar nota parcial; admite JSON o multipart con evidencia (DOCENTE/ADMINISTRADOR) |
+| `PUT` | `/api/v1/evaluaciones-parciales/{evaluacionId}/matriculas/{matriculaId}` | Registrar nota parcial; admite JSON o multipart con evidencia (DOCENTE/ADMINISTRADOR). Cambiar una nota existente exige `motivo` (US-3.6) |
 | `GET` | `/api/v1/evaluaciones-parciales/calificaciones/{calificacionId}/archivo` | Descargar evidencia de una nota parcial |
 | `POST` | `/api/v1/logros/recalculo` | Recalcular logros del periodo (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos/{periodoId}/cierre-actas` | Cerrar actas (solo ADMINISTRADOR) |
@@ -68,7 +68,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/tareas` | Crear una tarea con seguimiento por matrícula |
 | `GET` | `/api/v1/tareas?periodoId=` | Consultar tareas y entregas del periodo |
 | `PATCH` | `/api/v1/tareas/{tareaId}/entregas/{matriculaId}` | Actualizar cumplimiento de una entrega |
-| `POST` | `/api/v1/calificaciones` | Registrar calificación manual por bimestre y evidencia mediante multipart |
+| `POST` | `/api/v1/calificaciones` | Registrar calificación manual por bimestre y evidencia mediante multipart; si ya existe, la rectifica con `motivo` obligatorio (US-3.6) |
+| `GET` | `/api/v1/calificaciones/{calificacionId}/historial` | Historial de registros y rectificaciones de una calificación (docente de la clase o ADMINISTRADOR) |
 | `GET` | `/api/v1/seguimiento/competencias/{codigo}?periodoId=&bimestre=` | Consultar calificaciones y evidencias de una competencia y bimestre |
 | `GET` | `/api/v1/evidencias/{calificacionId}/archivo` | Descargar archivo adjunto a una calificación |
 | `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
@@ -592,9 +593,20 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 
 ### Auditoría de cambios de calificaciones
 
-`GET /api/v1/logs/calificaciones` está restringido a `ADMINISTRADOR` y devuelve los cambios más recientes primero, paginados (20 por página por defecto). Admite filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo` y `tipo` (`FINAL` o `PARCIAL`).
+`GET /api/v1/logs/calificaciones` está restringido a `ADMINISTRADOR` y devuelve los cambios más recientes primero, paginados (20 por página por defecto). Admite filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo`, `tipo` (`FINAL` o `PARCIAL`) y `accion` (`RECTIFICACIONES`, `REGISTROS` o `AUTOMATICAS`).
 
 Cada registro identifica usuario, rol, fecha/hora, acción y los valores anteriores/nuevos. En calificaciones finales se guardan nota, puntaje consolidado, indicador de consolidación y observación; en las parciales, nota y estado de justificación. También se auditan los resultados recalculados, la materialización de faltantes al cerrar actas y las calificaciones parciales desactivadas junto con una evaluación. Los eventos se conservan en `auditoria_calificaciones`, separada de las tablas académicas y sin una operación de edición o borrado expuesta por la API.
+
+### Rectificación de calificaciones (US-3.6)
+
+Registrar una nota que ya existe para la misma matrícula, competencia y bimestre es una **rectificación**:
+
+- `motivo` es obligatorio (10 a 500 caracteres); sin él responde `422`. En el primer registro no se pide.
+- Si la nota, la observación, el bimestre y la evidencia son iguales a los actuales responde `422` con "No hay cambios que guardar".
+- Si no se envía evidencia nueva se conserva la actual; en el primer registro la evidencia sigue siendo obligatoria.
+- Queda en `auditoria_calificaciones` con la acción `RECTIFICAR` y el motivo. Las notas parciales siguen la misma regla cuando cambia la nota o la justificación.
+- `CalificacionResponse.rectificaciones` indica cuántas veces se rectificó la nota y `GET /api/v1/calificaciones/{id}/historial` devuelve sus movimientos, del más reciente al más antiguo.
+- Con las actas cerradas no se puede rectificar, y el docente solo accede a las competencias que dicta.
 
 ### Auditoría de transacciones y pagos (US-5.4)
 
@@ -885,6 +897,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-3.3 Libretas e informes de progreso | **Completa**: consulta de libreta y descarga PDF, con cierre de actas y modo preliminar. |
 | US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área; el umbral global persistido (inicialmente 1) marca riesgo cuando las notas `C` manuales o parciales del bimestre actual superan ese valor. Solo administración puede cambiarlo. |
 | US-3.7 Seguimiento de tareas | **Completa**: las entregas se crean para las matrículas confirmadas, incluso cuando se confirman después de crear la tarea. |
+| US-3.6 Rectificación de calificaciones | **Completa**: motivo obligatorio al cambiar una nota final o parcial, acción `RECTIFICAR` con motivo en la auditoría, historial por calificación y conservación de la evidencia. |
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
