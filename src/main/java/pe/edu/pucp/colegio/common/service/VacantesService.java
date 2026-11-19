@@ -76,6 +76,7 @@ public class VacantesService {
         matriculasActivas,
         vacantesDisponibles,
         vacantesDisponibles > 0,
-        periodo.calcularEstado(LocalDate.now()));
+        periodo.calcularEstado(LocalDate.now()),
+        Boolean.TRUE.equals(periodo.getActasCerradas()));
   }
 }

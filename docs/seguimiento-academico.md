@@ -2,6 +2,12 @@
 
 El módulo usa `periodoId` para identificar el grado y la sección, y `competenciaCodigo` para identificar el curso o ámbito curricular disponible en el modelo actual.
 
+## Cuadro de mérito por sección
+
+`GET /api/v1/reportes/cuadro-merito?periodoId={id}` genera el ranking de las matrículas confirmadas del período (grado y sección), disponible únicamente después del cierre de actas y solo para `ADMINISTRADOR`. Ordena por el promedio aritmético de los puntajes finales por competencia: utiliza el puntaje consolidado si proviene de evaluaciones parciales y convierte las notas finales manuales con la escala `C=1`, `B=2`, `A=3`, `AD=4`. Los empates comparten puesto y el siguiente puesto conserva el orden de competencia (por ejemplo, 1, 1, 3). Los alumnos sin calificaciones finales permanecen en el cuadro sin puesto.
+
+`GET /api/v1/reportes/cuadro-merito/pdf?periodoId={id}` y `GET /api/v1/reportes/cuadro-merito/excel?periodoId={id}` descargan el mismo cuadro en PDF y XLSX, respectivamente. Ambos se generan bajo demanda.
+
 ## Tareas
 
 - `POST /api/v1/tareas`: crea una tarea y genera su lista de seguimiento con las matrículas confirmadas del período.
