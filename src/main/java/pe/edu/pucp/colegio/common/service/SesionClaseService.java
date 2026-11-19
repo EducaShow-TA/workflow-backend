@@ -164,6 +164,14 @@ public class SesionClaseService {
     return lista(sesion);
   }
 
+  /** Lista de la sesión para la carga por CSV (US-2.2); exige el mismo acceso que guardarla. */
+  @Transactional
+  public ListaAsistenciaResponse obtenerListaParaCarga(Integer sesionId, Acceso acceso) {
+    SesionClase sesion = buscarSesion(sesionId);
+    exigirAcceso(sesion, acceso);
+    return lista(sesion);
+  }
+
   /**
    * Guarda la asistencia de varios alumnos a la vez. Registrar por primera vez exige la ventana de
    * marcado (salvo al administrador); corregir lo ya registrado se permite en cualquier momento.

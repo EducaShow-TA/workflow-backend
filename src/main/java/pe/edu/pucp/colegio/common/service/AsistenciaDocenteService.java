@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -141,6 +142,26 @@ public class AsistenciaDocenteService {
     asistencia.setFecha(request.fecha());
     aplicarRegistro(asistencia, request);
     return guardar(asistencia);
+  }
+
+  /**
+   * Carga masiva (US-2.5): crea la asistencia de cada docente y fecha o, si ya existe, la reemplaza
+   * por lo indicado. Es de todo o nada: si una solicitud falla no se guarda ninguna.
+   */
+  @Transactional
+  public void registrarOActualizarLote(List<AsistenciaDocenteCreateRequest> solicitudes) {
+    for (AsistenciaDocenteCreateRequest solicitud : solicitudes) {
+      Docente docente = buscarDocente(solicitud.docenteId());
+      validarHorario(solicitud.horaEntrada(), solicitud.horaSalida());
+      Optional<AsistenciaDocente> existente =
+          asistencias.findByDocenteIdAndFechaAndActiveTrue(docente.getId(), solicitud.fecha());
+      AsistenciaDocente asistencia =
+          existente.orElseGet(() -> nuevaAsistencia(docente, solicitud.fecha()));
+      existente.ifPresent(actual -> actual.ajustar(EstadoAsistenciaDocente.PENDIENTE_MARCAJE));
+      aplicarRegistro(asistencia, solicitud);
+      guardar(asistencia);
+    }
+    log.info("Carga masiva de asistencia docente: {} registros guardados", solicitudes.size());
   }
 
   @Transactional(readOnly = true)

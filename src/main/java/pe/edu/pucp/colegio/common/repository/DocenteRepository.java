@@ -7,4 +7,6 @@ import pe.edu.pucp.colegio.common.model.Docente;
 public interface DocenteRepository extends JpaRepository<Docente, Integer> {
 
   Optional<Docente> findByPersonaId(Integer personaId);
+
+  Optional<Docente> findByPersonaDniAndActiveTrue(String dni);
 }
