@@ -81,6 +81,9 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/estudiantes/{estudianteId}/apoderados` | Crear o reactivar el vínculo con un apoderado |
 | `PUT` | `/api/v1/estudiantes/{estudianteId}/apoderados/{apoderadoId}` | Editar parentesco y condición de apoderado principal |
 | `GET` | `/api/v1/apoderados/mis-estudiantes` | Listar estudiantes vinculados al apoderado autenticado |
+| `GET` | `/api/v1/apoderados/mis-pagos` | Compromisos y boletas emitidas de los hijos del apoderado autenticado |
+| `POST` | `/api/v1/apoderados/mis-pagos/pagos` | Pagar en línea (pasarela simulada) una o varias boletas en una sola operación |
+| `GET` | `/api/v1/apoderados/mis-pagos/comprobantes/{id}/pdf` | Descargar el comprobante de pago en PDF |
 | `GET` | `/api/v1/estudiantes/mi-ficha` | Datos del alumno autenticado y sus períodos de matrícula confirmada |
 | `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
 | `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
@@ -623,7 +626,13 @@ Al aceptar el pago, la boleta pasa a `PAGADA` y se crea un comprobante. Un monto
 
 El reporte `GET /api/v1/reportes/boletas-pension` admite `gradoId`, `seccionId`, `estado`, `vencimientoDesde` y `vencimientoHasta` (`YYYY-MM-DD`). Devuelve las boletas filtradas, `montoPendiente` y la cantidad de `familiasMorosas` distintas incluidas en el resultado. Un rango de fechas invertido responde `422`.
 
-US-1.12 queda cubierto como registro del pago y emisión del comprobante. Este backend no integra una pasarela externa; el pago `VIRTUAL` registrado por esta ruta se considera verificado por el administrador.
+### Pagos del apoderado (US-1.8, US-1.12)
+
+Las rutas `/api/v1/apoderados/mis-pagos` están restringidas a `APODERADO` y solo devuelven o modifican datos de los estudiantes vinculados a su cuenta (`403` en otro caso). `GET` devuelve, por hijo, cada compromiso vigente con su situación (`AL_DIA`, `CON_PENDIENTES` o `CON_MORA`), montos pagado y por pagar, conteo de cuotas pagadas, en mora, pendientes y por emitir, fecha de la próxima emisión y las boletas ya emitidas con su comprobante. Las cuotas aún no emitidas solo se cuentan; no se crean boletas por adelantado.
+
+`POST /pagos` recibe `{ "boletaIds": [12, 13] }` y paga todas las boletas en una sola transacción: si una no pertenece a un hijo vinculado (`403`), ya está pagada (`409`), no existe (`404`) o se repite (`400`), no se cobra ninguna. Cada boleta recibe su propio comprobante `VIRTUAL` con referencia `SIM-…` y queda en la auditoría financiera con el apoderado como responsable. La pasarela es simulada: los datos de la tarjeta se validan en el navegador y nunca se envían a este backend. `GET /comprobantes/{id}/pdf` genera el comprobante en PDF, que aclara que no es un comprobante electrónico de SUNAT.
+
+El pago administrativo de `POST /api/v1/boletas-pension/{id}/pagos` se mantiene: un pago `VIRTUAL` registrado por esa ruta se considera verificado por el administrador.
 
 ## Estructura
 
@@ -866,7 +875,8 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-1.5 Estados de boletas | **Completa**: consulta, registro administrativo de pago y emisión de comprobante. |
 | US-1.6 Morosidad | **Completa**: el proceso diario marca como `EN_MORA` las boletas vencidas impagas; la historia no incluye recargo monetario. |
 | US-1.10 Reporte de cobranza | **Completa**: filtros por grado, sección, estado y fechas; incluye monto pendiente y familias morosas distintas. |
-| US-1.12 Pago en línea | **Parcial**: la interfaz y API registran un pago como verificado por administración; no hay integración con una pasarela externa. |
+| US-1.8 Pagos del apoderado | **Completa**: compromisos y boletas emitidas de los hijos vinculados, situación del compromiso anual, estado por boleta y descarga del comprobante en PDF. |
+| US-1.12 Pago en línea | **Completa** dentro del alcance acordado: el apoderado paga una o varias boletas con una pasarela simulada (sin datos de tarjeta en el servidor) y obtiene un comprobante por boleta; no hay integración con una pasarela externa. |
 | US-2.1 Asistencia de estudiantes por sesión | **Completa**: registro de docentes dentro de la primera hora de clase y con marcaje docente de presencia; administración puede corregir fuera de la ventana. |
 | US-2.3 Marcaje de entrada y salida docente | **Completa**: marcaje propio sujeto a apertura previa y cierre 30 minutos después del inicio de la primera sesión. |
 | US-2.4 Gestión de asistencia docente | **Completa**: consulta, registro y ajuste administrativo con motivo obligatorio para estados que requieren justificación. |
