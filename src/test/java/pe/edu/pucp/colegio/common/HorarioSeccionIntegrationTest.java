@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.UUID;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,14 +26,20 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Aula;
 import pe.edu.pucp.colegio.common.model.Docente;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
+import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Grado;
+import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Persona;
+import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.PlantillaHorario;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.AulaRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
+import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.PlantillaHorarioRepository;
@@ -59,6 +66,9 @@ class HorarioSeccionIntegrationTest {
   @Autowired PersonaRepository personas;
   @Autowired CuentaUsuarioRepository cuentas;
   @Autowired DocenteRepository docentes;
+  @Autowired EstudianteRepository estudiantes;
+  @Autowired pe.edu.pucp.colegio.common.repository.PeriodoRepository periodos;
+  @Autowired pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas;
   @Autowired PlantillaHorarioRepository plantillas;
 
   /** Datos mínimos que necesita un horario: sección, plantilla, área, docente y aula. */
@@ -290,6 +300,193 @@ class HorarioSeccionIntegrationTest {
   }
 
   @Test
+  void horarioEstudiante_muestraSoloLaSeccionConMatriculaConfirmada() throws Exception {
+    Escenario propia = escenario();
+    int horarioPropio = idDe(crearHorario(propia).andExpect(status().isCreated()));
+    agregarSesion(horarioPropio, propia, propia.bloque1Id(), "MONDAY")
+        .andExpect(status().isCreated());
+
+    Escenario ajena = escenario();
+    int horarioAjeno = idDe(crearHorario(ajena).andExpect(status().isCreated()));
+    agregarSesion(horarioAjeno, ajena, ajena.bloque1Id(), "TUESDAY")
+        .andExpect(status().isCreated());
+
+    String username = matricularAlumno(propia, EstadoMatricula.CONFIRMADA);
+    mvc.perform(
+            get("/api/v1/estudiantes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user(username).roles("ALUMNO")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].areaCodigo").value(propia.areaCodigo()))
+        .andExpect(jsonPath("$[0].seccionCodigo").value("T" + propia.sufijo()));
+  }
+
+  @Test
+  void horarioEstudiante_noMuestraClasesConMatriculaAunNoConfirmada() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY").andExpect(status().isCreated());
+    String username = matricularAlumno(e, EstadoMatricula.EN_REGISTRO);
+
+    mvc.perform(
+            get("/api/v1/estudiantes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user(username).roles("ALUMNO")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+  }
+
+  @Test
+  void estudianteNoPuedeConsultarElHorarioConsolidadoDocente() throws Exception {
+    Escenario e = escenario();
+    mvc.perform(
+            get("/api/v1/docentes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user("docente-" + e.sufijo()).roles("ALUMNO")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void docenteNoPuedeConsultarElHorarioConsolidadoEstudiante() throws Exception {
+    Escenario e = escenario();
+    mvc.perform(
+            get("/api/v1/estudiantes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void docenteNoPuedeAgregarEnUnBloqueYaOcupadoDeSuSeccion() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY").andExpect(status().isCreated());
+
+    mvc.perform(
+            post("/api/v1/docentes/mi-horario/" + horarioId + "/sesiones")
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(sesionDocente(e.bloque1Id(), "MONDAY", e.areaCodigo(), e.aulaId())))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void docenteNoPuedeModificarSesionParaOcuparUnBloqueYaAsignado() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    int primera = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
+    agregarSesion(horarioId, e, e.bloque2Id(), "WEDNESDAY").andExpect(status().isCreated());
+
+    mvc.perform(
+            put("/api/v1/docentes/mi-horario/sesiones/" + primera)
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(sesionDocente(e.bloque2Id(), "WEDNESDAY", e.areaCodigo(), e.aulaId())))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void docentePuedeAgregarUnaSesionPropiaDesdeSuHorarioConsolidado() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY").andExpect(status().isCreated());
+    mvc.perform(
+            post("/api/v1/docentes/mi-horario/" + horarioId + "/sesiones")
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(sesionDocente(e.bloque2Id(), "MONDAY", e.areaCodigo(), e.aulaId())))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.docenteId").value(e.docenteId()));
+    mvc.perform(
+            get("/api/v1/docentes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2));
+  }
+
+  @Test
+  void docenteNoPuedeAgregarSesionesEnUnaSeccionAjena() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    mvc.perform(
+            post("/api/v1/docentes/mi-horario/" + horarioId + "/sesiones")
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(sesionDocente(e.bloque1Id(), "MONDAY", e.areaCodigo(), e.aulaId())))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void docentePuedeModificarUnaSesionPropiaDesdeSuHorarioConsolidado() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
+    mvc.perform(
+            put("/api/v1/docentes/mi-horario/sesiones/" + sesionId)
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(sesionDocente(e.bloque1Id(), "WEDNESDAY", e.areaCodigo(), e.aulaId())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dia").value("WEDNESDAY"));
+  }
+
+  @Test
+  void docentePuedeEliminarUnaSesionPropiaDesdeSuHorarioConsolidado() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
+    mvc.perform(
+            delete("/api/v1/docentes/mi-horario/sesiones/" + sesionId)
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE")))
+        .andExpect(status().isNoContent());
+    mvc.perform(
+            get("/api/v1/docentes/mi-horario")
+                .param("anio", String.valueOf(ANIO))
+                .with(user("docente-" + e.sufijo()).roles("DOCENTE")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+  }
+
+  @Test
+  void docenteNoPuedeEliminarSesionAsignadaAOtroDocente() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
+    String otraCuenta = "otro-docente-" + e.sufijo();
+    Persona otraPersona = personas.save(new Persona("8" + e.sufijo(), "Ana", "Rios", "Paz"));
+    cuentas.save(new CuentaUsuario(otraCuenta, "hash", Rol.DOCENTE, otraPersona));
+    Docente otroDocente = new Docente();
+    otroDocente.setPersona(otraPersona);
+    docentes.save(otroDocente);
+    mvc.perform(
+            delete("/api/v1/docentes/mi-horario/sesiones/" + sesionId)
+                .with(user(otraCuenta).roles("DOCENTE")))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void docenteNoPuedeModificarSesionAsignadaAOtroDocente() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
+    String otraCuenta = "otro-docente-edicion-" + e.sufijo();
+    Persona otraPersona = personas.save(new Persona("7" + e.sufijo(), "Ana", "Rios", "Paz"));
+    cuentas.save(new CuentaUsuario(otraCuenta, "hash", Rol.DOCENTE, otraPersona));
+    Docente otroDocente = new Docente();
+    otroDocente.setPersona(otraPersona);
+    docentes.save(otroDocente);
+
+    mvc.perform(
+            put("/api/v1/docentes/mi-horario/sesiones/" + sesionId)
+                .with(user(otraCuenta).roles("DOCENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(sesionDocente(e.bloque1Id(), "WEDNESDAY", e.areaCodigo(), e.aulaId())))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
   @WithMockUser(username = "docente-test", roles = "DOCENTE")
   void rechazaUsuariosSinRolAdministrador() throws Exception {
     mvc.perform(get(BASE + "/1")).andExpect(status().isForbidden());
@@ -394,6 +591,39 @@ class HorarioSeccionIntegrationTest {
             "areaCodigo", e.areaCodigo(),
             "docenteId", docenteId,
             "aulaId", aulaId));
+  }
+
+  private String sesionDocente(int bloqueId, String dia, String areaCodigo, int aulaId)
+      throws Exception {
+    return cuerpo(
+        Map.of("bloqueId", bloqueId, "dia", dia, "areaCodigo", areaCodigo, "aulaId", aulaId));
+  }
+
+  private String matricularAlumno(Escenario e, EstadoMatricula estado) {
+    Seccion seccion = secciones.findById(e.seccionId()).orElseThrow();
+    Persona persona =
+        personas.save(new Persona("9" + e.sufijo(), "Alumno", "Prueba", e.sufijo()));
+    CuentaUsuario cuenta =
+        cuentas.save(new CuentaUsuario("alumno-" + e.sufijo(), "hash", Rol.ALUMNO, persona));
+    Estudiante estudiante = new Estudiante();
+    estudiante.setPersona(persona);
+    estudiantes.save(estudiante);
+
+    Periodo periodo = new Periodo();
+    periodo.setGrado(seccion.getGrado());
+    periodo.setSeccion(seccion);
+    periodo.setFechaInicio(LocalDate.of(ANIO, 3, 1));
+    periodo.setFechaFin(LocalDate.of(ANIO, 12, 20));
+    periodo.setEstado(EstadoPeriodo.PLANIFICADO);
+    periodos.save(periodo);
+
+    Matricula matricula = new Matricula();
+    matricula.setFechaMatricula(LocalDate.of(ANIO, 2, 1));
+    matricula.setEstado(estado);
+    matricula.setPeriodo(periodo);
+    matricula.setEstudiante(estudiante);
+    matriculas.save(matricula);
+    return cuenta.getUsername();
   }
 
   private String cuerpo(Object datos) throws Exception {

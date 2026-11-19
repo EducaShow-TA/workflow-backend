@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.HorarioSeccion;
 import pe.edu.pucp.colegio.common.model.SesionHorario;
 
@@ -36,6 +37,34 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("desde") java.time.LocalDate desde,
       @Param("hasta") java.time.LocalDate hasta);
 
+  @EntityGraph(attributePaths = "docente.persona")
+  @Query(
+      "select distinct s from SesionHorario s "
+          + "join fetch s.horario h "
+          + "join fetch h.seccion sec "
+          + "join fetch sec.grado "
+          + "join fetch s.bloque b "
+          + "join fetch s.area "
+          + "join fetch s.docente "
+          + "join fetch s.aula "
+          + "where h.anio = :anio "
+          + "and s.vigenteDesde <= :hasta "
+          + "and (s.vigenteHasta is null or s.vigenteHasta >= :desde) "
+          + "and exists (select m.id from Matricula m "
+          + "where m.estudiante.persona.id = :personaId "
+          + "and m.active = true and m.estado = :estado "
+          + "and m.periodo.seccion = h.seccion "
+          + "and m.periodo.fechaInicio <= :hasta and m.periodo.fechaFin >= :desde "
+          + "and m.periodo.fechaInicio <= coalesce(s.vigenteHasta, :hasta) "
+          + "and m.periodo.fechaFin >= s.vigenteDesde) "
+          + "order by s.dia, b.horaInicio")
+  List<SesionHorario> listarHorarioEstudiante(
+      @Param("personaId") Integer personaId,
+      @Param("anio") Integer anio,
+      @Param("desde") java.time.LocalDate desde,
+      @Param("hasta") java.time.LocalDate hasta,
+      @Param("estado") EstadoMatricula estado);
+
   @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})
   List<SesionHorario> findAllByHorarioId(Integer horarioId);
 
@@ -51,6 +80,8 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("hasta") java.time.LocalDate hasta);
 
   Optional<SesionHorario> findByIdAndHorarioId(Integer id, Integer horarioId);
+
+  boolean existsByHorarioIdAndDocenteId(Integer horarioId, Integer docenteId);
 
   boolean existsByAulaId(Integer aulaId);
 
