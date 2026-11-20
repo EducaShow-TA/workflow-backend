@@ -29,6 +29,10 @@ public interface VinculoFamiliarRepository extends JpaRepository<VinculoFamiliar
   Optional<VinculoFamiliar> findByEstudianteIdAndApoderadoId(
       Integer estudianteId, Integer apoderadoId);
 
+  @EntityGraph(attributePaths = {"estudiante", "estudiante.persona"})
+  Optional<VinculoFamiliar> findByEstudianteIdAndApoderadoIdAndActiveTrue(
+      Integer estudianteId, Integer apoderadoId);
+
   List<VinculoFamiliar> findAllByEstudianteId(Integer estudianteId);
 
   java.util.Optional<VinculoFamiliar>

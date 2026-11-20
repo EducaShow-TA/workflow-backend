@@ -59,17 +59,19 @@ public class CuadroMeritoDocumentoService {
                   + " · Promedio de puntajes finales por competencia (C=1, B=2, A=3, AD=4)"));
       documento.add(new Paragraph(" "));
 
-      PdfPTable tabla = new PdfPTable(new float[] {0.8f, 4.2f, 1.5f, 1.4f, 1.8f});
+      PdfPTable tabla = new PdfPTable(new float[] {0.8f, 3.7f, 1.2f, 1.5f, 1.4f, 1.8f});
       tabla.setWidthPercentage(100);
       tabla.setHeaderRows(1);
       agregarEncabezado(tabla, "Puesto");
       agregarEncabezado(tabla, "Estudiante");
+      agregarEncabezado(tabla, "Sección");
       agregarEncabezado(tabla, "ID estudiante");
       agregarEncabezado(tabla, "Competencias");
       agregarEncabezado(tabla, "Promedio");
       for (EstudianteRanking estudiante : cuadro.estudiantes()) {
         agregarCelda(tabla, valor(estudiante.puesto()));
         agregarCelda(tabla, estudiante.estudiante());
+        agregarCelda(tabla, estudiante.seccion());
         agregarCelda(tabla, estudiante.estudianteId().toString());
         agregarCelda(tabla, Integer.toString(estudiante.competenciasCalificadas()));
         agregarCelda(tabla, valor(estudiante.promedio()));
@@ -111,9 +113,10 @@ public class CuadroMeritoDocumentoService {
       Row encabezado = hoja.createRow(4);
       encabezado.createCell(0).setCellValue("Puesto");
       encabezado.createCell(1).setCellValue("Estudiante");
-      encabezado.createCell(2).setCellValue("ID estudiante");
-      encabezado.createCell(3).setCellValue("Competencias calificadas");
-      encabezado.createCell(4).setCellValue("Promedio");
+      encabezado.createCell(2).setCellValue("Sección");
+      encabezado.createCell(3).setCellValue("ID estudiante");
+      encabezado.createCell(4).setCellValue("Competencias calificadas");
+      encabezado.createCell(5).setCellValue("Promedio");
 
       CellStyle formatoPromedio = libro.createCellStyle();
       formatoPromedio.setDataFormat(libro.createDataFormat().getFormat("0.0000"));
@@ -126,16 +129,17 @@ public class CuadroMeritoDocumentoService {
           registro.createCell(0).setCellValue("Sin calificaciones");
         }
         registro.createCell(1).setCellValue(estudiante.estudiante());
-        registro.createCell(2).setCellValue(estudiante.estudianteId());
-        registro.createCell(3).setCellValue(estudiante.competenciasCalificadas());
+        registro.createCell(2).setCellValue(estudiante.seccion());
+        registro.createCell(3).setCellValue(estudiante.estudianteId());
+        registro.createCell(4).setCellValue(estudiante.competenciasCalificadas());
         if (estudiante.promedio() != null) {
-          registro.createCell(4).setCellValue(estudiante.promedio().doubleValue());
-          registro.getCell(4).setCellStyle(formatoPromedio);
+          registro.createCell(5).setCellValue(estudiante.promedio().doubleValue());
+          registro.getCell(5).setCellStyle(formatoPromedio);
         } else {
-          registro.createCell(4).setCellValue("");
+          registro.createCell(5).setCellValue("");
         }
       }
-      for (int columna = 0; columna < 5; columna++) {
+      for (int columna = 0; columna < 6; columna++) {
         hoja.autoSizeColumn(columna);
       }
       libro.write(salida);

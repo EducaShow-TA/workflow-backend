@@ -7,8 +7,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -162,6 +165,32 @@ class AsistenciaDocenteServiceTest {
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
     assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
+  }
+
+  @Test
+  void venceLaToleranciaYRegistraInasistenciaAutomatica() {
+    ReflectionTestUtils.setField(
+        service,
+        "clock",
+        Clock.fixed(
+            FECHA.atTime(8, 31).atZone(ZoneId.of("America/Lima")).toInstant(),
+            ZoneId.of("America/Lima")));
+    SesionClase sesion = new SesionClase();
+    sesion.setDocente(docente);
+    sesion.setHoraInicio(LocalTime.of(8, 0));
+    when(sesiones.findAllByFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(FECHA))
+        .thenReturn(List.of(sesion));
+    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(Optional.empty());
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.procesarInasistenciasPendientes();
+
+    var captor = org.mockito.ArgumentCaptor.forClass(AsistenciaDocente.class);
+    verify(asistencias).saveAndFlush(captor.capture());
+    assertEquals(EstadoAsistenciaDocente.INASISTENCIA, captor.getValue().getEstado());
+    assertEquals(
+        "Inasistencia automática: venció la ventana de marcaje",
+        captor.getValue().getMotivoAjuste());
   }
 
   private void prepararSesion(String horaInicio) {

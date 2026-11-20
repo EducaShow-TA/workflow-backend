@@ -2,11 +2,13 @@
 
 El módulo usa `periodoId` para identificar el grado y la sección, y `competenciaCodigo` para identificar el curso o ámbito curricular disponible en el modelo actual.
 
-## Cuadro de mérito por sección
+## Cuadro de mérito por grado o sección
 
-`GET /api/v1/reportes/cuadro-merito?periodoId={id}` genera el ranking de las matrículas confirmadas del período (grado y sección), disponible únicamente después del cierre de actas y solo para `ADMINISTRADOR`. Ordena por el promedio aritmético de los puntajes finales por competencia: utiliza el puntaje consolidado si proviene de evaluaciones parciales y convierte las notas finales manuales con la escala `C=1`, `B=2`, `A=3`, `AD=4`. Los empates comparten puesto y el siguiente puesto conserva el orden de competencia (por ejemplo, 1, 1, 3). Los alumnos sin calificaciones finales permanecen en el cuadro sin puesto.
+`GET /api/v1/reportes/cuadro-merito?periodoId={id}` genera el ranking de la sección del período. También puede consultarse `GET /api/v1/reportes/cuadro-merito?gradoId={id}&anio={año}` para todas las secciones del grado, o añadir `seccionId={id}` para limitar el resultado a una sección. Las variantes por grado exigen actas cerradas en todos los períodos incluidos; todas las consultas son exclusivas de `ADMINISTRADOR`.
 
-`GET /api/v1/reportes/cuadro-merito/pdf?periodoId={id}` y `GET /api/v1/reportes/cuadro-merito/excel?periodoId={id}` descargan el mismo cuadro en PDF y XLSX, respectivamente. Ambos se generan bajo demanda.
+El promedio se calcula con un puntaje por competencia: usa el consolidado cuando existe; si no, promedia las calificaciones manuales disponibles de esa competencia. Al combinar varios períodos, promedia los puntajes de cada competencia entre esos períodos. `competenciasCalificadas` cuenta competencias distintas. Las notas se convierten con la escala `C=1`, `B=2`, `A=3`, `AD=4`; los empates comparten puesto y el siguiente puesto conserva el orden de competencia (por ejemplo, 1, 1, 3). Los alumnos sin calificaciones permanecen en el cuadro sin puesto.
+
+Los mismos filtros están disponibles para `/pdf` y `/excel`, que descargan el resultado en PDF y XLSX bajo demanda.
 
 ## Tareas
 

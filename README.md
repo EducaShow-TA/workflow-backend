@@ -88,6 +88,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/apoderados/mis-pagos/comprobantes/{id}/pdf` | Descargar el comprobante de pago en PDF |
 | `GET` | `/api/v1/estudiantes/mi-ficha` | Datos del alumno autenticado y sus períodos de matrícula confirmada |
 | `GET` | `/api/v1/estudiantes/mi-horario?anio={anio}` | Consultar el horario propio según la matrícula confirmada (solo ALUMNO) |
+| `GET` | `/api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}` | Consultar el horario del estudiante vinculado (solo APODERADO) |
 | `GET` | `/api/v1/estudiantes/mis-tareas` | Tareas de las secciones vigentes del alumno con su estado (US-3.9) |
 | `GET` | `/api/v1/estudiantes/mis-tareas/{tareaId}` | Detalle de una tarea propia |
 | `POST` | `/api/v1/estudiantes/mis-tareas/{tareaId}/entrega` | Entregar o reemplazar el archivo de una tarea antes de su fecha límite (US-3.10) |
@@ -159,6 +160,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/boletas-pension/{id}/comprobantes` | Consultar comprobantes de una boleta |
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/reportes/boletas-pension/pagina` | Consultar reporte de cobranza paginado |
+| `GET` | `/api/v1/reportes/cuadro-merito?periodoId={id}` | Ranking de una sección; también admite `gradoId`, `anio` y `seccionId` (solo ADMINISTRADOR, actas cerradas) |
+| `GET` | `/api/v1/reportes/cuadro-merito/pdf` y `/excel` | Descargar el cuadro de mérito con los mismos filtros |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
@@ -282,7 +285,7 @@ Las rutas `/api/v1/aulas` y `/api/v1/horarios/secciones` requieren el rol `ADMIN
 }
 ```
 
-`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, y el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}`.
+`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
 
 ### Autenticación
 

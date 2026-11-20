@@ -19,6 +19,7 @@ public record CuadroMeritoResponse(
       Integer matriculaId,
       Integer estudianteId,
       String estudiante,
+      String seccion,
       BigDecimal promedio,
       int competenciasCalificadas) {}
 }

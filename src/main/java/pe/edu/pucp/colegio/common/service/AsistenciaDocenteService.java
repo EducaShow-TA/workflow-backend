@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,6 +115,42 @@ public class AsistenciaDocenteService {
     asistencia.marcarSalida(hora);
     log.info("Docente {} marcó su salida el {} a las {}", docente.getId(), hoy, hora);
     return respuesta(asistencia);
+  }
+
+  /** Cierra como inasistencia el marcaje de docentes que superaron su tolerancia de entrada. */
+  @Transactional
+  public void procesarInasistenciasPendientes() {
+    LocalDateTime ahora = LocalDateTime.now(clock);
+    LocalDate hoy = ahora.toLocalDate();
+    ConfiguracionMarcajeDocenteResponse configuracion = configuracionMarcaje.obtener();
+    List<SesionClase> sesionesDeHoy =
+        sesiones.findAllByFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(hoy);
+    Map<Integer, LocalTime> iniciosPorDocente = new LinkedHashMap<>();
+    for (SesionClase sesion : sesionesDeHoy) {
+      iniciosPorDocente.putIfAbsent(sesion.getDocente().getId(), sesion.getHoraInicio());
+    }
+
+    for (var entrada : iniciosPorDocente.entrySet()) {
+      LocalTime cierre = entrada.getValue().plusMinutes(configuracion.ventanaDespuesMinutos());
+      if (!ahora.toLocalTime().isAfter(cierre)) {
+        continue;
+      }
+      Docente docente = docentes.findById(entrada.getKey()).orElse(null);
+      if (docente == null || !Boolean.TRUE.equals(docente.getActive())) {
+        continue;
+      }
+      AsistenciaDocente asistencia =
+          asistencias
+              .findByDocenteIdAndFechaAndActiveTrue(docente.getId(), hoy)
+              .orElseGet(() -> nuevaAsistencia(docente, hoy));
+      if (asistencia.getEstado() != EstadoAsistenciaDocente.PENDIENTE_MARCAJE) {
+        continue;
+      }
+      asistencia.ajustar(
+          EstadoAsistenciaDocente.INASISTENCIA,
+          "Inasistencia automática: venció la ventana de marcaje");
+      asistencias.saveAndFlush(asistencia);
+    }
   }
 
   /** Lista las asistencias del docente autenticado, opcionalmente en un rango de fechas. */

@@ -1,5 +1,7 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,21 +20,25 @@ public class AsistenciaJustificacionService {
   private final AsistenciaEstudianteRepository asistencias;
   private final AccesoAsistenciaService acceso;
   private final EvidenciaStorageService storage;
+  private final Clock clock;
 
   public AsistenciaJustificacionService(
       AsistenciaEstudianteRepository asistencias,
       AccesoAsistenciaService acceso,
-      EvidenciaStorageService storage) {
+      EvidenciaStorageService storage,
+      Clock clock) {
     this.asistencias = asistencias;
     this.acceso = acceso;
     this.storage = storage;
+    this.clock = clock;
   }
 
   @Transactional
   public AsistenciaJustificacionResponse justificar(
       Integer asistenciaId, String motivo, MultipartFile documento, String username) {
     AsistenciaEstudiante asistencia = buscar(asistenciaId);
-    acceso.exigirAccesoJustificacion(asistencia.getEstudiante().getId(), username);
+    acceso.exigirAccesoJustificacion(
+        asistencia.getEstudiante().getId(), asistencia.getSesionClase(), username);
     if (asistencia.getEstadoAsistencia() != EstadoAsistencia.AUSENTE) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "Solo se puede justificar una inasistencia registrada");
@@ -48,6 +54,7 @@ public class AsistenciaJustificacionService {
     asistencia.justificar(motivo, guardado.clave());
     asistencia.setDocumentoJustificacion(
         guardado.clave(), guardado.nombre(), guardado.tipo(), guardado.tamanio());
+    asistencia.anotarCorreccion(username, LocalDateTime.now(clock));
     return respuesta(asistencia);
   }
 
