@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -25,18 +26,21 @@ public class MiHorarioEstudianteService {
   private final SesionHorarioRepository sesiones;
   private final ApoderadoRepository apoderados;
   private final VinculoFamiliarRepository vinculos;
+  private final Clock clock;
 
   public MiHorarioEstudianteService(
       CuentaUsuarioRepository cuentas,
       EstudianteRepository estudiantes,
       SesionHorarioRepository sesiones,
       ApoderadoRepository apoderados,
-      VinculoFamiliarRepository vinculos) {
+      VinculoFamiliarRepository vinculos,
+      Clock clock) {
     this.cuentas = cuentas;
     this.estudiantes = estudiantes;
     this.sesiones = sesiones;
     this.apoderados = apoderados;
     this.vinculos = vinculos;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -93,7 +97,7 @@ public class MiHorarioEstudianteService {
   private List<HorarioEstudianteResponse> listarPorPersona(Integer personaId, Integer anio) {
     LocalDate desde = LocalDate.of(anio, 1, 1);
     LocalDate hasta = LocalDate.of(anio, 12, 31);
-    LocalDate hoy = LocalDate.now(java.time.ZoneId.of("America/Lima"));
+    LocalDate hoy = LocalDate.now(clock);
     LocalDate fecha = hoy.isBefore(desde) ? desde : hoy.isAfter(hasta) ? hasta : hoy;
     return sesiones
         .listarHorarioEstudiante(personaId, anio, desde, hasta, fecha, EstadoMatricula.CONFIRMADA)

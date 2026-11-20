@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.BloqueGrillaResponse;
@@ -159,7 +160,7 @@ public class HorarioSeccionService {
                         "La sección no tiene un horario para el año " + anio)));
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public SesionHorarioResponse agregarSesion(Integer horarioId, SesionHorarioRequest request) {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = new SesionHorario();
@@ -182,7 +183,7 @@ public class HorarioSeccionService {
     return respuesta(sesion);
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public SesionHorarioResponse actualizarSesion(
       Integer horarioId, Integer sesionId, SesionHorarioRequest request) {
     HorarioSeccion horario = buscar(horarioId);
@@ -430,6 +431,10 @@ public class HorarioSeccionService {
       SesionHorarioRequest request,
       LocalDate fechaEfectiva) {
     Resolucion datos = resolver(horario, request);
+    // Serializa las comprobaciones sobre grilla, docente y aula ante escrituras concurrentes.
+    horarios.findByIdForUpdate(horario.getId());
+    docentes.findByIdForUpdate(datos.docente().getId());
+    aulas.findByIdForUpdate(datos.aula().getId());
     List<ConflictoSesionResponse> conflictos =
         detectarConflictos(horario, datos, request.dia(), sesion.getId(), fechaEfectiva);
     List<ConflictoSesionResponse> cruces =
