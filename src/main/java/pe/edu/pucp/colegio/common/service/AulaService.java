@@ -81,7 +81,11 @@ public class AulaService {
       long alumnos =
           matriculas.countAlumnosActivosPorSeccionEnAnhio(
               horario.getSeccion().getId(), horario.getAnio());
-      if (alumnos > nuevaCapacidad) {
+      int capacidadSeccion =
+          horario.getSeccion().getVacantesTotales() == null
+              ? 0
+              : horario.getSeccion().getVacantesTotales();
+      if (Math.max(alumnos, capacidadSeccion) > nuevaCapacidad) {
         throw new ConflictException(
             "No se puede reducir la capacidad a "
                 + nuevaCapacidad
@@ -89,9 +93,11 @@ public class AulaService {
                 + horario.getSeccion().getGrado().getNumero()
                 + "° "
                 + horario.getSeccion().getCodigo()
-                + " tiene "
+                + " requiere espacio para "
+                + Math.max(alumnos, capacidadSeccion)
+                + " alumnos; tiene "
                 + alumnos
-                + " alumnos matriculados en "
+                + " matriculados en "
                 + horario.getAnio()
                 + " y tiene clases en esta aula");
       }

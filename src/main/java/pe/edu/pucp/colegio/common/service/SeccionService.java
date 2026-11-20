@@ -20,6 +20,7 @@ import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 
 /** Gestiona secciones y valida su capacidad frente a las matrículas activas. */
 @Service
@@ -29,16 +30,19 @@ public class SeccionService {
   private final GradoRepository grados;
   private final MatriculaRepository matriculas;
   private final PeriodoRepository periodos;
+  private final SesionHorarioRepository sesionesHorario;
 
   public SeccionService(
       SeccionRepository secciones,
       GradoRepository grados,
       MatriculaRepository matriculas,
-      PeriodoRepository periodos) {
+      PeriodoRepository periodos,
+      SesionHorarioRepository sesionesHorario) {
     this.secciones = secciones;
     this.grados = grados;
     this.matriculas = matriculas;
     this.periodos = periodos;
+    this.sesionesHorario = sesionesHorario;
   }
 
   @Transactional(readOnly = true)
@@ -84,6 +88,19 @@ public class SeccionService {
       throw new ResponseStatusException(
           HttpStatus.UNPROCESSABLE_ENTITY,
           "La capacidad no puede ser menor que los " + matriculados + " alumnos ya matriculados");
+    }
+    var asignacionInsuficiente =
+        sesionesHorario
+            .findVigentesBySeccionId(id, LocalDate.now(), LocalDate.now().getYear())
+            .stream()
+            .filter(sesion -> sesion.getAula().getCapacidad() < request.vacantesTotales())
+            .findFirst();
+    if (asignacionInsuficiente.isPresent()) {
+      throw new ResponseStatusException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "La capacidad solicitada supera la del aula "
+              + asignacionInsuficiente.get().getAula().getCodigo()
+              + " asignada a esta sección");
     }
     seccion.setVacantesTotales(request.vacantesTotales());
     return respuesta(seccion);

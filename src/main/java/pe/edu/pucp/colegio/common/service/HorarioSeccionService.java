@@ -392,7 +392,9 @@ public class HorarioSeccionService {
     Seccion seccion = horario.getSeccion();
     long alumnos =
         matriculas.countAlumnosActivosPorSeccionEnAnhio(seccion.getId(), horario.getAnio());
-    if (alumnos > datos.aula().getCapacidad()) {
+    long capacidadRequerida =
+        seccion.getVacantesTotales() == null ? 0 : Math.max(seccion.getVacantesTotales(), alumnos);
+    if (capacidadRequerida > datos.aula().getCapacidad()) {
       conflictos.add(
           new ConflictoSesionResponse(
               TipoConflictoHorario.CAPACIDAD,
@@ -400,11 +402,13 @@ public class HorarioSeccionService {
                   + datos.aula().getCodigo()
                   + " tiene capacidad para "
                   + datos.aula().getCapacidad()
-                  + " alumnos y "
+                  + " alumnos y la sección "
                   + nombreSeccion(seccion)
-                  + " tiene "
+                  + " requiere espacio para "
+                  + capacidadRequerida
+                  + " ("
                   + alumnos
-                  + " matriculados en "
+                  + " matriculados) en "
                   + horario.getAnio()));
     }
     return conflictos;

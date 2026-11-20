@@ -110,6 +110,16 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
   List<HorarioSeccion> findHorariosConAula(@Param("aulaId") Integer aulaId);
 
   @Query(
+      "select s from SesionHorario s join fetch s.aula "
+          + "where s.horario.seccion.id = :seccionId and s.horario.active = true "
+          + "and s.horario.anio >= :anioActual "
+          + "and (s.vigenteHasta is null or s.vigenteHasta >= :hoy)")
+  List<SesionHorario> findVigentesBySeccionId(
+      @Param("seccionId") Integer seccionId,
+      @Param("hoy") java.time.LocalDate hoy,
+      @Param("anioActual") Integer anioActual);
+
+  @Query(
       """
             select s from SesionHorario s
               join fetch s.horario h

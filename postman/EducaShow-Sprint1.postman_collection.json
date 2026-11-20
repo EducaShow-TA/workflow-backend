@@ -3281,7 +3281,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"codigo\": \"AULA-DOC-{{$randomInt}}\",\n  \"capacidad\": 30,\n  \"descripcion\": \"Aula de prueba Postman\"\n}",
+              "raw": "{\n  \"codigo\": \"AULA-DOC-{{$randomInt}}\",\n  \"capacidad\": 40,\n  \"descripcion\": \"Aula de prueba Postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
