@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.*;
 import pe.edu.pucp.colegio.common.model.Calificacion;
+import pe.edu.pucp.colegio.common.model.Tarea;
 import pe.edu.pucp.colegio.common.service.EvidenciaStorageService;
 import pe.edu.pucp.colegio.common.service.MisClasesService;
 import pe.edu.pucp.colegio.common.service.SeguimientoAcademicoService;
@@ -77,6 +78,17 @@ public class SeguimientoAcademicoController {
       }
     }
     return service.marcarEntrega(tareaId, matriculaId, request.cumplida());
+  }
+
+  @GetMapping("/api/v1/tareas/{tareaId}/entregas/{matriculaId}/archivo")
+  public ResponseEntity<Resource> descargarEntrega(
+      @PathVariable Integer tareaId,
+      @PathVariable Integer matriculaId,
+      Authentication authentication) {
+    Tarea tarea = service.obtenerTarea(tareaId);
+    validarAccesoCompetenciaEnPeriodo(
+        tarea.getPeriodo().getId(), tarea.getCompetencia().getCodigo(), authentication);
+    return TareasEstudianteController.descarga(service.archivoEntrega(tareaId, matriculaId));
   }
 
   private void validarAccesoCompetenciaEnPeriodo(

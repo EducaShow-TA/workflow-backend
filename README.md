@@ -68,6 +68,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/tareas` | Crear una tarea con seguimiento por matrícula |
 | `GET` | `/api/v1/tareas?periodoId=` | Consultar tareas y entregas del periodo |
 | `PATCH` | `/api/v1/tareas/{tareaId}/entregas/{matriculaId}` | Actualizar cumplimiento de una entrega |
+| `GET` | `/api/v1/tareas/{tareaId}/entregas/{matriculaId}/archivo` | Descargar el archivo entregado por el alumno (docente de la clase o ADMINISTRADOR) |
 | `POST` | `/api/v1/calificaciones` | Registrar calificación manual por bimestre y evidencia mediante multipart; si ya existe, la rectifica con `motivo` obligatorio (US-3.6) |
 | `GET` | `/api/v1/calificaciones/{calificacionId}/historial` | Historial de registros y rectificaciones de una calificación (docente de la clase o ADMINISTRADOR) |
 | `GET` | `/api/v1/seguimiento/competencias/{codigo}?periodoId=&bimestre=` | Consultar calificaciones y evidencias de una competencia y bimestre |
@@ -87,6 +88,10 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/apoderados/mis-pagos/comprobantes/{id}/pdf` | Descargar el comprobante de pago en PDF |
 | `GET` | `/api/v1/estudiantes/mi-ficha` | Datos del alumno autenticado y sus períodos de matrícula confirmada |
 | `GET` | `/api/v1/estudiantes/mi-horario?anio={anio}` | Consultar el horario propio según la matrícula confirmada (solo ALUMNO) |
+| `GET` | `/api/v1/estudiantes/mis-tareas` | Tareas de las secciones vigentes del alumno con su estado (US-3.9) |
+| `GET` | `/api/v1/estudiantes/mis-tareas/{tareaId}` | Detalle de una tarea propia |
+| `POST` | `/api/v1/estudiantes/mis-tareas/{tareaId}/entrega` | Entregar o reemplazar el archivo de una tarea antes de su fecha límite (US-3.10) |
+| `GET` | `/api/v1/estudiantes/mis-tareas/{tareaId}/entrega/archivo` | Descargar el archivo propio entregado |
 | `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
 | `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
 | `GET` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion/documento` | Descargar el documento de sustento (con acceso al historial) |
@@ -598,6 +603,13 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 
 Cada registro identifica usuario, rol, fecha/hora, acción y los valores anteriores/nuevos. En calificaciones finales se guardan nota, puntaje consolidado, indicador de consolidación y observación; en las parciales, nota y estado de justificación. También se auditan los resultados recalculados, la materialización de faltantes al cerrar actas y las calificaciones parciales desactivadas junto con una evaluación. Los eventos se conservan en `auditoria_calificaciones`, separada de las tablas académicas y sin una operación de edición o borrado expuesta por la API.
 
+### Tareas del alumno (US-3.9, US-3.10)
+
+- El alumno ve solo las tareas de las secciones donde tiene matrícula confirmada en el período vigente (o el más reciente si no hay uno en curso), con área, docente del horario, consigna, fecha límite y ponderación.
+- Estado: `ENTREGADA` si la entrega está cumplida; `VENCIDA` si pasó la fecha límite sin entrega; si no, `PENDIENTE`. La hora se toma del reloj de la aplicación (`America/Lima`).
+- Entrega: multipart con la parte `archivo`, máximo 10 MB y extensiones `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`, `jpg`, `jpeg`, `png` o `zip`. Antes de la fecha límite se puede reemplazar el archivo; después responde `422`.
+- `entregas_tarea.origen` indica si la registró el `ALUMNO` (con archivo) o el `DOCENTE` (marcado manual). Si el docente revierte una entrega, el archivo se conserva para consulta y el alumno puede volver a entregar si no venció.
+
 ### Rectificación de calificaciones (US-3.6)
 
 Registrar una nota que ya existe para la misma matrícula, competencia y bimestre es una **rectificación**:
@@ -900,6 +912,8 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-3.7 Seguimiento de tareas | **Completa**: las entregas se crean para las matrículas confirmadas, incluso cuando se confirman después de crear la tarea. |
 | US-3.6 Rectificación de calificaciones | **Completa**: motivo obligatorio al cambiar una nota final o parcial, acción `RECTIFICAR` con motivo en la auditoría, historial por calificación y conservación de la evidencia. |
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
+| US-3.9 Tareas del alumno | **Completa**: lista solo las tareas de las secciones del alumno con estado Pendiente, Entregada o Vencida. |
+| US-3.10 Entrega de tareas | **Completa**: archivo de hasta 10 MB antes de la fecha límite, registro de fecha y hora, reemplazo y descarga para el alumno y el docente. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
 | US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según capacidad y matrícula de la sección. |
