@@ -169,9 +169,9 @@ public class HorarioSeccionService {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = buscarSesion(horarioId, sesionId);
     LocalDate hoy = LocalDate.now(clock);
-    if (!sesionesClase.existsBySesionHorarioId(sesion.getId())
-        && sesion.getVigenteDesde().isAfter(hoy)) {
+    if (sesion.getVigenteDesde().isAfter(hoy)) {
       aplicar(horario, sesion, request, fechaDeConsulta(horario));
+      actualizarOcurrenciasFuturas(sesion, hoy);
       return respuesta(sesiones.save(sesion));
     }
 
@@ -190,25 +190,35 @@ public class HorarioSeccionService {
     nueva.setVigenteHasta(finAnterior);
     aplicar(horario, nueva, request, vigenciaNueva);
     nueva = sesiones.save(nueva);
-    Docente docenteNuevo = nueva.getDocente();
+    actualizarOcurrenciasFuturas(sesion, hoy, nueva);
+    return respuesta(nueva);
+  }
+
+  private void actualizarOcurrenciasFuturas(SesionHorario sesion, LocalDate hoy) {
+    actualizarOcurrenciasFuturas(sesion, hoy, sesion);
+  }
+
+  private void actualizarOcurrenciasFuturas(
+      SesionHorario sesionAnterior, LocalDate hoy, SesionHorario sesionNueva) {
+    Docente docenteNuevo = sesionNueva.getDocente();
     for (var ocurrencia :
-        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(sesion.getId(), hoy)) {
+        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(
+            sesionAnterior.getId(), hoy)) {
       if (asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId())) {
         throw new ConflictException(
             "No se puede cambiar la asignación: ya hay asistencia registrada en una sesión futura");
       }
-      if (ocurrencia.getFecha().getDayOfWeek() == nueva.getDia()) {
-        ocurrencia.setSesionHorario(nueva);
-        ocurrencia.setArea(nueva.getArea());
+      if (ocurrencia.getFecha().getDayOfWeek() == sesionNueva.getDia()) {
+        ocurrencia.setSesionHorario(sesionNueva);
+        ocurrencia.setArea(sesionNueva.getArea());
         ocurrencia.setDocente(docenteNuevo);
-        ocurrencia.setHoraInicio(nueva.getBloque().getHoraInicio());
-        ocurrencia.setHoraFin(nueva.getBloque().getHoraFin());
+        ocurrencia.setHoraInicio(sesionNueva.getBloque().getHoraInicio());
+        ocurrencia.setHoraFin(sesionNueva.getBloque().getHoraFin());
       } else if (!Boolean.TRUE.equals(ocurrencia.getCancelada())) {
         ocurrencia.setCancelada(true);
         ocurrencia.setMotivoCancelacion("La asignación semanal cambió antes de la fecha");
       }
     }
-    return respuesta(nueva);
   }
 
   @Transactional
