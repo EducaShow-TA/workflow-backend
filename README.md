@@ -73,8 +73,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/calificaciones/{calificacionId}/historial` | Historial de registros y rectificaciones de una calificación (docente de la clase o ADMINISTRADOR) |
 | `GET` | `/api/v1/seguimiento/competencias/{codigo}?periodoId=&bimestre=` | Consultar calificaciones y evidencias de una competencia y bimestre |
 | `GET` | `/api/v1/evidencias/{calificacionId}/archivo` | Descargar archivo adjunto a una calificación |
-| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
-| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}` | Descargar PDF oficial tras cierre de actas o informe preliminar con marca de borrador (ADMINISTRADOR, DOCENTE, apoderado vinculado) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}&bimestre={1..4}` | Consultar libreta JSON interactiva del período y bimestre |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}&bimestre={1..4}` | Descargar PDF del período y bimestre |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
