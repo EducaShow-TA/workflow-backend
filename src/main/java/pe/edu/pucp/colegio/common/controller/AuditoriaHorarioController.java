@@ -2,7 +2,6 @@ package pe.edu.pucp.colegio.common.controller;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,6 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.edu.pucp.colegio.common.dto.AuditoriaHorarioResponse;
 import pe.edu.pucp.colegio.common.service.AuditoriaHorarioService;
 
+/**
+ * Consulta del historial de cambios de horario (US-4.5); solo lectura y solo para administradores.
+ */
 @RestController
 @RequestMapping("/api/v1/horarios/auditoria")
 @PreAuthorize("hasRole('ADMINISTRADOR')")
