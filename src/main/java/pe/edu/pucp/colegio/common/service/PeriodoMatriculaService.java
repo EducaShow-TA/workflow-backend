@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -24,11 +25,13 @@ public class PeriodoMatriculaService {
 
   private final PeriodoMatriculaRepository periodos;
   private final MatriculaRepository matriculas;
+  private final Clock clock;
 
   public PeriodoMatriculaService(
-      PeriodoMatriculaRepository periodos, MatriculaRepository matriculas) {
+      PeriodoMatriculaRepository periodos, MatriculaRepository matriculas, Clock clock) {
     this.periodos = periodos;
     this.matriculas = matriculas;
+    this.clock = clock;
   }
 
   @Transactional
@@ -85,13 +88,13 @@ public class PeriodoMatriculaService {
 
   @Transactional(readOnly = true)
   public boolean hayPeriodoVigente() {
-    LocalDate hoy = LocalDate.now();
+    LocalDate hoy = LocalDate.now(clock);
     return periodos.existsByActiveTrueAndFechaInicioLessThanEqualAndFechaLimiteGreaterThanEqual(
         hoy, hoy);
   }
 
   private void validarInicioDesdeHoy(PeriodoMatriculaRequest request) {
-    if (request.fechaInicio().isBefore(LocalDate.now())) {
+    if (request.fechaInicio().isBefore(LocalDate.now(clock))) {
       throw new BusinessException("La fecha de inicio no puede ser anterior a hoy");
     }
   }
@@ -101,10 +104,10 @@ public class PeriodoMatriculaService {
     if (!request.fechaInicio().equals(periodo.getFechaInicio())) {
       throw new BusinessException("El periodo ya inició; su fecha de inicio no se puede modificar");
     }
-    if (request.fechaLimite().isBefore(LocalDate.now())) {
+    if (request.fechaLimite().isBefore(LocalDate.now(clock))) {
       throw new BusinessException(
           "La fecha límite no puede ser anterior a hoy ("
-              + LocalDate.now().format(FORMATO_FECHA)
+              + LocalDate.now(clock).format(FORMATO_FECHA)
               + ")");
     }
   }
@@ -145,7 +148,7 @@ public class PeriodoMatriculaService {
   }
 
   private EstadoPeriodoMatricula calcularEstado(PeriodoMatricula periodo) {
-    LocalDate hoy = LocalDate.now();
+    LocalDate hoy = LocalDate.now(clock);
     if (hoy.isBefore(periodo.getFechaInicio())) {
       return EstadoPeriodoMatricula.PENDIENTE;
     }

@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.common.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +50,8 @@ public class ConsolidacionLogroService {
   private final DocenteService docentes;
   private final SesionHorarioRepository asignacionesHorario;
   private final EvidenciaStorageService storage;
+  private final CatalogoLibretaSnapshotService catalogoLibretaSnapshots;
+  private final Clock clock;
 
   public ConsolidacionLogroService(
       ReglaConsolidacionRepository reglas,
@@ -63,7 +66,9 @@ public class ConsolidacionLogroService {
       AuditoriaCalificacionService auditoriaCalificaciones,
       DocenteService docentes,
       SesionHorarioRepository asignacionesHorario,
-      EvidenciaStorageService storage) {
+      EvidenciaStorageService storage,
+      CatalogoLibretaSnapshotService catalogoLibretaSnapshots,
+      Clock clock) {
     this.reglas = reglas;
     this.evaluaciones = evaluaciones;
     this.notasParciales = notasParciales;
@@ -77,6 +82,8 @@ public class ConsolidacionLogroService {
     this.docentes = docentes;
     this.asignacionesHorario = asignacionesHorario;
     this.storage = storage;
+    this.catalogoLibretaSnapshots = catalogoLibretaSnapshots;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -309,7 +316,7 @@ public class ConsolidacionLogroService {
       nota.setEvidenciaTipo(null);
       nota.setEvidenciaTamanio(null);
     }
-    nota.setFechaRegistro(LocalDateTime.now());
+    nota.setFechaRegistro(LocalDateTime.now(clock));
     nota = notasParciales.save(nota);
     auditoriaCalificaciones.registrarParcial(
         username,
@@ -396,7 +403,8 @@ public class ConsolidacionLogroService {
     for (String codigo : evaluaciones.findDistinctCompetenciaCodigosByPeriodoId(periodoId)) {
       recalcularCompetencia(periodo, codigo, true, username, "ADMINISTRADOR", "CIERRE_ACTAS");
     }
-    LocalDateTime fechaCierre = LocalDateTime.now();
+    catalogoLibretaSnapshots.capturar(periodo);
+    LocalDateTime fechaCierre = LocalDateTime.now(clock);
     periodo.setActasCerradas(true);
     periodo.setFechaCierreActas(fechaCierre);
     periodo.setUsuarioCierreActas(username);
@@ -475,7 +483,7 @@ public class ConsolidacionLogroService {
             nota.setEvaluacion(evaluacion);
             nota.setMatricula(matricula);
             nota.setJustificada(false);
-            nota.setFechaRegistro(LocalDateTime.now());
+            nota.setFechaRegistro(LocalDateTime.now(clock));
             porEvaluacionMatricula.put(key, nota);
             existentes.add(nota);
             cambio = true;
@@ -547,7 +555,7 @@ public class ConsolidacionLogroService {
       calificacion.setEvidenciaNombre(null);
       calificacion.setEvidenciaTipo(null);
       calificacion.setEvidenciaTamanio(null);
-      calificacion.setFechaRegistro(LocalDateTime.now());
+      calificacion.setFechaRegistro(LocalDateTime.now(clock));
       calificacion.setActive(true);
       finalesAGuardar.add(calificacion);
       actualizados++;

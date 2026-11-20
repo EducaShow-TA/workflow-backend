@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.controller;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -19,9 +20,11 @@ import pe.edu.pucp.colegio.common.service.AuditoriaHorarioService;
 @PreAuthorize("hasRole('ADMINISTRADOR')")
 public class AuditoriaHorarioController {
   private final AuditoriaHorarioService auditoria;
+  private final Clock clock;
 
-  public AuditoriaHorarioController(AuditoriaHorarioService auditoria) {
+  public AuditoriaHorarioController(AuditoriaHorarioService auditoria, Clock clock) {
     this.auditoria = auditoria;
+    this.clock = clock;
   }
 
   @GetMapping
@@ -31,6 +34,10 @@ public class AuditoriaHorarioController {
           LocalDate desde,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate hasta) {
-    return auditoria.listar(horarioId, desde, hasta);
+    LocalDate fin = hasta == null ? LocalDate.now(clock) : hasta;
+    LocalDate inicio = desde == null ? fin.minusMonths(3) : desde;
+    if (inicio.isAfter(fin))
+      throw new IllegalArgumentException("El inicio no puede ser posterior al fin");
+    return auditoria.listar(horarioId, inicio.atStartOfDay(), fin.atTime(LocalTime.MAX));
   }
 }

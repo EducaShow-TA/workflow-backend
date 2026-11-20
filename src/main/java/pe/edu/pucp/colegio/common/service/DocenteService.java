@@ -30,11 +30,17 @@ public class DocenteService {
     this.cuentas = cuentas;
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public List<DocenteResponse> listar() {
     return cuentas.findAllByRolAndActiveTrue(Rol.DOCENTE).stream()
         .filter(cuenta -> cuenta.getPersona() != null)
-        .map(cuenta -> respuesta(cuenta, obtenerOCrear(cuenta.getPersona())))
+        .map(
+            cuenta ->
+                docentes
+                    .findByPersonaId(cuenta.getPersona().getId())
+                    .filter(docente -> Boolean.TRUE.equals(docente.getActive()))
+                    .map(docente -> respuesta(cuenta, docente))
+                    .orElse(null))
         .filter(Objects::nonNull)
         .sorted(
             Comparator.comparing(DocenteResponse::nombreCompleto, String.CASE_INSENSITIVE_ORDER))

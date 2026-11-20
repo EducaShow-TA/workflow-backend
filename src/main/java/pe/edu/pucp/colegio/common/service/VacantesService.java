@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -20,10 +21,12 @@ public class VacantesService {
 
   private final PeriodoRepository periodos;
   private final MatriculaRepository matriculas;
+  private final Clock clock;
 
-  public VacantesService(PeriodoRepository periodos, MatriculaRepository matriculas) {
+  public VacantesService(PeriodoRepository periodos, MatriculaRepository matriculas, Clock clock) {
     this.periodos = periodos;
     this.matriculas = matriculas;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -76,7 +79,7 @@ public class VacantesService {
         matriculasActivas,
         vacantesDisponibles,
         vacantesDisponibles > 0,
-        periodo.calcularEstado(LocalDate.now()),
+        periodo.calcularEstado(LocalDate.now(clock)),
         Boolean.TRUE.equals(periodo.getActasCerradas()));
   }
 }

@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,7 @@ public class MatriculaService {
   private final PeriodoMatriculaService periodosMatricula;
   private final FinanzasService finanzas;
   private final CuentaUsuarioRepository cuentas;
+  private final Clock clock;
 
   public MatriculaService(
       MatriculaRepository matriculas,
@@ -45,7 +47,8 @@ public class MatriculaService {
       SeccionRepository secciones,
       PeriodoMatriculaService periodosMatricula,
       FinanzasService finanzas,
-      CuentaUsuarioRepository cuentas) {
+      CuentaUsuarioRepository cuentas,
+      Clock clock) {
     this.matriculas = matriculas;
     this.estudiantes = estudiantes;
     this.periodos = periodos;
@@ -54,6 +57,7 @@ public class MatriculaService {
     this.periodosMatricula = periodosMatricula;
     this.finanzas = finanzas;
     this.cuentas = cuentas;
+    this.clock = clock;
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -94,7 +98,7 @@ public class MatriculaService {
       matricula.setPeriodo(periodo);
       matricula.setEstudiante(estudiante);
     }
-    matricula.setFechaMatricula(LocalDate.now());
+    matricula.setFechaMatricula(LocalDate.now(clock));
     matricula.setEstado(EstadoMatricula.EN_REGISTRO);
     matricula.setActive(true);
     matricula = matriculas.save(matricula);

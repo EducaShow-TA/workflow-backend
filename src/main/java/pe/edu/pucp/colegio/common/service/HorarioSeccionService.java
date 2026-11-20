@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.BloqueGrillaResponse;
@@ -74,6 +75,7 @@ public class HorarioSeccionService {
   private final AulaRepository aulas;
   private final CuentaUsuarioRepository cuentas;
   private final MatriculaRepository matriculas;
+  private final GeneracionSesionClaseService generacionSesiones;
   private final Clock clock;
   private final AuditoriaHorarioService auditoria;
 
@@ -89,6 +91,7 @@ public class HorarioSeccionService {
       AulaRepository aulas,
       CuentaUsuarioRepository cuentas,
       MatriculaRepository matriculas,
+      GeneracionSesionClaseService generacionSesiones,
       Clock clock,
       AuditoriaHorarioService auditoria) {
     this.horarios = horarios;
@@ -102,6 +105,7 @@ public class HorarioSeccionService {
     this.aulas = aulas;
     this.cuentas = cuentas;
     this.matriculas = matriculas;
+    this.generacionSesiones = generacionSesiones;
     this.clock = clock;
     this.auditoria = auditoria;
   }
@@ -156,7 +160,7 @@ public class HorarioSeccionService {
                         "La sección no tiene un horario para el año " + anio)));
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public SesionHorarioResponse agregarSesion(Integer horarioId, SesionHorarioRequest request) {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = new SesionHorario();
@@ -166,6 +170,7 @@ public class HorarioSeccionService {
         primerDiaAnio.isAfter(LocalDate.now(clock)) ? primerDiaAnio : LocalDate.now(clock));
     aplicar(horario, sesion, request, fechaDeConsulta(horario));
     sesion = sesiones.save(sesion);
+    generacionSesiones.generarParaHorario(horario.getSeccion().getId(), horario.getAnio());
     auditoria.registrar(
         usuarioActual(),
         horario,
@@ -178,7 +183,7 @@ public class HorarioSeccionService {
     return respuesta(sesion);
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public SesionHorarioResponse actualizarSesion(
       Integer horarioId, Integer sesionId, SesionHorarioRequest request) {
     HorarioSeccion horario = buscar(horarioId);
@@ -427,6 +432,10 @@ public class HorarioSeccionService {
       SesionHorarioRequest request,
       LocalDate fechaEfectiva) {
     Resolucion datos = resolver(horario, request);
+    // Serializa las comprobaciones sobre grilla, docente y aula ante escrituras concurrentes.
+    horarios.findByIdForUpdate(horario.getId());
+    docentes.findByIdForUpdate(datos.docente().getId());
+    aulas.findByIdForUpdate(datos.aula().getId());
     List<ConflictoSesionResponse> conflictos =
         detectarConflictos(horario, datos, request.dia(), sesion.getId(), fechaEfectiva);
     List<ConflictoSesionResponse> cruces =

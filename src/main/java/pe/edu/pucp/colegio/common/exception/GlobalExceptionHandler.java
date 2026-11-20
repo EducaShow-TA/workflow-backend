@@ -91,6 +91,13 @@ public class GlobalExceptionHandler {
         HttpStatus.UNPROCESSABLE_ENTITY, NivelLog.ADVERTENCIA, "NEG_422", e.getMessage(), r);
   }
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  ResponseEntity<ErrorRespuestaDTO> argumentoInvalido(
+      IllegalArgumentException e, HttpServletRequest r) {
+    String mensaje = e.getMessage() == null ? "Solicitud inválida" : e.getMessage();
+    return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "VAL_400", mensaje, r);
+  }
+
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ResponseEntity<ErrorRespuestaDTO> invalido(
       MethodArgumentNotValidException e, HttpServletRequest r) {

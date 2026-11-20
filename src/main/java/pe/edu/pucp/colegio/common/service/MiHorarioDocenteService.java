@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -24,16 +25,19 @@ public class MiHorarioDocenteService {
   private final SesionHorarioRepository sesiones;
   private final DocenteRepository docentes;
   private final HorarioSeccionService horariosSeccion;
+  private final Clock clock;
 
   public MiHorarioDocenteService(
       CuentaUsuarioRepository cuentas,
       SesionHorarioRepository sesiones,
       DocenteRepository docentes,
-      HorarioSeccionService horariosSeccion) {
+      HorarioSeccionService horariosSeccion,
+      Clock clock) {
     this.cuentas = cuentas;
     this.sesiones = sesiones;
     this.docentes = docentes;
     this.horariosSeccion = horariosSeccion;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -44,7 +48,7 @@ public class MiHorarioDocenteService {
     }
     LocalDate desde = LocalDate.of(anio, 1, 1);
     LocalDate hasta = LocalDate.of(anio, 12, 31);
-    LocalDate hoy = LocalDate.now(java.time.ZoneId.of("America/Lima"));
+    LocalDate hoy = LocalDate.now(clock);
     LocalDate fecha = hoy.isBefore(desde) ? desde : hoy.isAfter(hasta) ? hasta : hoy;
     return sesiones.listarHorarioDocente(docente.getId(), anio, desde, hasta, fecha).stream()
         .map(

@@ -4,9 +4,12 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,12 +82,9 @@ public class SeguimientoAcademicoService {
     return tareaResponse(tarea);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public List<TareaResponse> listarTareas(Integer periodoId) {
-    return tareas.buscarPorPeriodo(periodoId).stream()
-        .peek(this::asegurarEntregas)
-        .map(this::tareaResponse)
-        .toList();
+    return tareas.buscarPorPeriodo(periodoId).stream().map(this::tareaResponse).toList();
   }
 
   @Transactional
@@ -310,21 +310,45 @@ public class SeguimientoAcademicoService {
   }
 
   private TareaResponse tareaResponse(Tarea tarea) {
+    List<EntregaTarea> registradas =
+        entregas.findAllByTareaIdAndActiveTrueOrderByMatriculaId(tarea.getId());
     List<TareaResponse.EntregaResponse> estados =
-        entregas.findAllByTareaIdAndActiveTrueOrderByMatriculaId(tarea.getId()).stream()
-            .map(
-                e ->
-                    new TareaResponse.EntregaResponse(
-                        e.getMatricula().getId(),
-                        e.getMatricula().getEstudiante().getId(),
-                        e.getMatricula().getEstudiante().getPersona().getNombreCompleto(),
-                        Boolean.TRUE.equals(e.getCumplida()),
-                        e.getFechaCumplimiento(),
-                        e.getOrigen(),
-                        e.getArchivoNombre(),
-                        e.getArchivoTamanio(),
-                        e.getArchivoFecha()))
-            .toList();
+        new ArrayList<>(
+            registradas.stream()
+                .map(
+                    e ->
+                        new TareaResponse.EntregaResponse(
+                            e.getMatricula().getId(),
+                            e.getMatricula().getEstudiante().getId(),
+                            e.getMatricula().getEstudiante().getPersona().getNombreCompleto(),
+                            Boolean.TRUE.equals(e.getCumplida()),
+                            e.getFechaCumplimiento(),
+                            e.getOrigen(),
+                            e.getArchivoNombre(),
+                            e.getArchivoTamanio(),
+                            e.getArchivoFecha()))
+                .toList());
+    Set<Integer> conEntrega =
+        registradas.stream().map(e -> e.getMatricula().getId()).collect(Collectors.toSet());
+    // Matrículas confirmadas después de crear la tarea aparecen como pendientes sin que el GET
+    // tenga que insertar filas de entrega.
+    for (Matricula matricula :
+        matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
+            tarea.getPeriodo().getId(), List.of(EstadoMatricula.CONFIRMADA))) {
+      if (conEntrega.add(matricula.getId())) {
+        estados.add(
+            new TareaResponse.EntregaResponse(
+                matricula.getId(),
+                matricula.getEstudiante().getId(),
+                matricula.getEstudiante().getPersona().getNombreCompleto(),
+                false,
+                null,
+                null,
+                null,
+                null,
+                null));
+      }
+    }
     return new TareaResponse(
         tarea.getId(),
         tarea.getPeriodo().getId(),

@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -31,16 +32,19 @@ public class PeriodoService {
   private final GradoRepository grados;
   private final SeccionRepository secciones;
   private final VacantesService vacantes;
+  private final Clock clock;
 
   public PeriodoService(
       PeriodoRepository periodos,
       GradoRepository grados,
       SeccionRepository secciones,
-      VacantesService vacantes) {
+      VacantesService vacantes,
+      Clock clock) {
     this.periodos = periodos;
     this.grados = grados;
     this.secciones = secciones;
     this.vacantes = vacantes;
+    this.clock = clock;
   }
 
   @Transactional
@@ -74,7 +78,7 @@ public class PeriodoService {
         seccion.getId(),
         periodo.getFechaInicio(),
         periodo.getFechaFin(),
-        periodo.calcularEstado(LocalDate.now()));
+        periodo.calcularEstado(LocalDate.now(clock)));
   }
 
   /** Crea el periodo de cada sección activa que aún no lo tiene en el año indicado. */
@@ -89,7 +93,7 @@ public class PeriodoService {
       throw new BusinessException(
           "La fecha de fin de clases debe ser posterior a la fecha de inicio");
     }
-    if (request.fechaInicio().isBefore(LocalDate.now())) {
+    if (request.fechaInicio().isBefore(LocalDate.now(clock))) {
       throw new BusinessException("El inicio de clases no puede ser una fecha pasada");
     }
 
@@ -151,7 +155,7 @@ public class PeriodoService {
         periodo -> {
           periodo.setFechaInicio(request.fechaInicio());
           periodo.setFechaFin(request.fechaFin());
-          periodo.setEstado(periodo.calcularEstado(LocalDate.now()));
+          periodo.setEstado(periodo.calcularEstado(LocalDate.now(clock)));
         });
     return periodos.saveAll(existentes).stream().map(vacantes::describir).toList();
   }
@@ -161,7 +165,7 @@ public class PeriodoService {
    * pasado; si aún no empiezan, el nuevo inicio no puede ser una fecha pasada.
    */
   private void validarFechasEdicionAnhio(List<Periodo> existentes, AperturaAnhioRequest request) {
-    LocalDate hoy = LocalDate.now();
+    LocalDate hoy = LocalDate.now(clock);
     LocalDate inicioActual =
         existentes.stream().map(Periodo::getFechaInicio).min(LocalDate::compareTo).orElseThrow();
     if (inicioActual.isAfter(hoy)) {
@@ -203,7 +207,7 @@ public class PeriodoService {
     periodo.setSeccion(seccion);
     periodo.setFechaInicio(fechaInicio);
     periodo.setFechaFin(fechaFin);
-    periodo.setEstado(periodo.calcularEstado(LocalDate.now()));
+    periodo.setEstado(periodo.calcularEstado(LocalDate.now(clock)));
     return periodos.save(periodo);
   }
 }

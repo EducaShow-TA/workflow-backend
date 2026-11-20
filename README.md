@@ -285,7 +285,7 @@ Las rutas `/api/v1/aulas` y `/api/v1/horarios/secciones` requieren el rol `ADMIN
 }
 ```
 
-`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que no puede alojar todas las vacantes de la sección (o los matriculados si son más) responde `422`. Al subir la capacidad de una sección o reducir la de un aula, el backend vuelve a validar las asignaciones vigentes y rechaza el cambio si alguna aula quedaría chica. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
+`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que no puede alojar todas las vacantes de la sección (o los matriculados si son más) responde `422`. Al subir la capacidad de una sección o reducir la de un aula, el backend vuelve a validar las asignaciones vigentes y rechaza el cambio si alguna aula quedaría chica. Al agregar una asignación semanal, se generan de inmediato las ocurrencias para los períodos activos de ese horario; el proceso idempotente de inicio recupera las ocurrencias pendientes, y `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. Las ocurrencias asignadas a docentes inactivos se omiten y se contabilizan sin impedir las demás sesiones del período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
 
 ### Autenticación
 
@@ -405,7 +405,7 @@ El cuerpo de creación y actualización es equivalente al de área, con `areaCod
 }
 ```
 
-Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las quita. Las competencias se desactivan de forma lógica. La baja por `PATCH /estado` o `DELETE` responde `409` si la competencia tiene calificaciones finales o parciales; `tieneNotasRegistradas` refleja ambas modalidades e incluye registros históricos desactivados.
+Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las quita. Las competencias se desactivan de forma lógica, incluso si tienen calificaciones; no se borran sus notas. `tieneNotasRegistradas` refleja calificaciones finales y parciales, incluidos registros históricos desactivados. Al cerrar un período, el sistema guarda una copia del catálogo activo y de sus relaciones; la libreta oficial usa esa copia aunque el catálogo se edite después.
 
 ### Estudiantes
 
@@ -891,7 +891,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-1.2 Registro y asignación de estudiantes | **Completa**: alta de estudiantes y apoderados, listado filtrado/paginado, matrícula por periodo, confirmación y retiro lógico. |
 | US-1.7 Vacantes por grado y sección | **Completa**: capacidad y disponibilidad por sección en Inicial, Primaria y Secundaria, con rechazo de reducciones inferiores a la ocupación activa. |
 | US-1.9 Datos de apoderados | **Completa**: alta y edición de vínculos, verificación previa del documento con contacto enmascarado y auditoría, correo validado y teléfono en formato internacional; las altas crean cuentas APODERADO cuando faltan y el principal no puede quedar vacío. La interfaz administra los apoderados de cada estudiante desde el listado y muestra las credenciales de las cuentas nuevas. |
-| US-3.5 Áreas y competencias | **Completa**: CRUD y baja lógica; la baja de una competencia se bloquea con `409` cuando existen calificaciones finales o parciales, y `tieneNotasRegistradas` refleja esos registros. |
+| US-3.5 Áreas y competencias | **Completa**: CRUD y baja lógica de competencias aunque tengan calificaciones; las libretas oficiales conservan el catálogo y las relaciones vigentes al cierre del período. |
 | US-4.3 Bloques y franjas horarias | **Completa**: plantillas, bloques y recreos calculados, con validación de duración y estado; la interfaz permite administrar plantillas. |
 | US-5.1 Baja lógica de usuarios | **Completa**: se conserva el historial y una cuenta inactiva no puede iniciar sesión ni usar tokens previos. |
 | US-5.2 Usuarios, roles y permisos | **Completa según criterios**: permite asignar los cuatro roles y restringe rutas por rol; los cambios de rol se auditan. La configuración granular de permisos por cuenta no está en los criterios de aceptación. |

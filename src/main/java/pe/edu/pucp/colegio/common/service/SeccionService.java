@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -31,18 +32,21 @@ public class SeccionService {
   private final MatriculaRepository matriculas;
   private final PeriodoRepository periodos;
   private final SesionHorarioRepository sesionesHorario;
+  private final Clock clock;
 
   public SeccionService(
       SeccionRepository secciones,
       GradoRepository grados,
       MatriculaRepository matriculas,
       PeriodoRepository periodos,
-      SesionHorarioRepository sesionesHorario) {
+      SesionHorarioRepository sesionesHorario,
+      Clock clock) {
     this.secciones = secciones;
     this.grados = grados;
     this.matriculas = matriculas;
     this.periodos = periodos;
     this.sesionesHorario = sesionesHorario;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -91,7 +95,7 @@ public class SeccionService {
     }
     var asignacionInsuficiente =
         sesionesHorario
-            .findVigentesBySeccionId(id, LocalDate.now(), LocalDate.now().getYear())
+            .findVigentesBySeccionId(id, LocalDate.now(clock), LocalDate.now(clock).getYear())
             .stream()
             .filter(sesion -> sesion.getAula().getCapacidad() < request.vacantesTotales())
             .findFirst();
@@ -119,7 +123,7 @@ public class SeccionService {
 
   /** Una sección nueva se suma a los años escolares abiertos que todavía no terminan. */
   private void crearPeriodosEnAnhiosAbiertos(Seccion seccion) {
-    LocalDate hoy = LocalDate.now();
+    LocalDate hoy = LocalDate.now(clock);
     Map<Integer, List<Periodo>> porAnhio =
         periodos.findAllByActiveTrueAndFechaFinGreaterThanEqual(hoy).stream()
             .collect(
