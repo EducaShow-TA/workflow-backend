@@ -12,21 +12,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.pucp.colegio.common.dto.CatalogoLibretaSnapshot;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.AreaLibreta;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.CompetenciaLibreta;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.EvaluacionLibreta;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.PeriodoLibreta;
-import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.model.CalificacionParcial;
-import pe.edu.pucp.colegio.common.model.Competencia;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
-import pe.edu.pucp.colegio.common.repository.AreaRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
@@ -49,7 +47,7 @@ public class LibretaNotasService {
   private final DocenteRepository docentes;
   private final PeriodoRepository periodos;
   private final MatriculaRepository matriculas;
-  private final AreaRepository areas;
+  private final CatalogoLibretaSnapshotService catalogoLibretaSnapshots;
   private final EvaluacionParcialRepository evaluaciones;
   private final CalificacionRepository calificaciones;
   private final CalificacionParcialRepository notasParciales;
@@ -64,7 +62,7 @@ public class LibretaNotasService {
       DocenteRepository docentes,
       PeriodoRepository periodos,
       MatriculaRepository matriculas,
-      AreaRepository areas,
+      CatalogoLibretaSnapshotService catalogoLibretaSnapshots,
       EvaluacionParcialRepository evaluaciones,
       CalificacionRepository calificaciones,
       CalificacionParcialRepository notasParciales,
@@ -77,7 +75,7 @@ public class LibretaNotasService {
     this.docentes = docentes;
     this.periodos = periodos;
     this.matriculas = matriculas;
-    this.areas = areas;
+    this.catalogoLibretaSnapshots = catalogoLibretaSnapshots;
     this.evaluaciones = evaluaciones;
     this.calificaciones = calificaciones;
     this.notasParciales = notasParciales;
@@ -147,7 +145,7 @@ public class LibretaNotasService {
                         HttpStatus.NOT_FOUND,
                         "El estudiante no tiene matrícula confirmada en el período"));
 
-    List<Area> areasActivas = areas.findAllByActivoTrueOrderByNombreAsc();
+    List<CatalogoLibretaSnapshot> catalogo = catalogoLibretaSnapshots.obtener(periodoSolicitado);
     List<EvaluacionParcial> evaluacionesSinBimestre =
         evaluaciones.findAllByPeriodoIdAndBimestreIsNullAndActiveTrueOrderById(periodoId).stream()
             .filter(
@@ -193,7 +191,7 @@ public class LibretaNotasService {
             periodoLibreta(
                 matriculaSolicitada,
                 competenciasPermitidas,
-                areasActivas,
+                catalogo,
                 evaluacionesBimestre,
                 notasPorEvaluacion,
                 notasManualesPorCompetenciaYBimestre,
@@ -211,7 +209,7 @@ public class LibretaNotasService {
   private PeriodoLibreta periodoLibreta(
       Matricula matricula,
       Set<String> competenciasPermitidas,
-      List<Area> areasActivas,
+      List<CatalogoLibretaSnapshot> catalogo,
       List<EvaluacionParcial> evaluacionesBimestre,
       Map<Integer, CalificacionParcial> notasPorEvaluacion,
       Map<String, Calificacion> notasManualesPorCompetenciaYBimestre,
@@ -226,32 +224,33 @@ public class LibretaNotasService {
                 .add(evaluacion));
 
     List<AreaLibreta> areasLibreta =
-        areasActivas.stream()
+        catalogo.stream()
             .map(
                 area -> {
                   List<CompetenciaLibreta> competenciasLibreta =
-                      area.getCompetencias().stream()
-                          .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
+                      area.competencias().stream()
                           .filter(
                               competencia ->
                                   competenciasPermitidas == null
-                                      || competenciasPermitidas.contains(competencia.getCodigo()))
+                                      || competenciasPermitidas.contains(competencia.codigo()))
                           .sorted(
                               Comparator.comparing(
-                                  Competencia::getNombre, String.CASE_INSENSITIVE_ORDER))
+                                  CatalogoLibretaSnapshot.Competencia::nombre,
+                                  String.CASE_INSENSITIVE_ORDER))
                           .map(
                               competencia ->
                                   competenciaLibreta(
-                                      competencia,
+                                      competencia.codigo(),
+                                      competencia.nombre(),
                                       evaluacionesPorCompetencia.getOrDefault(
-                                          competencia.getCodigo(), List.of()),
+                                          competencia.codigo(), List.of()),
                                       notasPorEvaluacion,
                                       notasManualesPorCompetenciaYBimestre.get(
-                                          claveManual(competencia.getCodigo(), bimestre))))
+                                          claveManual(competencia.codigo(), bimestre))))
                           .toList();
                   return competenciasLibreta.isEmpty()
                       ? null
-                      : new AreaLibreta(area.getCodigo(), area.getNombre(), competenciasLibreta);
+                      : new AreaLibreta(area.codigo(), area.nombre(), competenciasLibreta);
                 })
             .filter(area -> area != null)
             .sorted(Comparator.comparing(AreaLibreta::nombre, String.CASE_INSENSITIVE_ORDER))
@@ -268,14 +267,15 @@ public class LibretaNotasService {
   }
 
   private CompetenciaLibreta competenciaLibreta(
-      Competencia competencia,
+      String competenciaCodigo,
+      String competenciaNombre,
       List<EvaluacionParcial> evaluacionesCompetencia,
       Map<Integer, CalificacionParcial> notasPorEvaluacion,
       Calificacion notaManual) {
     if (evaluacionesCompetencia.isEmpty() && notaManual != null) {
       return new CompetenciaLibreta(
-          competencia.getCodigo(),
-          competencia.getNombre(),
+          competenciaCodigo,
+          competenciaNombre,
           notaManual.getNota(),
           notaManual.getPuntajeConsolidado(),
           notaManual.getObservacion(),
@@ -286,7 +286,7 @@ public class LibretaNotasService {
             .map(evaluacion -> notasPorEvaluacion.get(evaluacion.getId()))
             .filter(nota -> nota != null)
             .toList();
-    var logro = consolidacion.calcularLogroBimestral(competencia.getCodigo(), notas);
+    var logro = consolidacion.calcularLogroBimestral(competenciaCodigo, notas);
     List<EvaluacionLibreta> detalle =
         evaluacionesCompetencia.stream()
             .map(
@@ -301,8 +301,8 @@ public class LibretaNotasService {
                 })
             .toList();
     return new CompetenciaLibreta(
-        competencia.getCodigo(),
-        competencia.getNombre(),
+        competenciaCodigo,
+        competenciaNombre,
         logro.nota(),
         logro.puntajeConsolidado(),
         null,

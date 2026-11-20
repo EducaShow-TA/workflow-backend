@@ -49,6 +49,7 @@ public class ConsolidacionLogroService {
   private final DocenteService docentes;
   private final SesionHorarioRepository asignacionesHorario;
   private final EvidenciaStorageService storage;
+  private final CatalogoLibretaSnapshotService catalogoLibretaSnapshots;
 
   public ConsolidacionLogroService(
       ReglaConsolidacionRepository reglas,
@@ -63,7 +64,8 @@ public class ConsolidacionLogroService {
       AuditoriaCalificacionService auditoriaCalificaciones,
       DocenteService docentes,
       SesionHorarioRepository asignacionesHorario,
-      EvidenciaStorageService storage) {
+      EvidenciaStorageService storage,
+      CatalogoLibretaSnapshotService catalogoLibretaSnapshots) {
     this.reglas = reglas;
     this.evaluaciones = evaluaciones;
     this.notasParciales = notasParciales;
@@ -77,6 +79,7 @@ public class ConsolidacionLogroService {
     this.docentes = docentes;
     this.asignacionesHorario = asignacionesHorario;
     this.storage = storage;
+    this.catalogoLibretaSnapshots = catalogoLibretaSnapshots;
   }
 
   @Transactional(readOnly = true)
@@ -396,6 +399,7 @@ public class ConsolidacionLogroService {
     for (String codigo : evaluaciones.findDistinctCompetenciaCodigosByPeriodoId(periodoId)) {
       recalcularCompetencia(periodo, codigo, true, username, "ADMINISTRADOR", "CIERRE_ACTAS");
     }
+    catalogoLibretaSnapshots.capturar(periodo);
     LocalDateTime fechaCierre = LocalDateTime.now();
     periodo.setActasCerradas(true);
     periodo.setFechaCierreActas(fechaCierre);

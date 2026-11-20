@@ -42,6 +42,9 @@ public class Periodo extends EntidadBase {
   @Column(name = "usuario_cierre_actas", length = 100)
   private String usuarioCierreActas;
 
+  @Column(name = "catalogo_libreta_snapshot", nullable = false)
+  private Boolean catalogoLibretaSnapshot = false;
+
   @OneToMany(mappedBy = "periodo")
   private Set<Matricula> matriculas = new LinkedHashSet<>();
 
@@ -107,6 +110,14 @@ public class Periodo extends EntidadBase {
 
   public void setUsuarioCierreActas(String usuarioCierreActas) {
     this.usuarioCierreActas = usuarioCierreActas;
+  }
+
+  public Boolean getCatalogoLibretaSnapshot() {
+    return catalogoLibretaSnapshot;
+  }
+
+  public void setCatalogoLibretaSnapshot(Boolean catalogoLibretaSnapshot) {
+    this.catalogoLibretaSnapshot = catalogoLibretaSnapshot;
   }
 
   public EstadoPeriodo calcularEstado(LocalDate fecha) {
