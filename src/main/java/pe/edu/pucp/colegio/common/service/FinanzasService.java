@@ -335,15 +335,18 @@ public class FinanzasService {
   @Scheduled(cron = "0 10 1 * * *", zone = "America/Lima")
   public void procesarCicloDiario() {
     YearMonth mesActual = YearMonth.now(clock);
-    for (CompromisoPago c : compromisos.findAllByActiveTrue()) {
-      if (c.getMatricula().getEstado() == EstadoMatricula.RETIRADA) {
-        continue;
-      }
+    for (Integer compromisoId : compromisos.findAllActiveIds()) {
       try {
         transaccionPorCompromiso.executeWithoutResult(
-            status -> generarBoletasPendientes(c, mesActual));
+            status ->
+                compromisos
+                    .findById(compromisoId)
+                    .filter(c -> Boolean.TRUE.equals(c.getActive()))
+                    .filter(c -> c.getMatricula().getEstado() != EstadoMatricula.RETIRADA)
+                    .ifPresent(c -> generarBoletasPendientes(c, mesActual)));
       } catch (RuntimeException ex) {
-        log.error("No se pudo procesar el compromiso de pago {} en el ciclo diario", c.getId(), ex);
+        log.error(
+            "No se pudo procesar el compromiso de pago {} en el ciclo diario", compromisoId, ex);
       }
     }
     LocalDate hoy = LocalDate.now(clock);
