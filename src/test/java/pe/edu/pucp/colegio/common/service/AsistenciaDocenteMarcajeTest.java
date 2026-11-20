@@ -1,7 +1,6 @@
 package pe.edu.pucp.colegio.common.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -21,10 +20,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteResponse;
+import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteAjusteRequest;
+import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.model.AsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Docente;
@@ -35,293 +34,233 @@ import pe.edu.pucp.colegio.common.repository.AsistenciaDocenteRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
 
-/** Marcaje de entrada y salida que el propio docente registra con la hora del servidor. */
 @ExtendWith(MockitoExtension.class)
 class AsistenciaDocenteMarcajeTest {
 
-  private static final String USUARIO = "docente01";
-  private static final LocalDate HOY = LocalDate.of(2026, 11, 4);
   private static final ZoneId ZONA = ZoneId.of("America/Lima");
+  private static final LocalDate FECHA = LocalDate.of(2026, 11, 4);
 
   @Mock AsistenciaDocenteRepository asistencias;
   @Mock DocenteRepository docentes;
   @Mock SesionClaseRepository sesiones;
-  @Mock DocenteService docenteService;
   @Mock ConfiguracionMarcajeDocenteService configuracionMarcaje;
+  @Mock DocenteService docenteService;
+
+  private AsistenciaDocenteService service;
   private Docente docente;
 
   @BeforeEach
   void preparar() {
-    Mockito.lenient()
-        .when(configuracionMarcaje.obtener())
-        .thenReturn(new ConfiguracionMarcajeDocenteResponse(15, 30, 30));
     docente = new Docente();
     ReflectionTestUtils.setField(docente, "id", 1);
     docente.setPersona(new Persona("10000001", "Ana", "Docente", "Prueba"));
-    Mockito.lenient().when(docenteService.obtenerDeCuenta(USUARIO)).thenReturn(docente);
+    Mockito.lenient().when(docentes.findById(1)).thenReturn(Optional.of(docente));
     Mockito.lenient()
-        .when(asistencias.saveAndFlush(any()))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+        .when(configuracionMarcaje.obtener())
+        .thenReturn(new ConfiguracionMarcajeDocenteResponse(15, 30, 30));
+    service = servicioA(FECHA.atTime(10, 0));
   }
 
   @Test
-  void marcarEntrada_dentroDeTolerancia_registraPresenteConHoraDelServidor() {
-    prepararPrimeraSesion("08:00");
-    sinAsistenciaHoy();
-
-    AsistenciaDocenteResponse response = servicioALas("08:15").marcarEntrada(USUARIO);
-
-    assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
-    assertEquals(HOY, response.fecha());
-    assertEquals(LocalTime.of(8, 15), response.horaEntrada());
-    assertEquals(1, response.docenteId());
-  }
-
-  @Test
-  void marcarEntrada_despuesDeTolerancia_registraTardanza() {
-    prepararPrimeraSesion("08:00");
-    sinAsistenciaHoy();
-
-    AsistenciaDocenteResponse response = servicioALas("08:16").marcarEntrada(USUARIO);
-
-    assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals(LocalTime.of(8, 16), response.horaEntrada());
-    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
-  }
-
-  @Test
-  void marcarEntrada_aplicaLaToleranciaGlobalActualizada() {
-    prepararPrimeraSesion("08:00");
-    sinAsistenciaHoy();
-    when(configuracionMarcaje.obtener())
-        .thenReturn(new ConfiguracionMarcajeDocenteResponse(5, 30, 30));
-
-    AsistenciaDocenteResponse response = servicioALas("08:06").marcarEntrada(USUARIO);
-
-    assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals("Marcaje posterior a la tolerancia de 5 minutos", response.motivoAjuste());
-  }
-
-  @Test
-  void marcarEntrada_alAbrirLaVentana_registraPresente() {
-    prepararPrimeraSesion("08:00");
-    sinAsistenciaHoy();
-
-    AsistenciaDocenteResponse response = servicioALas("07:30").marcarEntrada(USUARIO);
-
-    assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
-  }
-
-  @Test
-  void marcarEntrada_antesDeAbrirLaVentana_lanzaConflicto() {
-    prepararPrimeraSesion("08:00");
-
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("07:29").marcarEntrada(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-    verify(asistencias, never()).saveAndFlush(any());
-  }
-
-  @Test
-  void marcarEntrada_despuesDelCierreConfigurado_lanzaConflicto() {
-    prepararPrimeraSesion("08:00");
-
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("08:31").marcarEntrada(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-    verify(asistencias, never()).saveAndFlush(any());
-  }
-
-  @Test
-  void marcarEntrada_sinSesionesEseDia_registraPresente() {
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, HOY))
+  void registraIngresoPuntualDeUnDocente() {
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
         .thenReturn(Optional.empty());
-    sinAsistenciaHoy();
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    AsistenciaDocenteResponse response = servicioALas("15:40").marcarEntrada(USUARIO);
-
-    assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
-    assertEquals(LocalTime.of(15, 40), response.horaEntrada());
-  }
-
-  @Test
-  void marcarEntrada_conEntradaYaMarcada_lanzaConflicto() {
-    prepararPrimeraSesion("08:00");
-    AsistenciaDocente existente = asistenciaDeHoy();
-    existente.marcarIngreso(LocalTime.of(7, 50));
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(existente));
-
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("08:05").marcarEntrada(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-    assertEquals(LocalTime.of(7, 50), existente.getHoraEntrada());
-  }
-
-  @Test
-  void marcarEntrada_conRegistroPendienteDelAdministrador_completaEseRegistro() {
-    prepararPrimeraSesion("08:00");
-    AsistenciaDocente pendiente = asistenciaDeHoy();
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(pendiente));
-
-    AsistenciaDocenteResponse response = servicioALas("07:55").marcarEntrada(USUARIO);
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:00", null));
 
     assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
-    assertEquals(LocalTime.of(7, 55), pendiente.getHoraEntrada());
+    assertEquals(LocalTime.of(8, 0), response.horaEntrada());
+    verify(asistencias).saveAndFlush(any(AsistenciaDocente.class));
   }
 
   @Test
-  void marcarEntrada_conInasistenciaRegistrada_lanzaConflicto() {
-    prepararPrimeraSesion("08:00");
-    AsistenciaDocente inasistencia = asistenciaDeHoy();
-    inasistencia.marcarInasistencia();
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(inasistencia));
+  void registraTardanzaConLaToleranciaGlobalConfigurada() {
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
+    SesionClase sesion = new SesionClase();
+    sesion.setHoraInicio(LocalTime.of(8, 0));
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+        .thenReturn(Optional.of(sesion));
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("08:05").marcarEntrada(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-    assertEquals(EstadoAsistenciaDocente.INASISTENCIA, inasistencia.getEstado());
-  }
-
-  @Test
-  void marcarEntrada_conMarcajeSimultaneo_lanzaConflicto() {
-    prepararPrimeraSesion("08:00");
-    sinAsistenciaHoy();
-    when(asistencias.saveAndFlush(any()))
-        .thenThrow(new DataIntegrityViolationException("uk_asistencia_docente_fecha"));
-
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("08:05").marcarEntrada(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-  }
-
-  @Test
-  void marcarSalida_conEntradaMarcada_registraHoraDelServidor() {
-    AsistenciaDocente asistencia = asistenciaDeHoy();
-    asistencia.marcarIngreso(LocalTime.of(7, 55));
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(asistencia));
-
-    AsistenciaDocenteResponse response = servicioALas("14:30").marcarSalida(USUARIO);
-
-    assertEquals(LocalTime.of(14, 30), response.horaSalida());
-    assertEquals(LocalTime.of(7, 55), response.horaEntrada());
-    assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
-  }
-
-  @Test
-  void marcarSalida_conTardanza_conservaElEstado() {
-    AsistenciaDocente asistencia = asistenciaDeHoy();
-    asistencia.marcarIngreso(LocalTime.of(8, 20));
-    asistencia.ajustar(EstadoAsistenciaDocente.TARDANZA, "Marcaje posterior a la tolerancia");
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(asistencia));
-
-    AsistenciaDocenteResponse response = servicioALas("14:30").marcarSalida(USUARIO);
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals(LocalTime.of(14, 30), response.horaSalida());
+    assertEquals("Registro manual de asistencia", response.motivoAjuste());
   }
 
   @Test
-  void marcarSalida_sinRegistroDelDia_lanzaConflicto() {
-    sinAsistenciaHoy();
+  void impideDosRegistrosDelMismoDocenteYFecha() {
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(true);
 
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("14:30").marcarSalida(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-  }
-
-  @Test
-  void marcarSalida_conRegistroSinEntrada_lanzaConflicto() {
-    AsistenciaDocente pendiente = asistenciaDeHoy();
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(pendiente));
-
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("14:30").marcarSalida(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-    assertNull(pendiente.getHoraSalida());
-  }
-
-  @Test
-  void marcarSalida_conSalidaYaMarcada_lanzaConflicto() {
-    AsistenciaDocente asistencia = asistenciaDeHoy();
-    asistencia.marcarIngreso(LocalTime.of(7, 55));
-    asistencia.marcarSalida(LocalTime.of(13, 0));
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY))
-        .thenReturn(Optional.of(asistencia));
-
-    ResponseStatusException error =
-        assertThrows(
-            ResponseStatusException.class, () -> servicioALas("14:30").marcarSalida(USUARIO));
-
-    assertEquals(409, error.getStatusCode().value());
-    assertEquals(LocalTime.of(13, 0), asistencia.getHoraSalida());
-  }
-
-  @Test
-  void listarPropias_conRango_consultaSoloAlDocenteAutenticado() {
-    LocalDate desde = HOY.minusDays(7);
-    AsistenciaDocente asistencia = asistenciaDeHoy();
-    asistencia.marcarIngreso(LocalTime.of(7, 55));
-    when(asistencias.buscarDelDocente(1, desde, HOY)).thenReturn(List.of(asistencia));
-
-    List<AsistenciaDocenteResponse> response =
-        servicioALas("09:00").listarPropias(USUARIO, desde, HOY);
-
-    assertEquals(1, response.size());
-    assertEquals(1, response.get(0).docenteId());
-  }
-
-  @Test
-  void listarPropias_conRangoInvertido_lanzaBadRequest() {
     ResponseStatusException error =
         assertThrows(
             ResponseStatusException.class,
-            () -> servicioALas("09:00").listarPropias(USUARIO, HOY, HOY.minusDays(1)));
+            () -> service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:00", null)));
+
+    assertEquals(409, error.getStatusCode().value());
+    verify(asistencias, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void devuelveNotFoundCuandoElDocenteNoExiste() {
+    when(docentes.findById(1)).thenReturn(Optional.empty());
+
+    ResponseStatusException error =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:00", null)));
+
+    assertEquals(404, error.getStatusCode().value());
+  }
+
+  @Test
+  void rechazaSalidaAnteriorAlIngreso() {
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
+
+    ResponseStatusException error =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "09:00", "08:59")));
+
+    assertEquals(400, error.getStatusCode().value());
+    verify(asistencias, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void registrarSinMotivo_lanzaBadRequest() {
+    var sinMotivo =
+        new AsistenciaDocenteCreateRequest(
+            1, FECHA, EstadoAsistenciaDocente.PRESENTE, LocalTime.of(8, 0), null, "  ");
+
+    ResponseStatusException error =
+        assertThrows(ResponseStatusException.class, () -> service.registrar(sinMotivo));
+
+    assertEquals(400, error.getStatusCode().value());
+    verify(asistencias, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void registrarConFechaFutura_lanzaBadRequest() {
+    var futura =
+        new AsistenciaDocenteCreateRequest(
+            1,
+            FECHA.plusDays(1),
+            EstadoAsistenciaDocente.PRESENTE,
+            LocalTime.of(8, 0),
+            null,
+            "Registro manual de asistencia");
+
+    ResponseStatusException error =
+        assertThrows(ResponseStatusException.class, () -> service.registrar(futura));
+
+    assertEquals(400, error.getStatusCode().value());
+    verify(asistencias, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void ajustaEstadoDeCualquierDocenteConMotivo() {
+    AsistenciaDocente asistencia = new AsistenciaDocente();
+    asistencia.setDocente(docente);
+    asistencia.setFecha(FECHA);
+    asistencia.marcarIngreso(LocalTime.of(8, 20));
+    when(asistencias.findByIdAndActiveTrue(5)).thenReturn(Optional.of(asistencia));
+
+    var response =
+        service.ajustar(
+            5,
+            new AsistenciaDocenteAjusteRequest(
+                EstadoAsistenciaDocente.TARDANZA, "Revisión de marcaje"));
+
+    assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
+    assertEquals("Revisión de marcaje", response.motivoAjuste());
+  }
+
+  @Test
+  void ajustarAsistenciaDeFechaFutura_lanzaBadRequest() {
+    AsistenciaDocente asistencia = new AsistenciaDocente();
+    asistencia.setDocente(docente);
+    asistencia.setFecha(FECHA.plusDays(1));
+    when(asistencias.findByIdAndActiveTrue(5)).thenReturn(Optional.of(asistencia));
+
+    ResponseStatusException error =
+        assertThrows(
+            ResponseStatusException.class,
+            () ->
+                service.ajustar(
+                    5,
+                    new AsistenciaDocenteAjusteRequest(
+                        EstadoAsistenciaDocente.INASISTENCIA, "Licencia")));
 
     assertEquals(400, error.getStatusCode().value());
   }
 
-  private AsistenciaDocenteService servicioALas(String hora) {
-    Clock reloj =
-        Clock.fixed(LocalDateTime.of(HOY, LocalTime.parse(hora)).atZone(ZONA).toInstant(), ZONA);
+  @Test
+  void llegadaEnElUltimoMinutoDeToleranciaSeMantienePresente() {
+    prepararSesion("08:00");
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:15", null));
+
+    assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
+  }
+
+  @Test
+  void llegadaPosteriorALaToleranciaGlobalSeClasificaComoTardanza() {
+    prepararSesion("08:00");
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
+
+    assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
+    assertEquals("Registro manual de asistencia", response.motivoAjuste());
+  }
+
+  @Test
+  void venceLaToleranciaYRegistraInasistenciaAutomatica() {
+    AsistenciaDocenteService tardio = servicioA(FECHA.atTime(8, 31));
+    SesionClase sesion = new SesionClase();
+    sesion.setDocente(docente);
+    sesion.setHoraInicio(LocalTime.of(8, 0));
+    when(sesiones.findAllByFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(FECHA))
+        .thenReturn(List.of(sesion));
+    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(Optional.empty());
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    tardio.procesarInasistenciasPendientes();
+
+    var captor = org.mockito.ArgumentCaptor.forClass(AsistenciaDocente.class);
+    verify(asistencias).saveAndFlush(captor.capture());
+    assertEquals(EstadoAsistenciaDocente.INASISTENCIA, captor.getValue().getEstado());
+    assertEquals(
+        "Inasistencia automática: venció la ventana de marcaje",
+        captor.getValue().getMotivoAjuste());
+  }
+
+  private AsistenciaDocenteService servicioA(LocalDateTime ahora) {
+    Clock reloj = Clock.fixed(ahora.atZone(ZONA).toInstant(), ZONA);
     return new AsistenciaDocenteService(
         asistencias, docentes, sesiones, configuracionMarcaje, docenteService, reloj);
   }
 
-  private void prepararPrimeraSesion(String horaInicio) {
+  private void prepararSesion(String horaInicio) {
     SesionClase sesion = new SesionClase();
     sesion.setHoraInicio(LocalTime.parse(horaInicio));
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, HOY))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
         .thenReturn(Optional.of(sesion));
   }
 
-  private void sinAsistenciaHoy() {
-    when(asistencias.findByDocenteIdAndFechaAndActiveTrue(1, HOY)).thenReturn(Optional.empty());
-  }
-
-  private AsistenciaDocente asistenciaDeHoy() {
-    AsistenciaDocente asistencia = new AsistenciaDocente();
-    asistencia.setDocente(docente);
-    asistencia.setFecha(HOY);
-    return asistencia;
+  private AsistenciaDocenteCreateRequest registro(
+      EstadoAsistenciaDocente estado, String entrada, String salida) {
+    return new AsistenciaDocenteCreateRequest(
+        1,
+        FECHA,
+        estado,
+        entrada == null ? null : LocalTime.parse(entrada),
+        salida == null ? null : LocalTime.parse(salida),
+        "Registro manual de asistencia");
   }
 }

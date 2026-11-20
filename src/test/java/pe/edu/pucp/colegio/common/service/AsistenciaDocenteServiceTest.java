@@ -50,6 +50,11 @@ class AsistenciaDocenteServiceTest {
 
   @BeforeEach
   void preparar() {
+    ReflectionTestUtils.setField(
+        service,
+        "clock",
+        Clock.fixed(
+            FECHA.atStartOfDay(ZoneId.of("America/Lima")).toInstant(), ZoneId.of("America/Lima")));
     docente = new Docente();
     ReflectionTestUtils.setField(docente, "id", 1);
     docente.setPersona(new Persona("10000001", "Ana", "Docente", "Prueba"));
