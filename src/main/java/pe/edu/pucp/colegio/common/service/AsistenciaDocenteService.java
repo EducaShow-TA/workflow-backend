@@ -151,6 +151,7 @@ public class AsistenciaDocenteService {
    */
   @Transactional
   public void registrarOActualizarLote(List<AsistenciaDocenteCreateRequest> solicitudes) {
+    ConfiguracionMarcajeDocenteResponse configuracion = configuracionMarcaje.obtener();
     for (AsistenciaDocenteCreateRequest solicitud : solicitudes) {
       Docente docente = buscarDocente(solicitud.docenteId());
       validarHorario(solicitud.horaEntrada(), solicitud.horaSalida());
@@ -159,7 +160,7 @@ public class AsistenciaDocenteService {
       AsistenciaDocente asistencia =
           existente.orElseGet(() -> nuevaAsistencia(docente, solicitud.fecha()));
       existente.ifPresent(actual -> actual.ajustar(EstadoAsistenciaDocente.PENDIENTE_MARCAJE));
-      aplicarRegistro(asistencia, solicitud);
+      aplicarRegistro(asistencia, solicitud, configuracion);
       guardar(asistencia);
     }
     log.info("Carga masiva de asistencia docente: {} registros guardados", solicitudes.size());
