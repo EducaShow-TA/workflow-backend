@@ -42,6 +42,9 @@ spring:
             pageable:
                 max-page-size: 100
 app:
+    pagos:
+      simulado:
+        enabled: ${PAGOS_SIMULADO_ENABLED:false}
     finanzas:
       monto-pension-predeterminado: ${FINANZAS_MONTO_PENSION_PREDETERMINADO:500.00}
     jwt:

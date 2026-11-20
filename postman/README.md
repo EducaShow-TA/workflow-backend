@@ -46,7 +46,7 @@ Esta carga facilita explorar matrícula, vacantes, apoderados, pagos, roles, cat
 ## Límites conocidos del backend
 
 - **US-1.6 Morosidad:** el proceso diario actualiza las boletas vencidas impagas y recupera el trabajo pendiente al iniciar la aplicación. No hay una ruta para adelantar el reloj ni una comprobación Postman determinista.
-- **US-1.12 Pago en línea:** la API registra un pago y genera comprobante, pero no procesa pagos mediante un proveedor externo.
+- **US-1.12 Pago en línea:** el pago simulado de la API está deshabilitado por defecto (`app.pagos.simulado.enabled=false`). Solo para pruebas locales puede habilitarse con `PAGOS_SIMULADO_ENABLED=true`; no procesa pagos mediante un proveedor externo.
 - **Recuperación de contraseña:** el flujo completo depende de un servicio SMTP y de un buzón accesible.
 - **Riesgo académico (US-3.4):** `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}` usa el umbral global persistido, inicialmente `1`, y marca a quienes superan ese umbral con notas `C` manuales o parciales no justificadas del bimestre actual. El bimestre se calcula en cuatro tramos según las fechas del período. Requiere que el docente autenticado dicte esa área en la sección; solo ADMINISTRADOR puede cambiar el umbral en `/api/v1/configuracion/riesgo-academico`.
 
