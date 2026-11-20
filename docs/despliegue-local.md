@@ -1,5 +1,33 @@
 # Despliegue local
 
+## Inicio rápido: backend y MySQL con Docker Compose
+
+Desde la raíz de este repositorio, crea la configuración privada una sola vez:
+
+```bash
+cp .env.example .env
+echo "JWT_SECRET=$(openssl rand -base64 32)" >> .env
+```
+
+El archivo `.env` es local y está ignorado por Git. Si ya tienes uno, no repitas estos comandos; conserva tu clave.
+Luego construye y levanta MySQL y el backend:
+
+```bash
+docker compose up --build -d
+docker compose logs -f backend
+```
+
+Cuando aparezca `Started ColegioBackendApplication`, el API está disponible en `http://localhost:8080`. Para detener
+los servicios sin borrar la base de datos, ejecuta `docker compose down`; los datos persisten en el volumen
+`mysql_data`. Para encenderlos de nuevo, ejecuta `docker compose up -d`.
+
+Para abrir el API desde otro dispositivo de la misma red, averigua la IP LAN del equipo anfitrión (`hostname -I` en
+Linux o `ipconfig` en Windows) y visita `http://<IP-LAN>:8080`. Si no responde, permite conexiones entrantes al puerto
+8080 en el firewall. MySQL queda solo dentro de la red privada de Docker, sin publicar el puerto 3306.
+
+Este inicio rápido levanta el **backend y la base de datos**. El frontend es otro repositorio y debe iniciarse aparte;
+consulta la sección 4 si también quieres compartir la interfaz web.
+
 Guía para levantar el sistema completo en tu máquina: **MySQL** (en Docker) + **backend** (este repositorio) +
 **frontend** ([`workflow-frontend`](https://github.com/EducaShow-TA/workflow-frontend)).
 

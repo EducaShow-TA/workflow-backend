@@ -14,18 +14,6 @@ public class AsistenciaProperties {
   @Min(0)
   private int ventanaMarcadoDespuesMinutos = 30;
 
-  @Min(0)
-  private int toleranciaDocenteMinutos = 10;
-
-  /**
-   * Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada.
-   */
-  @Min(0)
-  private int ventanaDocenteAntesMinutos = 30;
-
-  @Min(0)
-  private int ventanaDocenteDespuesMinutos = 30;
-
   public int getVentanaMarcadoAntesMinutos() {
     return ventanaMarcadoAntesMinutos;
   }
@@ -40,29 +28,5 @@ public class AsistenciaProperties {
 
   public void setVentanaMarcadoDespuesMinutos(int ventanaMarcadoDespuesMinutos) {
     this.ventanaMarcadoDespuesMinutos = ventanaMarcadoDespuesMinutos;
-  }
-
-  public int getToleranciaDocenteMinutos() {
-    return toleranciaDocenteMinutos;
-  }
-
-  public void setToleranciaDocenteMinutos(int toleranciaDocenteMinutos) {
-    this.toleranciaDocenteMinutos = toleranciaDocenteMinutos;
-  }
-
-  public int getVentanaDocenteAntesMinutos() {
-    return ventanaDocenteAntesMinutos;
-  }
-
-  public void setVentanaDocenteAntesMinutos(int ventanaDocenteAntesMinutos) {
-    this.ventanaDocenteAntesMinutos = ventanaDocenteAntesMinutos;
-  }
-
-  public int getVentanaDocenteDespuesMinutos() {
-    return ventanaDocenteDespuesMinutos;
-  }
-
-  public void setVentanaDocenteDespuesMinutos(int ventanaDocenteDespuesMinutos) {
-    this.ventanaDocenteDespuesMinutos = ventanaDocenteDespuesMinutos;
   }
 }

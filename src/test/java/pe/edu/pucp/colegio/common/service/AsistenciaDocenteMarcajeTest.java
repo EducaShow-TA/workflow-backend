@@ -24,8 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.config.AsistenciaProperties;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteResponse;
+import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.model.AsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
@@ -47,14 +47,14 @@ class AsistenciaDocenteMarcajeTest {
   @Mock DocenteRepository docentes;
   @Mock SesionClaseRepository sesiones;
   @Mock DocenteService docenteService;
-
-  private final AsistenciaProperties properties = new AsistenciaProperties();
+  @Mock ConfiguracionMarcajeDocenteService configuracionMarcaje;
   private Docente docente;
 
   @BeforeEach
   void preparar() {
-    properties.setToleranciaDocenteMinutos(10);
-    properties.setVentanaDocenteAntesMinutos(30);
+    Mockito.lenient()
+        .when(configuracionMarcaje.obtener())
+        .thenReturn(new ConfiguracionMarcajeDocenteResponse(15, 30, 30));
     docente = new Docente();
     ReflectionTestUtils.setField(docente, "id", 1);
     docente.setPersona(new Persona("10000001", "Ana", "Docente", "Prueba"));
@@ -69,11 +69,11 @@ class AsistenciaDocenteMarcajeTest {
     prepararPrimeraSesion("08:00");
     sinAsistenciaHoy();
 
-    AsistenciaDocenteResponse response = servicioALas("08:10").marcarEntrada(USUARIO);
+    AsistenciaDocenteResponse response = servicioALas("08:15").marcarEntrada(USUARIO);
 
     assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
     assertEquals(HOY, response.fecha());
-    assertEquals(LocalTime.of(8, 10), response.horaEntrada());
+    assertEquals(LocalTime.of(8, 15), response.horaEntrada());
     assertEquals(1, response.docenteId());
   }
 
@@ -82,11 +82,24 @@ class AsistenciaDocenteMarcajeTest {
     prepararPrimeraSesion("08:00");
     sinAsistenciaHoy();
 
-    AsistenciaDocenteResponse response = servicioALas("08:11").marcarEntrada(USUARIO);
+    AsistenciaDocenteResponse response = servicioALas("08:16").marcarEntrada(USUARIO);
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals(LocalTime.of(8, 11), response.horaEntrada());
-    assertEquals("Marcaje posterior a la tolerancia de 10 minutos", response.motivoAjuste());
+    assertEquals(LocalTime.of(8, 16), response.horaEntrada());
+    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
+  }
+
+  @Test
+  void marcarEntrada_aplicaLaToleranciaGlobalActualizada() {
+    prepararPrimeraSesion("08:00");
+    sinAsistenciaHoy();
+    when(configuracionMarcaje.obtener())
+        .thenReturn(new ConfiguracionMarcajeDocenteResponse(5, 30, 30));
+
+    AsistenciaDocenteResponse response = servicioALas("08:06").marcarEntrada(USUARIO);
+
+    assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
+    assertEquals("Marcaje posterior a la tolerancia de 5 minutos", response.motivoAjuste());
   }
 
   @Test
@@ -106,6 +119,18 @@ class AsistenciaDocenteMarcajeTest {
     ResponseStatusException error =
         assertThrows(
             ResponseStatusException.class, () -> servicioALas("07:29").marcarEntrada(USUARIO));
+
+    assertEquals(409, error.getStatusCode().value());
+    verify(asistencias, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void marcarEntrada_despuesDelCierreConfigurado_lanzaConflicto() {
+    prepararPrimeraSesion("08:00");
+
+    ResponseStatusException error =
+        assertThrows(
+            ResponseStatusException.class, () -> servicioALas("08:31").marcarEntrada(USUARIO));
 
     assertEquals(409, error.getStatusCode().value());
     verify(asistencias, never()).saveAndFlush(any());
@@ -279,7 +304,7 @@ class AsistenciaDocenteMarcajeTest {
     Clock reloj =
         Clock.fixed(LocalDateTime.of(HOY, LocalTime.parse(hora)).atZone(ZONA).toInstant(), ZONA);
     return new AsistenciaDocenteService(
-        asistencias, docentes, sesiones, properties, docenteService, reloj);
+        asistencias, docentes, sesiones, configuracionMarcaje, docenteService, reloj);
   }
 
   private void prepararPrimeraSesion(String horaInicio) {
