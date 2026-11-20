@@ -163,6 +163,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/auditoria-finanzas` | Consultar auditoría paginada de transacciones y pagos (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/panel/administrador` | Resumen del panel del administrador: pendientes, indicadores, cobranza del año, ocupación por grado y actividad reciente (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/auditoria-finanzas/resumen` | Totales de eventos, pagos y monto cobrado con los mismos filtros |
 | `GET` | `/api/v1/auditoria-finanzas/csv` | Exportar a CSV todos los eventos filtrados |
 
