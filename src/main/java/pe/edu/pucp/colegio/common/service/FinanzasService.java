@@ -101,6 +101,16 @@ public class FinanzasService {
     CompromisoPago existente = compromisos.findByMatriculaId(matricula.getId()).orElse(null);
     if (existente != null) {
       existente.setActive(true);
+      existente.setApoderado(vinculo.getApoderado());
+      existente.setConcepto(request.concepto().trim());
+      existente.setMontoTotal(request.montoTotal().setScale(2, RoundingMode.HALF_UP));
+      existente.setFechaEmision(LocalDate.now(clock));
+      existente.setMesInicio(YearMonth.from(request.primerVencimiento()));
+      existente.setNumeroCuotas(request.numeroCuotas());
+      existente.setPrimerVencimiento(request.primerVencimiento());
+      existente.setDiaVencimiento(request.diaVencimiento());
+      existente = compromisos.save(existente);
+      auditoriaFinanciera.registrarCompromiso(existente);
       LocalDate primerMes = YearMonth.from(existente.getPrimerVencimiento()).atDay(1);
       boolean yaTieneBoletaDelCompromiso =
           boletas.existsByCompromisoIdAndMesCobroAndActiveTrue(existente.getId(), primerMes);
