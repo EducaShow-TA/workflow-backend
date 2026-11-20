@@ -90,8 +90,9 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Intege
   boolean existsBySeccionIdAndAreaCodigoAndFechaAndHoraInicioAndActiveTrue(
       Integer seccionId, String areaCodigo, LocalDate fecha, java.time.LocalTime horaInicio);
 
-  Optional<SesionClase> findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(
-      Integer docenteId, LocalDate fecha);
+  Optional<SesionClase>
+      findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+          Integer docenteId, LocalDate fecha);
 
   @EntityGraph(attributePaths = {"docente", "docente.persona"})
   List<SesionClase> findAllByFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(

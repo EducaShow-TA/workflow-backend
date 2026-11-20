@@ -67,7 +67,8 @@ class AsistenciaDocenteServiceTest {
   @Test
   void registraIngresoPuntualDeUnDocente() {
     when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            1, FECHA))
         .thenReturn(Optional.empty());
     when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -83,7 +84,8 @@ class AsistenciaDocenteServiceTest {
     when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
     SesionClase sesion = new SesionClase();
     sesion.setHoraInicio(LocalTime.of(8, 0));
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            1, FECHA))
         .thenReturn(Optional.of(sesion));
     when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -201,7 +203,8 @@ class AsistenciaDocenteServiceTest {
   private void prepararSesion(String horaInicio) {
     SesionClase sesion = new SesionClase();
     sesion.setHoraInicio(LocalTime.parse(horaInicio));
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            1, FECHA))
         .thenReturn(Optional.of(sesion));
   }
 

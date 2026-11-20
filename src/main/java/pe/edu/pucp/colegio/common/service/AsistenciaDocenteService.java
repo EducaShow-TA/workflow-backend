@@ -285,7 +285,8 @@ public class AsistenciaDocenteService {
   /** Hora de inicio de la primera sesión del docente ese día, o nulo si no tiene clases. */
   private LocalTime inicioJornada(Integer docenteId, LocalDate fecha) {
     return sesiones
-        .findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(docenteId, fecha)
+        .findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            docenteId, fecha)
         .map(SesionClase::getHoraInicio)
         .orElse(null);
   }
