@@ -269,21 +269,22 @@ public class HorarioSeccionService {
     restaurada.setVigenteDesde(hasta.plusDays(1));
     restaurada.setVigenteHasta(finAnterior);
     restaurada = sesiones.save(restaurada);
-    actualizarOcurrenciasTemporales(anterior, temporal, restaurada, desde, hasta, hoy);
+    // Las clases se buscan con la sesión persistida: la copia "anterior" no tiene id.
+    actualizarOcurrenciasTemporales(sesion, temporal, restaurada, desde, hasta, hoy);
     auditoria.registrar(
         usuarioActual(), horario, "ACTUALIZACIÓN", anterior, temporal, "TEMPORAL", desde, hasta);
     return respuesta(temporal);
   }
 
   private void actualizarOcurrenciasTemporales(
-      SesionHorario anterior,
+      SesionHorario original,
       SesionHorario temporal,
       SesionHorario restaurada,
       LocalDate desde,
       LocalDate hasta,
       LocalDate hoy) {
     for (var ocurrencia :
-        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(anterior.getId(), hoy)) {
+        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(original.getId(), hoy)) {
       LocalDate fecha = ocurrencia.getFecha();
       if (!fecha.isAfter(hasta)
           && asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId())) {
@@ -366,7 +367,7 @@ public class HorarioSeccionService {
           anterior,
           null,
           "PERMANENTE",
-          hoy.plusDays(1),
+          sesion.getVigenteHasta().plusDays(1),
           null);
       return;
     }
