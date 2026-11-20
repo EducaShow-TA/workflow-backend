@@ -3,7 +3,9 @@ package pe.edu.pucp.colegio.common.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -38,36 +40,54 @@ public class CuadroMeritoService {
 
   @Transactional(readOnly = true)
   public CuadroMeritoResponse generar(Integer periodoId) {
-    Periodo periodo =
-        periodos
-            .findById(periodoId)
-            .filter(Periodo::getActive)
-            .orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Período no encontrado"));
-    if (!Boolean.TRUE.equals(periodo.getActasCerradas())) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "El cuadro de mérito solo está disponible con las actas cerradas");
-    }
+    Periodo periodo = buscarPeriodo(periodoId);
+    return generar(periodoId, List.of(periodo), periodo.getSeccion().getCodigo());
+  }
 
-    List<Matricula> roster =
-        matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
-            periodoId, List.of(EstadoMatricula.CONFIRMADA));
-    Map<Integer, Acumulado> acumulados = new HashMap<>();
-    for (Calificacion calificacion : calificaciones.findAllByPeriodoIdAndActiveTrue(periodoId)) {
-      BigDecimal puntaje = puntajeFinal(calificacion);
-      if (puntaje != null) {
-        acumulados
-            .computeIfAbsent(calificacion.getMatricula().getId(), ignored -> new Acumulado())
-            .agregar(puntaje);
-      }
+  /** Genera el ranking de todo un grado o de una de sus secciones para el año indicado. */
+  @Transactional(readOnly = true)
+  public CuadroMeritoResponse generar(Integer gradoId, Integer anio, Integer seccionId) {
+    if (gradoId == null || anio == null) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Indique gradoId y anio para generar el cuadro por grado");
+    }
+    List<Periodo> periodosDelGrado =
+        periodos.findAllByGradoIdAndActiveTrue(gradoId).stream()
+            .filter(p -> p.getFechaInicio().getYear() == anio)
+            .filter(p -> seccionId == null || p.getSeccion().getId().equals(seccionId))
+            .sorted(Comparator.comparing(Periodo::getFechaInicio))
+            .toList();
+    if (periodosDelGrado.isEmpty()) {
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND, "No hay períodos para ese grado y año");
+    }
+    for (Periodo periodo : periodosDelGrado) {
+      exigirActasCerradas(periodo);
+    }
+    String seccion = seccionId == null ? "Todas" : periodosDelGrado.get(0).getSeccion().getCodigo();
+    return generar(null, periodosDelGrado, seccion);
+  }
+
+  private CuadroMeritoResponse generar(
+      Integer periodoId, List<Periodo> periodosIncluidos, String seccion) {
+    Map<Integer, Matricula> roster = new LinkedHashMap<>();
+    Map<Integer, Map<String, List<BigDecimal>>> puntajes = new HashMap<>();
+    for (Periodo periodo : periodosIncluidos) {
+      List<Matricula> matriculasPeriodo =
+          matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
+              periodo.getId(), List.of(EstadoMatricula.CONFIRMADA));
+      matriculasPeriodo.forEach(m -> roster.putIfAbsent(m.getEstudiante().getId(), m));
+      agregarPuntajesPeriodo(periodo, puntajes);
     }
 
     List<Entrada> entradas =
-        roster.stream()
+        roster.values().stream()
             .map(
                 matricula ->
                     new Entrada(
-                        matricula, acumulados.getOrDefault(matricula.getId(), new Acumulado())))
+                        matricula,
+                        new Acumulado(
+                            puntajes.getOrDefault(matricula.getEstudiante().getId(), Map.of()))))
             .sorted(this::compararEntradas)
             .toList();
 
@@ -87,15 +107,88 @@ public class CuadroMeritoService {
       anteriorConPuesto = entrada;
     }
 
+    Periodo primero = periodosIncluidos.get(0);
+    Periodo ultimo = periodosIncluidos.get(periodosIncluidos.size() - 1);
     return new CuadroMeritoResponse(
         periodoId,
-        periodo.getFechaInicio().getYear(),
-        periodo.getGrado().getNumero(),
-        periodo.getGrado().getNivelEducativo().name(),
-        periodo.getSeccion().getCodigo(),
-        periodo.getFechaInicio(),
-        periodo.getFechaFin(),
+        primero.getFechaInicio().getYear(),
+        primero.getGrado().getNumero(),
+        primero.getGrado().getNivelEducativo().name(),
+        seccion,
+        primero.getFechaInicio(),
+        ultimo.getFechaFin(),
         estudiantes);
+  }
+
+  private Periodo buscarPeriodo(Integer periodoId) {
+    Periodo periodo =
+        periodos
+            .findById(periodoId)
+            .filter(Periodo::getActive)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Período no encontrado"));
+    exigirActasCerradas(periodo);
+    return periodo;
+  }
+
+  private void exigirActasCerradas(Periodo periodo) {
+    if (!Boolean.TRUE.equals(periodo.getActasCerradas())) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El cuadro de mérito solo está disponible con las actas cerradas");
+    }
+  }
+
+  private void agregarPuntajesPeriodo(
+      Periodo periodo, Map<Integer, Map<String, List<BigDecimal>>> puntajes) {
+    Map<Integer, Map<String, List<BigDecimal>>> filasPeriodo = new HashMap<>();
+    Map<Integer, Map<String, BigDecimal>> consolidadas = new HashMap<>();
+    for (Calificacion calificacion :
+        calificaciones.findAllByPeriodoIdAndActiveTrue(periodo.getId())) {
+      Integer estudianteId = calificacion.getMatricula().getEstudiante().getId();
+      String competencia = calificacion.getCompetencia().getCodigo();
+      BigDecimal puntaje = puntajeFinal(calificacion);
+      if (puntaje == null) {
+        continue;
+      }
+      if (Boolean.TRUE.equals(calificacion.getConsolidada())) {
+        consolidadas
+            .computeIfAbsent(estudianteId, ignored -> new HashMap<>())
+            .put(competencia, puntaje);
+      } else {
+        filasPeriodo
+            .computeIfAbsent(estudianteId, ignored -> new HashMap<>())
+            .computeIfAbsent(competencia, ignored -> new ArrayList<>())
+            .add(puntaje);
+      }
+    }
+
+    for (var estudiante : filasPeriodo.entrySet()) {
+      Map<String, BigDecimal> notasConsolidadas =
+          consolidadas.getOrDefault(estudiante.getKey(), Map.of());
+      for (var competencia : estudiante.getValue().entrySet()) {
+        BigDecimal puntaje = notasConsolidadas.get(competencia.getKey());
+        if (puntaje == null) {
+          puntaje = promedio(competencia.getValue());
+        }
+        puntajes
+            .computeIfAbsent(estudiante.getKey(), ignored -> new HashMap<>())
+            .computeIfAbsent(competencia.getKey(), ignored -> new ArrayList<>())
+            .add(puntaje);
+      }
+    }
+    for (var estudiante : consolidadas.entrySet()) {
+      for (var competencia : estudiante.getValue().entrySet()) {
+        if (filasPeriodo
+            .getOrDefault(estudiante.getKey(), Map.of())
+            .containsKey(competencia.getKey())) {
+          continue;
+        }
+        puntajes
+            .computeIfAbsent(estudiante.getKey(), ignored -> new HashMap<>())
+            .computeIfAbsent(competencia.getKey(), ignored -> new ArrayList<>())
+            .add(competencia.getValue());
+      }
+    }
   }
 
   private BigDecimal puntajeFinal(Calificacion calificacion) {
@@ -109,6 +202,12 @@ public class CuadroMeritoService {
       case "AD" -> BigDecimal.valueOf(4);
       default -> null;
     };
+  }
+
+  private BigDecimal promedio(List<BigDecimal> valores) {
+    return valores.stream()
+        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        .divide(BigDecimal.valueOf(valores.size()), 8, RoundingMode.HALF_UP);
   }
 
   private int compararEntradas(Entrada primero, Entrada segundo) {
@@ -161,6 +260,7 @@ public class CuadroMeritoService {
         matricula.getId(),
         matricula.getEstudiante().getId(),
         matricula.getEstudiante().getPersona().getNombreCompleto(),
+        matricula.getPeriodo().getSeccion().getCodigo(),
         promedio,
         acumulado.cantidad());
   }
@@ -171,9 +271,16 @@ public class CuadroMeritoService {
     private BigDecimal suma = BigDecimal.ZERO;
     private int cantidad;
 
-    private void agregar(BigDecimal puntaje) {
-      suma = suma.add(puntaje);
-      cantidad++;
+    private Acumulado(Map<String, List<BigDecimal>> porCompetencia) {
+      porCompetencia.forEach(
+          (competencia, valores) -> {
+            BigDecimal puntaje =
+                valores.stream()
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .divide(BigDecimal.valueOf(valores.size()), 8, RoundingMode.HALF_UP);
+            suma = suma.add(puntaje);
+            cantidad++;
+          });
     }
 
     private BigDecimal suma() {

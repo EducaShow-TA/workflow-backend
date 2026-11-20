@@ -160,6 +160,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/boletas-pension/{id}/comprobantes` | Consultar comprobantes de una boleta |
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/reportes/boletas-pension/pagina` | Consultar reporte de cobranza paginado |
+| `GET` | `/api/v1/reportes/cuadro-merito?periodoId={id}` | Ranking de una sección; también admite `gradoId`, `anio` y `seccionId` (solo ADMINISTRADOR, actas cerradas) |
+| `GET` | `/api/v1/reportes/cuadro-merito/pdf` y `/excel` | Descargar el cuadro de mérito con los mismos filtros |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
