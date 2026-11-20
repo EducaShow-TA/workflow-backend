@@ -85,7 +85,7 @@ class AsistenciaDocenteServiceTest {
     var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
+    assertEquals("Registro manual de asistencia", response.motivoAjuste());
   }
 
   @Test
@@ -164,7 +164,7 @@ class AsistenciaDocenteServiceTest {
     var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
+    assertEquals("Registro manual de asistencia", response.motivoAjuste());
   }
 
   @Test
@@ -208,6 +208,6 @@ class AsistenciaDocenteServiceTest {
         estado,
         entrada == null ? null : LocalTime.parse(entrada),
         salida == null ? null : LocalTime.parse(salida),
-        null);
+        "Registro manual de asistencia");
   }
 }

@@ -194,8 +194,6 @@ public class SeguimientoAcademicoService {
         throw new BusinessException("No hay cambios que guardar");
       }
       motivo = MotivoRectificacion.exigir(request.motivo());
-    } else if (!tieneArchivo && evidenciaUrl == null) {
-      throw new BusinessException("Adjunte un archivo o indique una URL de evidencia");
     }
     calificacion.setPeriodo(periodo);
     calificacion.setMatricula(matricula);
