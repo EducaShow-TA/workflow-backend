@@ -229,7 +229,9 @@ class AuditoriaFinancieraIntegrationTest {
   void validaParametrosYRestringeAlAdministrador() throws Exception {
     mvc.perform(get(RUTA).param("desde", "2026-11-20").param("hasta", "2026-11-01"))
         .andExpect(status().isBadRequest());
-    mvc.perform(get(RUTA).param("size", "101")).andExpect(status().isBadRequest());
+    mvc.perform(get(RUTA).param("size", "101"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page.size").value(100));
 
     for (String ruta : List.of(RUTA, RUTA + "/resumen", RUTA + "/csv")) {
       mvc.perform(get(ruta).with(user("docente-auditoria").roles("DOCENTE")))

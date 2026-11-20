@@ -34,7 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.pagos.simulado.enabled=true")
 @AutoConfigureMockMvc
 @Transactional
 class PagosApoderadoIntegrationTest {

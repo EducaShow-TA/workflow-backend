@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class PagosApoderadoService {
   private final ComprobantePagoRepository comprobantes;
   private final FinanzasService finanzas;
   private final ComprobantePdfService pdf;
+  private final boolean pagoSimuladoEnabled;
 
   public PagosApoderadoService(
       CuentaUsuarioRepository cuentas,
@@ -57,7 +59,8 @@ public class PagosApoderadoService {
       BoletaPensionRepository boletas,
       ComprobantePagoRepository comprobantes,
       FinanzasService finanzas,
-      ComprobantePdfService pdf) {
+      ComprobantePdfService pdf,
+      @Value("${app.pagos.simulado.enabled:false}") boolean pagoSimuladoEnabled) {
     this.cuentas = cuentas;
     this.apoderados = apoderados;
     this.vinculos = vinculos;
@@ -66,6 +69,7 @@ public class PagosApoderadoService {
     this.comprobantes = comprobantes;
     this.finanzas = finanzas;
     this.pdf = pdf;
+    this.pagoSimuladoEnabled = pagoSimuladoEnabled;
   }
 
   @Transactional(readOnly = true)
@@ -88,6 +92,10 @@ public class PagosApoderadoService {
   /** Paga todas las boletas o ninguna: si una falla, la transacción completa se revierte. */
   @Transactional
   public List<ComprobantePagoResponse> pagar(String username, PagoApoderadoRequest request) {
+    if (!pagoSimuladoEnabled) {
+      throw new ResponseStatusException(
+          HttpStatus.SERVICE_UNAVAILABLE, "El pago simulado está deshabilitado");
+    }
     Apoderado apoderado = apoderadoActivo(username);
     if (new HashSet<>(request.boletaIds()).size() != request.boletaIds().size()) {
       throw new ResponseStatusException(
