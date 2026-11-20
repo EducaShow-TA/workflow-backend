@@ -14,8 +14,12 @@ public record AuditoriaCalificacionResponse(
     Integer periodoId,
     Integer matriculaId,
     Integer estudianteId,
+    String estudianteNombre,
+    String competenciaNombre,
+    String areaNombre,
     String competenciaCodigo,
     Integer evaluacionId,
+    Integer bimestre,
     String notaAnterior,
     String notaNueva,
     BigDecimal puntajeAnterior,
@@ -25,9 +29,18 @@ public record AuditoriaCalificacionResponse(
     Boolean justificadaAnterior,
     Boolean justificadaNueva,
     String observacionAnterior,
-    String observacionNueva) {
+    String observacionNueva,
+    String motivo) {
 
   public static AuditoriaCalificacionResponse desde(AuditoriaCalificacion registro) {
+    return desde(registro, null, null, null);
+  }
+
+  public static AuditoriaCalificacionResponse desde(
+      AuditoriaCalificacion registro,
+      String estudianteNombre,
+      String competenciaNombre,
+      String areaNombre) {
     return new AuditoriaCalificacionResponse(
         registro.getId(),
         registro.getFechaHora(),
@@ -38,8 +51,12 @@ public record AuditoriaCalificacionResponse(
         registro.getPeriodoId(),
         registro.getMatriculaId(),
         registro.getEstudianteId(),
+        estudianteNombre,
+        competenciaNombre,
+        areaNombre,
         registro.getCompetenciaCodigo(),
         registro.getEvaluacionId(),
+        registro.getBimestre(),
         registro.getNotaAnterior(),
         registro.getNotaNueva(),
         registro.getPuntajeAnterior(),
@@ -49,6 +66,7 @@ public record AuditoriaCalificacionResponse(
         registro.getJustificadaAnterior(),
         registro.getJustificadaNueva(),
         registro.getObservacionAnterior(),
-        registro.getObservacionNueva());
+        registro.getObservacionNueva(),
+        registro.getMotivo());
   }
 }

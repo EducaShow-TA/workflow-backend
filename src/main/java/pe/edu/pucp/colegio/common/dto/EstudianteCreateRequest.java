@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
 import pe.edu.pucp.colegio.common.validation.PasswordPolicy;
+import pe.edu.pucp.colegio.common.validation.TelefonoPolicy;
 import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 
 public record EstudianteCreateRequest(
@@ -37,7 +38,12 @@ public record EstudianteCreateRequest(
       @NotBlank @Size(max = 100) String nombres,
       @NotBlank @Size(max = 100) String apellidoPaterno,
       @NotBlank @Size(max = 100) String apellidoMaterno,
-      @NotBlank @Size(max = 20) String celular,
+      @NotBlank
+          @Pattern(
+              regexp = TelefonoPolicy.PATRON,
+              message = "El celular debe usar formato internacional")
+          @Size(max = 20)
+          String celular,
       @jakarta.validation.constraints.Email @Size(max = 254) String correoElectronico,
       @NotBlank @Pattern(regexp = "PADRE|MADRE|TUTOR_LEGAL|OTRO") String parentesco,
       boolean esPrincipal) {}

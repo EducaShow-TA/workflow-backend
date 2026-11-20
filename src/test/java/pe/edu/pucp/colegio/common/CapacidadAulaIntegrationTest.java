@@ -75,7 +75,18 @@ class CapacidadAulaIntegrationTest {
     sesion(caso, aula)
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.message").value(containsString("capacidad para 2 alumnos")))
-        .andExpect(jsonPath("$.message").value(containsString("tiene 3 matriculados en 2027")));
+        .andExpect(jsonPath("$.message").value(containsString("3 matriculados")));
+  }
+
+  @Test
+  void rechazaAulaMenorQueVacantesAunqueAunNoHayaMatriculados() throws Exception {
+    Caso caso = caso(0);
+    caso.seccion().setVacantesTotales(40);
+    secciones.saveAndFlush(caso.seccion());
+
+    sesion(caso, aula(30))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value(containsString("requiere espacio para 40")));
   }
 
   @Test
@@ -146,6 +157,8 @@ class CapacidadAulaIntegrationTest {
   private Caso caso(int alumnos) throws Exception {
     JsonNode plantilla = plantilla();
     Seccion seccion = seccion();
+    seccion.setVacantesTotales(alumnos);
+    secciones.saveAndFlush(seccion);
 
     Periodo periodo = periodo(seccion, LocalDate.of(ANIO, 3, 1), LocalDate.of(ANIO, 12, 15));
     for (int i = 0; i < alumnos; i++) {

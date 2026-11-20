@@ -1,6 +1,11 @@
 package pe.edu.pucp.colegio.common.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -26,6 +31,10 @@ public class Tarea extends EntidadBase {
 
   @Column(precision = 5, scale = 2)
   private BigDecimal ponderacion;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "evaluacion_parcial_id")
+  private EvaluacionParcial evaluacionParcial;
 
   public Periodo getPeriodo() {
     return periodo;
@@ -73,5 +82,13 @@ public class Tarea extends EntidadBase {
 
   public void setPonderacion(BigDecimal ponderacion) {
     this.ponderacion = ponderacion;
+  }
+
+  public EvaluacionParcial getEvaluacionParcial() {
+    return evaluacionParcial;
+  }
+
+  public void setEvaluacionParcial(EvaluacionParcial evaluacionParcial) {
+    this.evaluacionParcial = evaluacionParcial;
   }
 }

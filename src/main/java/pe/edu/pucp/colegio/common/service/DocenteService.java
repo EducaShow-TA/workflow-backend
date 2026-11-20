@@ -30,11 +30,17 @@ public class DocenteService {
     this.cuentas = cuentas;
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public List<DocenteResponse> listar() {
     return cuentas.findAllByRolAndActiveTrue(Rol.DOCENTE).stream()
         .filter(cuenta -> cuenta.getPersona() != null)
-        .map(cuenta -> respuesta(cuenta, obtenerOCrear(cuenta.getPersona())))
+        .map(
+            cuenta ->
+                docentes
+                    .findByPersonaId(cuenta.getPersona().getId())
+                    .filter(docente -> Boolean.TRUE.equals(docente.getActive()))
+                    .map(docente -> respuesta(cuenta, docente))
+                    .orElse(null))
         .filter(Objects::nonNull)
         .sorted(
             Comparator.comparing(DocenteResponse::nombreCompleto, String.CASE_INSENSITIVE_ORDER))
@@ -58,6 +64,26 @@ public class DocenteService {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El docente está inactivo");
     }
     return docente;
+  }
+
+  /** Busca un perfil docente existente sin crearlo; apto para operaciones de solo lectura. */
+  @Transactional(readOnly = true)
+  public Docente obtenerExistenteDeCuenta(String username) {
+    CuentaUsuario cuenta =
+        cuentas
+            .findByUsername(username)
+            .filter(encontrada -> Boolean.TRUE.equals(encontrada.getActive()))
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Cuenta no válida"));
+    if (cuenta.getRol() != Rol.DOCENTE || cuenta.getPersona() == null) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "La cuenta no corresponde a un docente");
+    }
+    return docentes
+        .findByPersonaId(cuenta.getPersona().getId())
+        .filter(docente -> Boolean.TRUE.equals(docente.getActive()))
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.FORBIDDEN, "El docente está inactivo"));
   }
 
   /** Devuelve nulo si el docente existe pero fue desactivado. */

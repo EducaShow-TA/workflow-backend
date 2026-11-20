@@ -1869,6 +1869,10 @@
                 {
                   "key": "periodoId",
                   "value": "{{periodoId}}"
+                },
+                {
+                  "key": "bimestre",
+                  "value": "1"
                 }
               ]
             }
@@ -1947,7 +1951,7 @@
               "formdata": [
                 {
                   "key": "datos",
-                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"AD\",\"observacion\":\"Evidencia de prueba Postman\",\"evidenciaUrl\":\"https://example.org/evidencia-postman\"}",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"bimestre\":1,\"nota\":\"AD\",\"observacion\":\"Evidencia de prueba Postman\",\"evidenciaUrl\":\"https://example.org/evidencia-postman\"}",
                   "contentType": "application/json",
                   "type": "text"
                 }
@@ -1987,7 +1991,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}",
+              "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}&bimestre=1",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2002,6 +2006,10 @@
                 {
                   "key": "periodoId",
                   "value": "{{periodoId}}"
+                },
+                {
+                  "key": "bimestre",
+                  "value": "1"
                 }
               ]
             }
@@ -2075,7 +2083,7 @@
               "formdata": [
                 {
                   "key": "datos",
-                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"evidenciaUrl\":\"ftp://example.org/evidencia\"}",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"bimestre\":1,\"nota\":\"A\",\"evidenciaUrl\":\"ftp://example.org/evidencia\"}",
                   "contentType": "application/json",
                   "type": "text"
                 }
@@ -2115,7 +2123,7 @@
               "formdata": [
                 {
                   "key": "datos",
-                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"observacion\":\"Archivo adjunto desde Postman\",\"evidenciaUrl\":null}",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"bimestre\":1,\"nota\":\"A\",\"observacion\":\"Archivo adjunto desde Postman\",\"evidenciaUrl\":null}",
                   "contentType": "application/json",
                   "type": "text"
                 },
@@ -2213,7 +2221,7 @@
               "formdata": [
                 {
                   "key": "datos",
-                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"nota\":\"A\",\"evidenciaUrl\":null}",
+                  "value": "{\"periodoId\":{{periodoId}},\"matriculaId\":{{matriculaId}},\"competenciaCodigo\":\"{{competenciaIndependienteCodigo}}\",\"bimestre\":1,\"nota\":\"A\",\"evidenciaUrl\":null}",
                   "contentType": "application/json",
                   "type": "text"
                 },
@@ -3273,7 +3281,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"codigo\": \"AULA-DOC-{{$randomInt}}\",\n  \"capacidad\": 30,\n  \"descripcion\": \"Aula de prueba Postman\"\n}",
+              "raw": "{\n  \"codigo\": \"AULA-DOC-{{$randomInt}}\",\n  \"capacidad\": 40,\n  \"descripcion\": \"Aula de prueba Postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3552,7 +3560,7 @@
             },
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}",
+              "raw": "{{baseUrl}}/api/v1/seguimiento/competencias/{{competenciaIndependienteCodigo}}?periodoId={{periodoId}}&bimestre=1",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -4095,7 +4103,9 @@
                   "pm.test('Consulta paginada disponible', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "const entries = body.content || body._embedded?.registroErrorResponseDTOList || [];",
-                  "if (entries.length) pm.environment.set('errorId', String(entries[0].id));"
+                  "const serverError = entries.find(entry => entry.codigoEstado >= 500);",
+                  "if (serverError) pm.environment.set('errorId', String(serverError.id));",
+                  "else pm.environment.unset('errorId');"
                 ]
               }
             }
@@ -4120,6 +4130,15 @@
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('errorId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {

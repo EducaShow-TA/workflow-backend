@@ -218,9 +218,6 @@ public class CatalogoService {
             .orElseThrow(
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "Competencia no encontrada"));
-    if (!request.activo() && tieneNotasRegistradas(competencia)) {
-      throw conflict("No se puede desactivar una competencia con calificaciones registradas");
-    }
     competencia.setActivo(request.activo());
     competencias.save(competencia);
     return toCatalogoCompetencia(
@@ -229,10 +226,7 @@ public class CatalogoService {
 
   public void eliminarCompetencia(String identificador) {
     Competencia competencia = buscarCompetencia(identificador, false);
-    if (tieneNotasRegistradas(competencia)) {
-      throw conflict("No se puede desactivar una competencia con calificaciones registradas");
-    }
-    // DELETE conserva el catálogo y sus vínculos históricos mediante una baja lógica.
+    // DELETE es una baja lógica permitida incluso si existen notas; conserva el historial.
     competencia.setActivo(false);
     competencias.save(competencia);
   }

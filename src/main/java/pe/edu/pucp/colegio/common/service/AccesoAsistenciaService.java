@@ -6,8 +6,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.model.Apoderado;
 import pe.edu.pucp.colegio.common.model.Estudiante;
+import pe.edu.pucp.colegio.common.model.SesionClase;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.AsistenciaEstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -21,23 +24,32 @@ public class AccesoAsistenciaService {
   private final EstudianteRepository estudiantes;
   private final ApoderadoRepository apoderados;
   private final VinculoFamiliarRepository vinculos;
+  private final AsistenciaEstudianteRepository asistencias;
+  private final SesionClaseRepository sesiones;
 
   public AccesoAsistenciaService(
       CuentaUsuarioRepository cuentas,
       EstudianteRepository estudiantes,
       ApoderadoRepository apoderados,
-      VinculoFamiliarRepository vinculos) {
+      VinculoFamiliarRepository vinculos,
+      AsistenciaEstudianteRepository asistencias,
+      SesionClaseRepository sesiones) {
     this.cuentas = cuentas;
     this.estudiantes = estudiantes;
     this.apoderados = apoderados;
     this.vinculos = vinculos;
+    this.asistencias = asistencias;
+    this.sesiones = sesiones;
   }
 
   @Transactional(readOnly = true)
   public Estudiante exigirAccesoHistorial(Integer estudianteId, String username) {
     Estudiante estudiante = buscarEstudiante(estudianteId);
     CuentaUsuario cuenta = buscarCuenta(username);
-    if (cuenta.getRol() == Rol.ADMINISTRADOR || cuenta.getRol() == Rol.DOCENTE) {
+    if (cuenta.getRol() == Rol.ADMINISTRADOR) {
+      return estudiante;
+    }
+    if (cuenta.getRol() == Rol.DOCENTE && docenteDictaSeccion(cuenta, estudianteId)) {
       return estudiante;
     }
     if (cuenta.getRol() == Rol.ALUMNO && mismaPersona(cuenta, estudiante)) {
@@ -60,6 +72,34 @@ public class AccesoAsistenciaService {
       return estudiante;
     }
     throw prohibido();
+  }
+
+  @Transactional(readOnly = true)
+  public Estudiante exigirAccesoJustificacion(
+      Integer estudianteId, SesionClase sesion, String username) {
+    Estudiante estudiante = buscarEstudiante(estudianteId);
+    CuentaUsuario cuenta = buscarCuenta(username);
+    if (cuenta.getRol() == Rol.DOCENTE && puedeConsultarSesion(cuenta, sesion)) {
+      return estudiante;
+    }
+    if (cuenta.getRol() == Rol.ALUMNO && mismaPersona(cuenta, estudiante)) {
+      return estudiante;
+    }
+    if (cuenta.getRol() == Rol.APODERADO && esApoderadoDe(cuenta, estudiante)) {
+      return estudiante;
+    }
+    throw prohibido();
+  }
+
+  @Transactional(readOnly = true)
+  public boolean esDocente(String username) {
+    return buscarCuenta(username).getRol() == Rol.DOCENTE;
+  }
+
+  @Transactional(readOnly = true)
+  public boolean docentePuedeConsultarSesion(String username, SesionClase sesion) {
+    CuentaUsuario cuenta = buscarCuenta(username);
+    return cuenta.getRol() == Rol.DOCENTE && puedeConsultarSesion(cuenta, sesion);
   }
 
   private Estudiante buscarEstudiante(Integer estudianteId) {
@@ -93,6 +133,25 @@ public class AccesoAsistenciaService {
     return apoderado != null
         && vinculos.existsByEstudianteIdAndApoderadoIdAndActiveTrue(
             estudiante.getId(), apoderado.getId());
+  }
+
+  private boolean docenteDictaSeccion(CuentaUsuario cuenta, Integer estudianteId) {
+    if (cuenta.getPersona() == null) {
+      return false;
+    }
+    return asistencias.buscarHistorial(estudianteId, null, null).stream()
+        .map(asistencia -> asistencia.getSesionClase())
+        .anyMatch(sesion -> puedeConsultarSesion(cuenta, sesion));
+  }
+
+  private boolean puedeConsultarSesion(CuentaUsuario cuenta, SesionClase sesion) {
+    return cuenta.getPersona() != null
+        && (cuenta.getPersona().getId().equals(sesion.getDocente().getPersona().getId())
+            || sesiones.docenteTieneClaseEnSeccion(
+                cuenta.getPersona().getId(),
+                sesion.getSeccion().getId(),
+                sesion.getFecha(),
+                sesion.getFecha()));
   }
 
   private ResponseStatusException prohibido() {

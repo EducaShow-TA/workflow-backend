@@ -1,6 +1,15 @@
 package pe.edu.pucp.colegio.common.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
@@ -41,6 +50,9 @@ public class Periodo extends EntidadBase {
 
   @Column(name = "usuario_cierre_actas", length = 100)
   private String usuarioCierreActas;
+
+  @Column(name = "catalogo_libreta_snapshot", nullable = false)
+  private Boolean catalogoLibretaSnapshot = false;
 
   @OneToMany(mappedBy = "periodo")
   private Set<Matricula> matriculas = new LinkedHashSet<>();
@@ -107,6 +119,14 @@ public class Periodo extends EntidadBase {
 
   public void setUsuarioCierreActas(String usuarioCierreActas) {
     this.usuarioCierreActas = usuarioCierreActas;
+  }
+
+  public Boolean getCatalogoLibretaSnapshot() {
+    return catalogoLibretaSnapshot;
+  }
+
+  public void setCatalogoLibretaSnapshot(Boolean catalogoLibretaSnapshot) {
+    this.catalogoLibretaSnapshot = catalogoLibretaSnapshot;
   }
 
   public EstadoPeriodo calcularEstado(LocalDate fecha) {

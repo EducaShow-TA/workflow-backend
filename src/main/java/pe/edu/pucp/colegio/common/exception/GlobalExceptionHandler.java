@@ -1,8 +1,12 @@
 package pe.edu.pucp.colegio.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pe.edu.pucp.colegio.common.audit.NivelLog;
@@ -71,9 +76,8 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(estado)
         .body(
             new ErrorConfirmacionMatriculaResponse(
-                java.time.OffsetDateTime.now()
-                    .format(
-                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
+                OffsetDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
                 estado.value(),
                 estado.getReasonPhrase(),
                 e.getMessage(),
@@ -88,12 +92,52 @@ public class GlobalExceptionHandler {
         HttpStatus.UNPROCESSABLE_ENTITY, NivelLog.ADVERTENCIA, "NEG_422", e.getMessage(), r);
   }
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  ResponseEntity<ErrorRespuestaDTO> argumentoInvalido(
+      IllegalArgumentException e, HttpServletRequest r) {
+    String mensaje = e.getMessage() == null ? "Solicitud inválida" : e.getMessage();
+    return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "VAL_400", mensaje, r);
+  }
+
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ResponseEntity<ErrorRespuestaDTO> invalido(
       MethodArgumentNotValidException e, HttpServletRequest r) {
     var campo = e.getBindingResult().getFieldError();
     String mensaje = campo == null ? "Solicitud inválida" : campo.getDefaultMessage();
     return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "VAL_400", mensaje, r);
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  ResponseEntity<ErrorRespuestaDTO> restriccionIncumplida(
+      ConstraintViolationException e, HttpServletRequest r) {
+    String mensaje =
+        e.getConstraintViolations().stream()
+            .findFirst()
+            .map(violacion -> violacion.getMessage())
+            .orElse("Solicitud inválida");
+    return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "VAL_400", mensaje, r);
+  }
+
+  @ExceptionHandler(MissingServletRequestPartException.class)
+  ResponseEntity<ErrorRespuestaDTO> parteRequeridaFaltante(
+      MissingServletRequestPartException e, HttpServletRequest r) {
+    String mensaje = "Falta una parte requerida de la solicitud";
+    if (e.getRequestPartName() != null) {
+      mensaje += ": " + e.getRequestPartName();
+    }
+    return responder(HttpStatus.BAD_REQUEST, NivelLog.INFO, "REQ_400", mensaje, r);
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  ResponseEntity<ErrorRespuestaDTO> conflictoDeIntegridad(
+      DataIntegrityViolationException e, HttpServletRequest r) {
+    log.warn("event=data_integrity_conflict path={}", r.getRequestURI());
+    return responder(
+        HttpStatus.CONFLICT,
+        NivelLog.ADVERTENCIA,
+        "NEG_409",
+        "La operación entra en conflicto con los datos existentes",
+        r);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

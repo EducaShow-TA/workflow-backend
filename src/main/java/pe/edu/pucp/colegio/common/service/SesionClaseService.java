@@ -30,12 +30,14 @@ import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.AsistenciaEstudiante;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistencia;
+import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.model.SesionClase;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
+import pe.edu.pucp.colegio.common.repository.AsistenciaDocenteRepository;
 import pe.edu.pucp.colegio.common.repository.AsistenciaEstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
@@ -53,6 +55,7 @@ public class SesionClaseService {
 
   private final SesionClaseRepository sesiones;
   private final AsistenciaEstudianteRepository asistencias;
+  private final AsistenciaDocenteRepository asistenciasDocentes;
   private final SeccionRepository secciones;
   private final AreaRepository areas;
   private final DocenteRepository docentes;
@@ -66,6 +69,7 @@ public class SesionClaseService {
   public SesionClaseService(
       SesionClaseRepository sesiones,
       AsistenciaEstudianteRepository asistencias,
+      AsistenciaDocenteRepository asistenciasDocentes,
       SeccionRepository secciones,
       AreaRepository areas,
       DocenteRepository docentes,
@@ -77,6 +81,7 @@ public class SesionClaseService {
       Clock clock) {
     this.sesiones = sesiones;
     this.asistencias = asistencias;
+    this.asistenciasDocentes = asistenciasDocentes;
     this.secciones = secciones;
     this.areas = areas;
     this.docentes = docentes;
@@ -129,9 +134,15 @@ public class SesionClaseService {
     }
   }
 
-  @Transactional(readOnly = true)
-  public List<SesionClaseResumenResponse> listar(LocalDate fecha, Integer seccionId) {
-    return sesiones.buscar(fecha, seccionId).stream().map(this::resumen).toList();
+  @Transactional
+  public List<SesionClaseResumenResponse> listar(
+      LocalDate fecha, Integer seccionId, Acceso acceso) {
+    Docente docente =
+        acceso.administrador() ? null : docenteService.obtenerDeCuenta(acceso.usuario());
+    return sesiones.buscar(fecha, seccionId).stream()
+        .filter(sesion -> acceso.administrador() || puedeConsultar(sesion, docente))
+        .map(this::resumen)
+        .toList();
   }
 
   @Transactional
@@ -149,13 +160,21 @@ public class SesionClaseService {
   @Transactional
   public ListaAsistenciaResponse obtenerLista(Integer sesionId, Acceso acceso) {
     SesionClase sesion = buscarSesion(sesionId);
+    exigirAccesoConsulta(sesion, acceso);
+    return lista(sesion);
+  }
+
+  /** Lista de la sesión para la carga por CSV (US-2.2); exige el mismo acceso que guardarla. */
+  @Transactional
+  public ListaAsistenciaResponse obtenerListaParaCarga(Integer sesionId, Acceso acceso) {
+    SesionClase sesion = buscarSesion(sesionId);
     exigirAcceso(sesion, acceso);
     return lista(sesion);
   }
 
   /**
-   * Guarda la asistencia de varios alumnos a la vez. Registrar por primera vez exige la ventana de
-   * marcado (salvo al administrador); corregir lo ya registrado se permite en cualquier momento.
+   * Guarda la asistencia de varios alumnos a la vez. Docentes deben respetar la ventana de marcado
+   * tanto al registrar como al corregir; administración puede corregir fuera de ella.
    */
   @Transactional
   public ListaAsistenciaResponse guardarAsistencias(
@@ -172,6 +191,7 @@ public class SesionClaseService {
 
     Set<Integer> vistos = new HashSet<>();
     boolean hayNuevos = false;
+    boolean hayCambios = false;
     for (AsistenciaEstudianteRequest fila : request.asistencias()) {
       if (!vistos.add(fila.estudianteId())) {
         throw new ResponseStatusException(
@@ -199,9 +219,11 @@ public class SesionClaseService {
       hayNuevos |=
           existente == null
               || existente.getEstadoAsistencia() == EstadoAsistencia.PENDIENTE_MARCAJE;
+      hayCambios |= existente != null && existente.getEstadoAsistencia() != fila.estado();
     }
-    if (hayNuevos && !acceso.administrador()) {
-      ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio());
+    if ((hayNuevos || hayCambios) && !acceso.administrador()) {
+      ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
+      exigirDocentePresente(sesion);
     }
 
     LocalDateTime ahora = LocalDateTime.now(clock);
@@ -227,8 +249,10 @@ public class SesionClaseService {
   }
 
   @Transactional(readOnly = true)
-  public SesionClaseResponse obtener(Integer id) {
-    return respuesta(buscarSesion(id));
+  public SesionClaseResponse obtener(Integer id, Acceso acceso) {
+    SesionClase sesion = buscarSesion(id);
+    exigirAccesoConsulta(sesion, acceso);
+    return respuesta(sesion);
   }
 
   @Transactional
@@ -236,7 +260,10 @@ public class SesionClaseService {
       Integer sesionId, AsistenciaEstudianteRequest request, Acceso acceso) {
     SesionClase sesion = buscarSesion(sesionId);
     exigirAcceso(sesion, acceso);
-    ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio());
+    if (!acceso.administrador()) {
+      ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
+      exigirDocentePresente(sesion);
+    }
     Estudiante estudiante = buscarEstudiante(request.estudianteId());
     if (asistencias.existsBySesionClaseIdAndEstudianteIdAndActiveTrue(
         sesionId, estudiante.getId())) {
@@ -263,7 +290,8 @@ public class SesionClaseService {
       Integer estudianteId,
       AsistenciaEstudianteAjusteRequest request,
       Acceso acceso) {
-    exigirAcceso(buscarSesion(sesionId), acceso);
+    SesionClase sesion = buscarSesion(sesionId);
+    exigirAcceso(sesion, acceso);
     AsistenciaEstudiante asistencia =
         asistencias
             .findBySesionClaseIdAndEstudianteIdAndActiveTrue(sesionId, estudianteId)
@@ -272,7 +300,16 @@ public class SesionClaseService {
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "No existe la asistencia del estudiante en la sesión"));
+    if (asistencia.getEstadoAsistencia() == EstadoAsistencia.JUSTIFICADA
+        && request.estado() != EstadoAsistencia.JUSTIFICADA) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "La asistencia está justificada y no se puede cambiar aquí");
+    }
     if (asistencia.getEstadoAsistencia() != request.estado()) {
+      if (!acceso.administrador()) {
+        ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
+        exigirDocentePresente(sesion);
+      }
       aplicarEstado(asistencia, request.estado());
       asistencia.anotarCorreccion(acceso.usuario(), LocalDateTime.now(clock));
     }
@@ -280,8 +317,8 @@ public class SesionClaseService {
   }
 
   @Transactional(readOnly = true)
-  public List<AsistenciaEstudianteResponse> listarAsistencias(Integer sesionId) {
-    buscarSesion(sesionId);
+  public List<AsistenciaEstudianteResponse> listarAsistencias(Integer sesionId, Acceso acceso) {
+    exigirAccesoConsulta(buscarSesion(sesionId), acceso);
     return asistencias.findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(sesionId).stream()
         .map(this::respuesta)
         .toList();
@@ -304,6 +341,22 @@ public class SesionClaseService {
     }
   }
 
+  private void exigirDocentePresente(SesionClase sesion) {
+    boolean docentePresente =
+        asistenciasDocentes
+            .findByDocenteIdAndFechaAndActiveTrue(sesion.getDocente().getId(), sesion.getFecha())
+            .filter(asistencia -> asistencia.getHoraEntrada() != null)
+            .filter(
+                asistencia ->
+                    asistencia.getEstado() == EstadoAsistenciaDocente.PRESENTE
+                        || asistencia.getEstado() == EstadoAsistenciaDocente.TARDANZA)
+            .isPresent();
+    if (!docentePresente) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El docente debe marcar su entrada antes de tomar asistencia");
+    }
+  }
+
   private void exigirAcceso(SesionClase sesion, Acceso acceso) {
     if (acceso.administrador()) {
       return;
@@ -313,6 +366,24 @@ public class SesionClaseService {
       throw new ResponseStatusException(
           HttpStatus.FORBIDDEN, "Solo el docente de la sesión puede gestionar su asistencia");
     }
+  }
+
+  private void exigirAccesoConsulta(SesionClase sesion, Acceso acceso) {
+    Docente docente =
+        acceso.administrador() ? null : docenteService.obtenerDeCuenta(acceso.usuario());
+    if (!acceso.administrador() && !puedeConsultar(sesion, docente)) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Solo puede consultar sesiones de las secciones que dicta");
+    }
+  }
+
+  private boolean puedeConsultar(SesionClase sesion, Docente docente) {
+    return sesiones.docenteTieneClaseEnSeccion(
+            docente.getPersona().getId(),
+            sesion.getSeccion().getId(),
+            sesion.getFecha(),
+            sesion.getFecha())
+        || docente.getId().equals(sesion.getDocente().getId());
   }
 
   /** Alumnos con matrícula confirmada en la sección durante el periodo de la sesión. */
@@ -366,8 +437,8 @@ public class SesionClaseService {
         conteo.getOrDefault(EstadoAsistencia.AUSENTE, 0),
         conteo.getOrDefault(EstadoAsistencia.JUSTIFICADA, 0),
         ventanaMarcado.apertura(sesion.getFecha(), sesion.getHoraInicio()),
-        ventanaMarcado.cierre(sesion.getFecha(), sesion.getHoraInicio()),
-        ventanaMarcado.estaAbierta(sesion.getFecha(), sesion.getHoraInicio()),
+        ventanaMarcado.cierre(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin()),
+        ventanaMarcado.estaAbierta(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin()),
         registradaEn);
   }
 

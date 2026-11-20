@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,14 +17,13 @@ import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
 import pe.edu.pucp.colegio.common.dto.MiClaseResponse;
 import pe.edu.pucp.colegio.common.dto.RiesgoAcademicoResponse;
 import pe.edu.pucp.colegio.common.model.Area;
-import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
-import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
+import pe.edu.pucp.colegio.common.repository.ConfiguracionRiesgoAcademicoRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
@@ -42,7 +40,8 @@ public class MisClasesService {
   private final PeriodoRepository periodos;
   private final AreaRepository areas;
   private final MatriculaRepository matriculas;
-  private final CalificacionRepository calificaciones;
+  private final ConteoRiesgoAcademicoService conteoRiesgo;
+  private final ConfiguracionRiesgoAcademicoRepository configuracionRiesgo;
   private final Clock clock;
 
   public MisClasesService(
@@ -51,14 +50,16 @@ public class MisClasesService {
       PeriodoRepository periodos,
       AreaRepository areas,
       MatriculaRepository matriculas,
-      CalificacionRepository calificaciones,
+      ConteoRiesgoAcademicoService conteoRiesgo,
+      ConfiguracionRiesgoAcademicoRepository configuracionRiesgo,
       Clock clock) {
     this.docenteService = docenteService;
     this.sesiones = sesiones;
     this.periodos = periodos;
     this.areas = areas;
     this.matriculas = matriculas;
-    this.calificaciones = calificaciones;
+    this.conteoRiesgo = conteoRiesgo;
+    this.configuracionRiesgo = configuracionRiesgo;
     this.clock = clock;
   }
 
@@ -137,11 +138,25 @@ public class MisClasesService {
 
   @Transactional(readOnly = true)
   public RiesgoAcademicoResponse riesgoAcademico(
+      String usuario, Integer periodoId, String areaCodigo) {
+    int umbral =
+        configuracionRiesgo
+            .findById(1)
+            .orElseThrow(() -> new IllegalStateException("Falta configurar el riesgo académico"))
+            .getUmbral();
+    return calcularRiesgoAcademico(usuario, periodoId, areaCodigo, umbral);
+  }
+
+  /** Compatibilidad para llamadas internas antiguas; se utiliza la configuración persistida. */
+  @Transactional(readOnly = true)
+  public RiesgoAcademicoResponse riesgoAcademico(
+      String usuario, Integer periodoId, String areaCodigo, int ignorado) {
+    return riesgoAcademico(usuario, periodoId, areaCodigo);
+  }
+
+  private RiesgoAcademicoResponse calcularRiesgoAcademico(
       String usuario, Integer periodoId, String areaCodigo, int umbral) {
-    if (umbral < 1 || umbral > 5) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El umbral debe estar entre 1 y 5");
-    }
-    Docente docente = docenteService.obtenerDeCuenta(usuario);
+    Docente docente = docenteService.obtenerExistenteDeCuenta(usuario);
     Periodo periodo =
         periodos
             .findById(periodoId)
@@ -168,34 +183,30 @@ public class MisClasesService {
             .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
             .map(competencia -> competencia.getCodigo())
             .toList();
-    Map<Integer, Integer> notasCPorMatricula = new HashMap<>();
-    if (!competencias.isEmpty()) {
-      for (Calificacion nota :
-          calificaciones.findAllByPeriodoIdAndCompetenciaCodigoInAndActiveTrue(
-              periodoId, competencias)) {
-        if ("C".equalsIgnoreCase(nota.getNota())) {
-          notasCPorMatricula.merge(nota.getMatricula().getId(), 1, Integer::sum);
-        }
-      }
-    }
+    int bimestre = BimestreAcademico.actual(periodo, LocalDate.now(clock));
+    Map<Integer, Map<String, Integer>> notasCPorMatricula =
+        conteoRiesgo.contar(periodo, competencias, bimestre);
     List<AlumnoRiesgoAcademicoResponse> alumnos =
         alumnosDe(periodo).stream()
             .map(
                 matricula -> {
                   Estudiante estudiante = matricula.getEstudiante();
-                  int notasC = notasCPorMatricula.getOrDefault(matricula.getId(), 0);
+                  int notasC =
+                      notasCPorMatricula.getOrDefault(matricula.getId(), Map.of()).values().stream()
+                          .mapToInt(Integer::intValue)
+                          .sum();
                   return new AlumnoRiesgoAcademicoResponse(
                       matricula.getId(),
                       estudiante.getId(),
                       estudiante.getPersona().getDni(),
                       nombreLista(estudiante.getPersona()),
                       notasC,
-                      notasC >= umbral);
+                      notasC > umbral);
                 })
             .toList();
     int enRiesgo = (int) alumnos.stream().filter(AlumnoRiesgoAcademicoResponse::enRiesgo).count();
     return new RiesgoAcademicoResponse(
-        periodoId, areaCodigo, umbral, alumnos.size(), enRiesgo, alumnos);
+        periodoId, bimestre, areaCodigo, umbral, alumnos.size(), enRiesgo, alumnos);
   }
 
   /** Periodo de la sección que incluye hoy; si no hay, el más reciente. */

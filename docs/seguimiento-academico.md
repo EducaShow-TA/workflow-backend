@@ -2,6 +2,14 @@
 
 El módulo usa `periodoId` para identificar el grado y la sección, y `competenciaCodigo` para identificar el curso o ámbito curricular disponible en el modelo actual.
 
+## Cuadro de mérito por grado o sección
+
+`GET /api/v1/reportes/cuadro-merito?periodoId={id}` genera el ranking de la sección del período. También puede consultarse `GET /api/v1/reportes/cuadro-merito?gradoId={id}&anio={año}` para todas las secciones del grado, o añadir `seccionId={id}` para limitar el resultado a una sección. Las variantes por grado exigen actas cerradas en todos los períodos incluidos; todas las consultas son exclusivas de `ADMINISTRADOR`.
+
+El promedio se calcula con un puntaje por competencia: usa el consolidado cuando existe; si no, promedia las calificaciones manuales disponibles de esa competencia. Al combinar varios períodos, promedia los puntajes de cada competencia entre esos períodos. `competenciasCalificadas` cuenta competencias distintas. Las notas se convierten con la escala `C=1`, `B=2`, `A=3`, `AD=4`; los empates comparten puesto y el siguiente puesto conserva el orden de competencia (por ejemplo, 1, 1, 3). Los alumnos sin calificaciones permanecen en el cuadro sin puesto.
+
+Los mismos filtros están disponibles para `/pdf` y `/excel`, que descargan el resultado en PDF y XLSX bajo demanda.
+
 ## Tareas
 
 - `POST /api/v1/tareas`: crea una tarea y genera su lista de seguimiento con las matrículas confirmadas del período.
@@ -26,14 +34,14 @@ La ponderación es opcional y, si se informa, admite valores de 0 a 100.
 ## Calificaciones y evidencias
 
 - `POST /api/v1/calificaciones` registra o actualiza la calificación de una matrícula en una competencia. La solicitud es `multipart/form-data` con la parte JSON `datos` y, opcionalmente, la parte `archivo`.
-- La parte `datos` requiere `periodoId`, `matriculaId`, `competenciaCodigo`, `nota` (`AD`, `A`, `B` o `C`) y `evidenciaUrl` cuando no se envía archivo. Debe enviarse un archivo o una URL HTTP/HTTPS.
-- `GET /api/v1/seguimiento/competencias/{codigo}?periodoId={id}` devuelve las calificaciones y los metadatos/enlace de evidencia para la ficha de seguimiento. Las notas calculadas incluyen `consolidada: true` y `puntajeConsolidado`.
+- La parte `datos` requiere `periodoId`, `matriculaId`, `competenciaCodigo`, `bimestre` (1 a 4) y `nota` (`AD`, `A`, `B` o `C`). La evidencia URL HTTP/HTTPS o archivo es opcional; no se pueden enviar ambos a la vez. Si se omite `bimestre` en clientes anteriores, el backend asigna el tramo actual del período.
+- `GET /api/v1/seguimiento/competencias/{codigo}?periodoId={id}&bimestre={n}` devuelve las calificaciones de ese bimestre y los metadatos/enlace de evidencia para la ficha de seguimiento. Las notas calculadas incluyen `consolidada: true` y `puntajeConsolidado`.
 - `GET /api/v1/logs/calificaciones` permite a ADMINISTRADOR consultar la auditoría paginada de cambios, con filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo` y `tipo` (`FINAL` o `PARCIAL`). Registra usuario, rol, instante, acción y valores anteriores/nuevos de las notas, puntajes consolidados, indicador de consolidación, justificaciones y observaciones.
-- El registro manual en `/api/v1/calificaciones` se conserva para competencias/períodos sin evaluaciones parciales configuradas. Cuando existen, el resultado debe ingresarse en la evaluación parcial correspondiente.
+- El registro manual en `/api/v1/calificaciones` se conserva para competencias/bimestres sin evaluaciones parciales configuradas. Cuando existen en el mismo bimestre, el resultado debe ingresarse en la evaluación parcial correspondiente. La libreta muestra la nota manual cuando no hay evaluaciones parciales para esa competencia en el bimestre consultado.
 - Los archivos se descargan mediante `GET /api/v1/evidencias/{calificacionId}/archivo`. El límite por archivo es 10 MB.
 - El docente obtiene sus clases con `GET /api/v1/docentes/mis-clases`: una fila por sección y área que dicta (según sus sesiones de clase), con el periodo vigente de la sección, el total de alumnos y las competencias activas del área.
 - `GET /api/v1/docentes/mis-clases/{periodoId}/alumnos` devuelve los alumnos con matrícula confirmada en ese periodo (`matriculaId`, `estudianteId`, `dni`, `nombreCompleto`). Responde `403` si el docente no dicta en esa sección.
-- `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={n}` devuelve por alumno el número de calificaciones finales `C` en las competencias activas del área y si alcanza el umbral. El umbral opcional va de 1 a 5 y por defecto es 2. Solo está disponible para el docente que dicta esa área en la sección del período; no cuenta inasistencias ni notas parciales.
+- `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}` devuelve por alumno el número de notas `C` manuales y parciales no justificadas del bimestre actual del período y si supera el umbral global persistido. El bimestre se determina dividiendo las fechas del período en cuatro tramos. El umbral inicial es 1; solo ADMINISTRADOR puede consultarlo o cambiarlo mediante `GET/PATCH /api/v1/configuracion/riesgo-academico` (JSON `{"umbral": 1}` a `{"umbral": 5}`). Solo está disponible para el docente que dicta esa área en la sección del período; no cuenta inasistencias.
 
 El directorio de almacenamiento puede configurarse con la propiedad `app.storage.evidence-dir`; el valor predeterminado es `uploads/evidencias`. El acceso a estas rutas está restringido a los roles docente y administrador.
 

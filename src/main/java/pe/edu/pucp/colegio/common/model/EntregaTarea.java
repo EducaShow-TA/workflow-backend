@@ -1,6 +1,14 @@
 package pe.edu.pucp.colegio.common.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,6 +32,25 @@ public class EntregaTarea extends EntidadBase {
 
   @Column(name = "fecha_cumplimiento")
   private LocalDateTime fechaCumplimiento;
+
+  @Column(name = "archivo_clave", length = 500)
+  private String archivoClave;
+
+  @Column(name = "archivo_nombre")
+  private String archivoNombre;
+
+  @Column(name = "archivo_tipo", length = 150)
+  private String archivoTipo;
+
+  @Column(name = "archivo_tamanio")
+  private Long archivoTamanio;
+
+  @Column(name = "archivo_fecha")
+  private LocalDateTime archivoFecha;
+
+  @Enumerated(EnumType.STRING)
+  @Column(length = 20)
+  private OrigenEntregaTarea origen;
 
   public Tarea getTarea() {
     return tarea;
@@ -55,5 +82,42 @@ public class EntregaTarea extends EntidadBase {
 
   public void setFechaCumplimiento(LocalDateTime fechaCumplimiento) {
     this.fechaCumplimiento = fechaCumplimiento;
+  }
+
+  public String getArchivoClave() {
+    return archivoClave;
+  }
+
+  public String getArchivoNombre() {
+    return archivoNombre;
+  }
+
+  public String getArchivoTipo() {
+    return archivoTipo;
+  }
+
+  public Long getArchivoTamanio() {
+    return archivoTamanio;
+  }
+
+  public LocalDateTime getArchivoFecha() {
+    return archivoFecha;
+  }
+
+  public void adjuntarArchivo(
+      String clave, String nombre, String tipo, long tamanio, LocalDateTime fecha) {
+    this.archivoClave = clave;
+    this.archivoNombre = nombre;
+    this.archivoTipo = tipo;
+    this.archivoTamanio = tamanio;
+    this.archivoFecha = fecha;
+  }
+
+  public OrigenEntregaTarea getOrigen() {
+    return origen;
+  }
+
+  public void setOrigen(OrigenEntregaTarea origen) {
+    this.origen = origen;
   }
 }

@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,7 +37,7 @@ public class MatriculaController {
   }
 
   @PostMapping("/masivo")
-  public ResponseEntity<java.util.List<MatriculaResponse>> crearMasivamente(
+  public ResponseEntity<List<MatriculaResponse>> crearMasivamente(
       @PathVariable Integer periodoId, @Valid @RequestBody MatriculaMasivaCreateRequest request) {
     return ResponseEntity.status(201)
         .body(matriculas.crearMasivamente(periodoId, request.estudianteIds()));
@@ -51,7 +52,7 @@ public class MatriculaController {
   }
 
   @PatchMapping("/confirmar-masivo")
-  public ResponseEntity<java.util.List<MatriculaResponse>> confirmarMasivamente(
+  public ResponseEntity<List<MatriculaResponse>> confirmarMasivamente(
       @PathVariable Integer periodoId,
       @Valid @RequestBody ConfirmacionMasivaMatriculaRequest request) {
     return ResponseEntity.ok(matriculas.confirmarMasivamente(periodoId, request));

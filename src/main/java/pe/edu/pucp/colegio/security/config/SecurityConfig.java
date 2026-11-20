@@ -1,14 +1,17 @@
 package pe.edu.pucp.colegio.security.config;
 
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.*;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import pe.edu.pucp.colegio.security.jwt.*;
+import pe.edu.pucp.colegio.security.jwt.JwtAccessDeniedHandler;
+import pe.edu.pucp.colegio.security.jwt.JwtAuthenticationFilter;
+import pe.edu.pucp.colegio.security.jwt.JwtEntryPoint;
 
 @Configuration
 @EnableMethodSecurity
@@ -37,41 +40,6 @@ public class SecurityConfig {
                         "/api/v1/auth/forgot-password",
                         "/api/v1/auth/reset-password")
                     .permitAll()
-                    .requestMatchers("/api/v1/auth/**")
-                    .authenticated()
-                    .requestMatchers(
-                        "/api/v1/tareas/**",
-                        "/api/v1/calificaciones/**",
-                        "/api/v1/seguimiento/**",
-                        "/api/v1/evidencias/**")
-                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers("/api/v1/sesiones-clase/**")
-                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers(
-                        "/api/v1/docentes/mis-clases/**",
-                        "/api/v1/docentes/mis-asistencias/**",
-                        "/api/v1/docentes/mi-horario/**")
-                    .hasRole("DOCENTE")
-                    .requestMatchers("/api/v1/apoderados/mis-estudiantes/**")
-                    .hasRole("APODERADO")
-                    .requestMatchers(
-                        org.springframework.http.HttpMethod.GET,
-                        "/api/v1/evaluaciones-parciales/**")
-                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers(
-                        org.springframework.http.HttpMethod.PUT,
-                        "/api/v1/evaluaciones-parciales/*/matriculas/*")
-                    .hasAnyRole("DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers("/api/v1/asistencias-docentes/**")
-                    .hasRole("ADMINISTRADOR")
-                    .requestMatchers("/api/v1/asistencias-estudiantes/**")
-                    .hasAnyRole("ALUMNO", "APODERADO", "DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers("/api/v1/estudiantes/*/libreta/pdf")
-                    .hasAnyRole("APODERADO", "DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers("/api/v1/estudiantes/*/libreta")
-                    .hasAnyRole("ALUMNO", "APODERADO", "DOCENTE", "ADMINISTRADOR")
-                    .requestMatchers("/api/v1/**")
-                    .hasRole("ADMINISTRADOR")
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)

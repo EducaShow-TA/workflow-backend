@@ -1,5 +1,7 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -28,6 +30,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.fixture.HorarioFixture;
 import pe.edu.pucp.colegio.common.model.*;
@@ -218,7 +221,8 @@ class SeguimientoAcademicoIntegrationTest {
                                 competenciaCodigo,
                                 "A",
                                 "Observación actualizada",
-                                "https://example.org/evidencia")))))
+                                "https://example.org/evidencia",
+                                "Error de digitación al pasar las notas")))))
         .andExpect(status().isOk());
 
     mvc.perform(
@@ -231,12 +235,122 @@ class SeguimientoAcademicoIntegrationTest {
         .andExpect(jsonPath("$.page.totalElements").value(2))
         .andExpect(jsonPath("$.content[0].usuario").value("docente-seguimiento-test"))
         .andExpect(jsonPath("$.content[0].rolUsuario").value("DOCENTE"))
+        .andExpect(jsonPath("$.content[0].accion").value("RECTIFICAR"))
+        .andExpect(jsonPath("$.content[0].motivo").value("Error de digitación al pasar las notas"))
         .andExpect(jsonPath("$.content[0].notaAnterior").value("AD"))
         .andExpect(jsonPath("$.content[0].notaNueva").value("A"))
         .andExpect(jsonPath("$.content[0].observacionAnterior").value("Primera observación"))
         .andExpect(jsonPath("$.content[0].observacionNueva").value("Observación actualizada"))
+        .andExpect(jsonPath("$.content[1].accion").value("REGISTRAR_O_ACTUALIZAR"))
+        .andExpect(jsonPath("$.content[1].motivo").doesNotExist())
         .andExpect(jsonPath("$.content[1].notaAnterior").doesNotExist())
         .andExpect(jsonPath("$.content[1].notaNueva").value("AD"));
+  }
+
+  @Test
+  void rectificarExigeCambiosYMotivoYConservaLaEvidencia() throws Exception {
+    MvcResult registro =
+        enviar(nota("AD", "Buen trabajo", "https://example.org/evidencia", null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.rectificaciones").value(0))
+            .andReturn();
+    int calificacionId =
+        objectMapper.readTree(registro.getResponse().getContentAsString()).get("id").asInt();
+
+    enviar(nota("AD", "Buen trabajo", null, "Error de digitación al registrar"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value("No hay cambios que guardar"));
+    enviar(nota("A", "Buen trabajo", null, null))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value(containsString("motivo de la rectificación")));
+    enviar(nota("A", "Buen trabajo", null, "  corto  "))
+        .andExpect(status().isUnprocessableEntity());
+
+    enviar(nota("A", "Buen trabajo", null, "  Revisión de la evidencia del examen  "))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nota").value("A"))
+        .andExpect(jsonPath("$.evidenciaTipo").value("URL"))
+        .andExpect(jsonPath("$.evidenciaUrl").value("https://example.org/evidencia"))
+        .andExpect(jsonPath("$.rectificaciones").value(1));
+
+    mvc.perform(
+            get("/api/v1/seguimiento/competencias/{codigo}", competenciaCodigo)
+                .param("periodoId", periodoId.toString()))
+        .andExpect(jsonPath("$[0].rectificaciones").value(1));
+
+    mvc.perform(get("/api/v1/calificaciones/{id}/historial", calificacionId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].accion").value("RECTIFICAR"))
+        .andExpect(jsonPath("$[0].notaAnterior").value("AD"))
+        .andExpect(jsonPath("$[0].notaNueva").value("A"))
+        .andExpect(jsonPath("$[0].motivo").value("Revisión de la evidencia del examen"))
+        .andExpect(jsonPath("$[0].usuario").value(USUARIO_DOCENTE))
+        .andExpect(jsonPath("$[1].accion").value("REGISTRAR_O_ACTUALIZAR"))
+        .andExpect(jsonPath("$[1].notaAnterior").doesNotExist())
+        .andExpect(jsonPath("$[1].notaNueva").value("AD"));
+
+    mvc.perform(
+            get("/api/v1/logs/calificaciones")
+                .with(user("admin-auditoria-test").roles("ADMINISTRADOR"))
+                .param("matriculaId", matriculaId.toString())
+                .param("accion", "RECTIFICACIONES"))
+        .andExpect(jsonPath("$.page.totalElements").value(1))
+        .andExpect(jsonPath("$.content[0].motivo").value("Revisión de la evidencia del examen"));
+    mvc.perform(
+            get("/api/v1/logs/calificaciones")
+                .with(user("admin-auditoria-test").roles("ADMINISTRADOR"))
+                .param("matriculaId", matriculaId.toString())
+                .param("accion", "REGISTROS"))
+        .andExpect(jsonPath("$.page.totalElements").value(1));
+  }
+
+  @Test
+  void rectificarSinNuevaEvidenciaConservaElArchivoAdjunto() throws Exception {
+    MockMultipartFile archivo =
+        new MockMultipartFile("archivo", "examen.txt", "text/plain", "respuestas".getBytes());
+    mvc.perform(
+            multipart("/api/v1/calificaciones")
+                .file(archivo)
+                .part(
+                    partJson("datos", objectMapper.writeValueAsBytes(nota("B", null, null, null)))))
+        .andExpect(status().isOk());
+
+    enviar(nota("A", null, null, "Pregunta 4 mal corregida en el examen"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nota").value("A"))
+        .andExpect(jsonPath("$.evidenciaTipo").value("ARCHIVO"))
+        .andExpect(jsonPath("$.evidenciaNombre").value("examen.txt"));
+  }
+
+  @Test
+  void registrarSinEvidenciaEsValidoPorqueLaEvidenciaEsOpcional() throws Exception {
+    enviar(nota("A", null, null, null))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nota").value("A"))
+        .andExpect(jsonPath("$.evidenciaTipo").value(nullValue()))
+        .andExpect(jsonPath("$.evidenciaUrl").value(nullValue()));
+  }
+
+  @Test
+  void otroDocenteNoPuedeVerElHistorialDeUnaNotaAjena() throws Exception {
+    MvcResult registro = enviar(nota("C", null, "https://example.org/evidencia", null)).andReturn();
+    int calificacionId =
+        objectMapper.readTree(registro.getResponse().getContentAsString()).get("id").asInt();
+    String sufijo = UUID.randomUUID().toString().substring(0, 8);
+    Persona persona = new Persona("O" + sufijo, "Otro", "Docente", sufijo);
+    entityManager.persist(persona);
+    entityManager.persist(
+        new CuentaUsuario("otro-docente-" + sufijo, "hash-de-prueba", Rol.DOCENTE, persona));
+    Docente otro = new Docente();
+    otro.setPersona(persona);
+    entityManager.persist(otro);
+    entityManager.flush();
+
+    mvc.perform(
+            get("/api/v1/calificaciones/{id}/historial", calificacionId)
+                .with(user("otro-docente-" + sufijo).roles("DOCENTE")))
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -302,6 +416,18 @@ class SeguimientoAcademicoIntegrationTest {
     return estudiante;
   }
 
+  private CalificacionRequestBody nota(
+      String nota, String observacion, String evidenciaUrl, String motivo) {
+    return new CalificacionRequestBody(
+        periodoId, matriculaId, competenciaCodigo, nota, observacion, evidenciaUrl, motivo);
+  }
+
+  private ResultActions enviar(CalificacionRequestBody datos) throws Exception {
+    return mvc.perform(
+        multipart("/api/v1/calificaciones")
+            .part(partJson("datos", objectMapper.writeValueAsBytes(datos))));
+  }
+
   private MockPart partJson(String nombre, byte[] contenido) {
     MockPart parte = new MockPart(nombre, contenido);
     parte.getHeaders().setContentType(MediaType.APPLICATION_JSON);
@@ -314,5 +440,17 @@ class SeguimientoAcademicoIntegrationTest {
       String competenciaCodigo,
       String nota,
       String observacion,
-      String evidenciaUrl) {}
+      String evidenciaUrl,
+      String motivo) {
+
+    CalificacionRequestBody(
+        Integer periodoId,
+        Integer matriculaId,
+        String competenciaCodigo,
+        String nota,
+        String observacion,
+        String evidenciaUrl) {
+      this(periodoId, matriculaId, competenciaCodigo, nota, observacion, evidenciaUrl, null);
+    }
+  }
 }

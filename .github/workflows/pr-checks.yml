@@ -1,0 +1,54 @@
+name: Pull request checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [Development, main]
+
+permissions:
+  contents: read
+
+jobs:
+  commits:
+    name: commits
+    if: github.base_ref == 'Development'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit subjects and history
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          git fetch origin "$BASE_REF"
+          range="origin/$BASE_REF..$HEAD_SHA"
+          invalid=0
+          while IFS= read -r commit; do
+            subject=$(git show -s --format=%s "$commit")
+            if git rev-list --parents -n 1 "$commit" | awk 'NF > 2 { found=1 } END { exit !found }'; then
+              echo "Merge commit is not allowed: $commit ($subject)"
+              invalid=1
+            fi
+            if [[ ! "$subject" =~ ^(feat|fix|docs|style|refactor|test|chore)(\([a-z0-9.-]+\))?:\ .+ ]]; then
+              echo "Invalid commit subject: $commit ($subject)"
+              invalid=1
+            fi
+          done < <(git rev-list --reverse "$range")
+          if [[ "$invalid" -ne 0 ]]; then
+            exit 1
+          fi
+
+  origen-development:
+    name: origen-development
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require Development as source branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: test "$HEAD_REF" = Development

@@ -4,6 +4,7 @@ import java.util.List;
 
 public record RiesgoAcademicoResponse(
     Integer periodoId,
+    int bimestre,
     String areaCodigo,
     int umbral,
     int totalAlumnos,

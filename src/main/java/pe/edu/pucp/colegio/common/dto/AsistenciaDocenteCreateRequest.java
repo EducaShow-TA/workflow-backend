@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -12,4 +13,4 @@ public record AsistenciaDocenteCreateRequest(
     @NotNull EstadoAsistenciaDocente estado,
     LocalTime horaEntrada,
     LocalTime horaSalida,
-    @Size(max = 500) String motivoAjuste) {}
+    @NotBlank @Size(max = 500) String motivoAjuste) {}

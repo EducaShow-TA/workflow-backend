@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.repository;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -24,7 +25,9 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
 
   boolean existsByPersonaDni(String dni);
 
-  java.util.Optional<Estudiante> findByPersonaDni(String dni);
+  Optional<Estudiante> findByPersonaDni(String dni);
+
+  Optional<Estudiante> findByPersonaIdAndActiveTrue(Integer personaId);
 
   @EntityGraph(attributePaths = "persona")
   @org.springframework.data.jpa.repository.Query(

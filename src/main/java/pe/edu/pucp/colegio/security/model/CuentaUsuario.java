@@ -1,8 +1,16 @@
 package pe.edu.pucp.colegio.security.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import pe.edu.pucp.colegio.common.model.*;
+import pe.edu.pucp.colegio.common.model.EntidadBase;
+import pe.edu.pucp.colegio.common.model.Persona;
 
 @Entity
 @Table(name = "cuentas_usuario")

@@ -13,6 +13,8 @@ spring:
     host: localhost
     port: 1025
 app:
+  jobs:
+    catch-up-on-startup: false
   jwt:
     secret: dGVzdC1qd3Qtc2VjcmV0LW11c3QtYmUtYXQtbGVhc3QtMzItYnl0ZXMtbG9uZy0xMjM0NTY=
     expiration-ms: 3600000

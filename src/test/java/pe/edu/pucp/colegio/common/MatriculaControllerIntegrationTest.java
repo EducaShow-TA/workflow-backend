@@ -190,7 +190,7 @@ class MatriculaControllerIntegrationTest {
   }
 
   @Test
-  void retirarMatriculaDesactivaSuCompromisoDePago() throws Exception {
+  void retirarYReingresarMatriculaReactivaElCompromisoAlConfirmar() throws Exception {
     Integer periodoId = crearPeriodo(1);
     EstudianteResponse estudiante = crearEstudiante();
     matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
@@ -202,6 +202,14 @@ class MatriculaControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(compromisoRequestContent()))
         .andExpect(status().isOk());
+    Long boletasIniciales =
+        entityManager
+            .createQuery(
+                "select count(b) from BoletaPension b "
+                    + "where b.compromiso.matricula.estudiante.id = :estudianteId and b.active = true",
+                Long.class)
+            .setParameter("estudianteId", estudiante.estudianteId())
+            .getSingleResult();
 
     mvc.perform(
             delete(
@@ -219,6 +227,36 @@ class MatriculaControllerIntegrationTest {
             .setParameter("estudianteId", estudiante.estudianteId())
             .getSingleResult();
     org.assertj.core.api.Assertions.assertThat(compromisosActivos).isZero();
+
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
+    mvc.perform(
+            patch(
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(compromisoRequestContent()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("CONFIRMADA"));
+
+    Long compromisosReactivados =
+        entityManager
+            .createQuery(
+                "select count(c) from CompromisoPago c "
+                    + "where c.matricula.estudiante.id = :estudianteId and c.active = true",
+                Long.class)
+            .setParameter("estudianteId", estudiante.estudianteId())
+            .getSingleResult();
+    org.assertj.core.api.Assertions.assertThat(compromisosReactivados).isEqualTo(1);
+    Long boletasReactivadas =
+        entityManager
+            .createQuery(
+                "select count(b) from BoletaPension b "
+                    + "where b.compromiso.matricula.estudiante.id = :estudianteId and b.active = true",
+                Long.class)
+            .setParameter("estudianteId", estudiante.estudianteId())
+            .getSingleResult();
+    org.assertj.core.api.Assertions.assertThat(boletasReactivadas).isEqualTo(boletasIniciales);
   }
 
   @Test

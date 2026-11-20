@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -27,6 +28,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.dto.RecalculoLogrosRequest;
 import pe.edu.pucp.colegio.common.model.*;
@@ -108,6 +110,7 @@ class ConsolidacionLogroIntegrationTest {
                                 periodoId,
                                 matriculaId,
                                 competenciaCodigo,
+                                1,
                                 "AD",
                                 null,
                                 "https://example.org/evidencia")))))
@@ -286,7 +289,11 @@ class ConsolidacionLogroIntegrationTest {
       throws Exception {
     int evaluacionId = crearEvaluacion("100.00");
     guardarNota(evaluacionId, "B", false);
-    guardarNota(evaluacionId, "AD", false);
+    mvc.perform(notaParcial(evaluacionId, "AD", null))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value(containsString("motivo de la rectificación")));
+    mvc.perform(notaParcial(evaluacionId, "AD", "Error de digitación en la práctica"))
+        .andExpect(status().isOk());
 
     mvc.perform(
             get("/api/v1/logs/calificaciones")
@@ -297,7 +304,8 @@ class ConsolidacionLogroIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.page.totalElements").value(2))
         .andExpect(jsonPath("$.content[0].usuario").value("admin-consolidacion-test"))
-        .andExpect(jsonPath("$.content[0].accion").value("REGISTRAR_O_ACTUALIZAR"))
+        .andExpect(jsonPath("$.content[0].accion").value("RECTIFICAR"))
+        .andExpect(jsonPath("$.content[0].motivo").value("Error de digitación en la práctica"))
         .andExpect(jsonPath("$.content[0].notaAnterior").value("B"))
         .andExpect(jsonPath("$.content[0].notaNueva").value("AD"))
         .andExpect(jsonPath("$.content[0].justificadaAnterior").value(false))
@@ -354,8 +362,20 @@ class ConsolidacionLogroIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     objectMapper.writeValueAsString(
-                        new CalificacionParcialRequestBody(nota, justificada, null))))
+                        new CalificacionParcialRequestBody(nota, justificada, null, null))))
         .andExpect(status().isOk());
+  }
+
+  private MockHttpServletRequestBuilder notaParcial(int evaluacionId, String nota, String motivo)
+      throws Exception {
+    return put(
+            "/api/v1/evaluaciones-parciales/{evaluacionId}/matriculas/{matriculaId}",
+            evaluacionId,
+            matriculaId)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+            objectMapper.writeValueAsString(
+                new CalificacionParcialRequestBody(nota, false, null, motivo)));
   }
 
   private org.springframework.test.web.servlet.ResultActions consultarLogro() throws Exception {
@@ -375,10 +395,11 @@ class ConsolidacionLogroIntegrationTest {
       Integer periodoId,
       Integer matriculaId,
       String competenciaCodigo,
+      Integer bimestre,
       String nota,
       String observacion,
       String evidenciaUrl) {}
 
   private record CalificacionParcialRequestBody(
-      String nota, boolean justificada, String evidenciaUrl) {}
+      String nota, boolean justificada, String evidenciaUrl, String motivo) {}
 }

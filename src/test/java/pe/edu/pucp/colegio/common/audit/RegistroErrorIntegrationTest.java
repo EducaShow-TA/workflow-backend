@@ -1,6 +1,6 @@
 package pe.edu.pucp.colegio.common.audit;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,34 +21,42 @@ class RegistroErrorIntegrationTest {
 
   @Autowired MockMvc mvc;
   @Autowired RegistroErrorRepository errores;
+  @Autowired RegistroErrorService registroError;
 
   @Test
-  void rutaInexistente_retorna404YQuedaRegistrada() throws Exception {
+  void rutaInexistente_retorna404SinRegistrarla() throws Exception {
     long antes = errores.count();
 
     mvc.perform(get("/api/v1/ruta-inexistente-5555"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404));
 
-    assertTrue(errores.count() > antes);
+    assertEquals(antes, errores.count());
   }
 
   @Test
-  void metodoNoPermitido_retorna405YQuedaRegistrado() throws Exception {
+  void metodoNoPermitido_retorna405SinRegistrarlo() throws Exception {
     long antes = errores.count();
 
     mvc.perform(delete("/api/v1/auth/login")).andExpect(status().isMethodNotAllowed());
 
-    assertTrue(errores.count() > antes);
+    assertEquals(antes, errores.count());
   }
 
   @Test
   void consulta_filtraPorModuloYNoExponeTraza() throws Exception {
-    mvc.perform(get("/api/v1/ruta-inexistente-7777")).andExpect(status().isNotFound());
+    registroError.registrar(
+        NivelLog.ERROR,
+        "SIS_500",
+        "GET",
+        "/api/v1/ruta-inexistente-7777",
+        500,
+        "Falla técnica de prueba",
+        new IllegalStateException("detalle que no debe exponerse"));
 
     mvc.perform(get("/api/v1/logs/errores").param("modulo", "ruta-inexistente-7777"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.content[0].codigoError").value("RES_404"))
+        .andExpect(jsonPath("$.content[0].codigoError").value("SIS_500"))
         .andExpect(jsonPath("$.content[0].stackTrace").doesNotExist());
   }
 
@@ -66,13 +74,13 @@ class RegistroErrorIntegrationTest {
 
   @Test
   @WithAnonymousUser
-  void sinToken_retorna401YQuedaRegistrado() throws Exception {
+  void sinToken_retorna401SinRegistrarlo() throws Exception {
     long antes = errores.count();
 
     mvc.perform(get("/api/v1/cuentas-usuario"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.status").value(401));
 
-    assertTrue(errores.count() > antes);
+    assertEquals(antes, errores.count());
   }
 }

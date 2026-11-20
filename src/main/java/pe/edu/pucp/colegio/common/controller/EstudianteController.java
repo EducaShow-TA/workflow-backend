@@ -1,12 +1,15 @@
 package pe.edu.pucp.colegio.common.controller;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,6 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.edu.pucp.colegio.common.dto.EstudianteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.EstudianteListadoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteResponse;
+import pe.edu.pucp.colegio.common.dto.VerificacionApoderadoRequest;
+import pe.edu.pucp.colegio.common.dto.VerificacionApoderadoResponse;
+import pe.edu.pucp.colegio.common.dto.VincularApoderadoRequest;
+import pe.edu.pucp.colegio.common.dto.VinculoFamiliarResponse;
+import pe.edu.pucp.colegio.common.dto.VinculoFamiliarUpdateRequest;
 import pe.edu.pucp.colegio.common.service.EstudianteService;
 
 /** Expone las operaciones administrativas de registro y consulta de estudiantes. */
@@ -47,7 +55,35 @@ public class EstudianteController {
 
   @PostMapping("/{cuentaUsuarioId}/asignar")
   public ResponseEntity<EstudianteResponse> asignarCuentaExistente(
-      @PathVariable Integer cuentaUsuarioId) {
-    return ResponseEntity.ok(estudiantes.asignarCuentaExistente(cuentaUsuarioId));
+      @PathVariable Integer cuentaUsuarioId, Authentication authentication) {
+    return ResponseEntity.ok(
+        estudiantes.asignarCuentaExistente(cuentaUsuarioId, authentication.getName()));
+  }
+
+  @GetMapping("/{estudianteId}/apoderados")
+  public List<VinculoFamiliarResponse> listarApoderados(@PathVariable Integer estudianteId) {
+    return estudiantes.listarApoderados(estudianteId);
+  }
+
+  @PostMapping("/{estudianteId}/apoderados/verificacion")
+  public VerificacionApoderadoResponse verificarApoderado(
+      @PathVariable Integer estudianteId,
+      @Valid @RequestBody VerificacionApoderadoRequest request,
+      Authentication authentication) {
+    return estudiantes.verificarApoderado(estudianteId, request, authentication.getName());
+  }
+
+  @PostMapping("/{estudianteId}/apoderados")
+  public ResponseEntity<VinculoFamiliarResponse> agregarApoderado(
+      @PathVariable Integer estudianteId, @Valid @RequestBody VincularApoderadoRequest request) {
+    return ResponseEntity.status(201).body(estudiantes.agregarApoderado(estudianteId, request));
+  }
+
+  @PutMapping("/{estudianteId}/apoderados/{apoderadoId}")
+  public VinculoFamiliarResponse actualizarVinculo(
+      @PathVariable Integer estudianteId,
+      @PathVariable Integer apoderadoId,
+      @Valid @RequestBody VinculoFamiliarUpdateRequest request) {
+    return estudiantes.actualizarVinculo(estudianteId, apoderadoId, request);
   }
 }

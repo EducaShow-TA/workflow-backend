@@ -11,7 +11,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.BloqueGrillaResponse;
@@ -72,7 +75,9 @@ public class HorarioSeccionService {
   private final AulaRepository aulas;
   private final CuentaUsuarioRepository cuentas;
   private final MatriculaRepository matriculas;
+  private final GeneracionSesionClaseService generacionSesiones;
   private final Clock clock;
+  private final AuditoriaHorarioService auditoria;
 
   public HorarioSeccionService(
       HorarioSeccionRepository horarios,
@@ -86,7 +91,9 @@ public class HorarioSeccionService {
       AulaRepository aulas,
       CuentaUsuarioRepository cuentas,
       MatriculaRepository matriculas,
-      Clock clock) {
+      GeneracionSesionClaseService generacionSesiones,
+      Clock clock,
+      AuditoriaHorarioService auditoria) {
     this.horarios = horarios;
     this.sesiones = sesiones;
     this.sesionesClase = sesionesClase;
@@ -98,7 +105,9 @@ public class HorarioSeccionService {
     this.aulas = aulas;
     this.cuentas = cuentas;
     this.matriculas = matriculas;
+    this.generacionSesiones = generacionSesiones;
     this.clock = clock;
+    this.auditoria = auditoria;
   }
 
   private record Resolucion(BloqueHorario bloque, Area area, Docente docente, Aula aula) {}
@@ -151,7 +160,7 @@ public class HorarioSeccionService {
                         "La sección no tiene un horario para el año " + anio)));
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public SesionHorarioResponse agregarSesion(Integer horarioId, SesionHorarioRequest request) {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = new SesionHorario();
@@ -160,19 +169,44 @@ public class HorarioSeccionService {
     sesion.setVigenteDesde(
         primerDiaAnio.isAfter(LocalDate.now(clock)) ? primerDiaAnio : LocalDate.now(clock));
     aplicar(horario, sesion, request, fechaDeConsulta(horario));
-    return respuesta(sesiones.save(sesion));
+    sesion = sesiones.save(sesion);
+    generacionSesiones.generarParaHorario(horario.getSeccion().getId(), horario.getAnio());
+    auditoria.registrar(
+        usuarioActual(),
+        horario,
+        "CREACIÓN",
+        null,
+        sesion,
+        "PERMANENTE",
+        sesion.getVigenteDesde(),
+        null);
+    return respuesta(sesion);
   }
 
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public SesionHorarioResponse actualizarSesion(
       Integer horarioId, Integer sesionId, SesionHorarioRequest request) {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = buscarSesion(horarioId, sesionId);
     LocalDate hoy = LocalDate.now(clock);
-    if (!sesionesClase.existsBySesionHorarioId(sesion.getId())
-        && sesion.getVigenteDesde().isAfter(hoy)) {
+    if ("TEMPORAL".equalsIgnoreCase(request.tipoVigencia())) {
+      return actualizarTemporalmente(horario, sesion, request, hoy);
+    }
+    if (sesion.getVigenteDesde().isAfter(hoy)) {
+      SesionHorario anterior = copia(sesion);
       aplicar(horario, sesion, request, fechaDeConsulta(horario));
-      return respuesta(sesiones.save(sesion));
+      actualizarOcurrenciasFuturas(sesion, hoy);
+      sesion = sesiones.save(sesion);
+      auditoria.registrar(
+          usuarioActual(),
+          horario,
+          "ACTUALIZACIÓN",
+          anterior,
+          sesion,
+          "PERMANENTE",
+          sesion.getVigenteDesde(),
+          sesion.getVigenteHasta());
+      return respuesta(sesion);
     }
 
     LocalDate vigenciaNueva = hoy.plusDays(1);
@@ -181,6 +215,7 @@ public class HorarioSeccionService {
           "La asignación tiene sesiones fechadas; los cambios para el próximo año requieren un horario nuevo");
     }
     LocalDate finAnterior = sesion.getVigenteHasta();
+    SesionHorario anterior = copia(sesion);
     sesion.setVigenteHasta(hoy);
     sesiones.save(sesion);
 
@@ -190,30 +225,136 @@ public class HorarioSeccionService {
     nueva.setVigenteHasta(finAnterior);
     aplicar(horario, nueva, request, vigenciaNueva);
     nueva = sesiones.save(nueva);
-    Docente docenteNuevo = nueva.getDocente();
+    actualizarOcurrenciasFuturas(sesion, hoy, nueva);
+    auditoria.registrar(
+        usuarioActual(),
+        horario,
+        "ACTUALIZACIÓN",
+        anterior,
+        nueva,
+        "PERMANENTE",
+        vigenciaNueva,
+        nueva.getVigenteHasta());
+    return respuesta(nueva);
+  }
+
+  private SesionHorarioResponse actualizarTemporalmente(
+      HorarioSeccion horario, SesionHorario sesion, SesionHorarioRequest request, LocalDate hoy) {
+    LocalDate desde = request.vigenteDesde();
+    LocalDate hasta = request.vigenteHasta();
+    LocalDate inicioAnio = LocalDate.of(horario.getAnio(), 1, 1);
+    LocalDate finAnio = LocalDate.of(horario.getAnio(), 12, 31);
+    if (desde == null || hasta == null || desde.isAfter(hasta)) {
+      throw new BusinessException("Indica un rango válido para la vigencia temporal");
+    }
+    if (!desde.isAfter(hoy) || desde.isBefore(inicioAnio) || hasta.isAfter(finAnio)) {
+      throw new BusinessException(
+          "La vigencia temporal debe ser futura y estar dentro del año del horario");
+    }
+    if (!sesion.getVigenteDesde().isBefore(desde)
+        || (sesion.getVigenteHasta() != null
+            && sesion.getVigenteHasta().isBefore(hasta.plusDays(1)))) {
+      throw new BusinessException(
+          "El rango debe estar cubierto por la vigencia actual de la asignación");
+    }
+
+    SesionHorario anterior = copia(sesion);
+    LocalDate finAnterior = sesion.getVigenteHasta();
+    sesion.setVigenteHasta(desde.minusDays(1));
+    sesiones.save(sesion);
+
+    SesionHorario temporal = new SesionHorario();
+    temporal.setHorario(horario);
+    temporal.setVigenteDesde(desde);
+    temporal.setVigenteHasta(hasta);
+    aplicar(horario, temporal, request, desde);
+    temporal = sesiones.save(temporal);
+
+    SesionHorario restaurada = copia(anterior);
+    restaurada.setVigenteDesde(hasta.plusDays(1));
+    restaurada.setVigenteHasta(finAnterior);
+    restaurada = sesiones.save(restaurada);
+    // Las clases se buscan con la sesión persistida: la copia "anterior" no tiene id.
+    actualizarOcurrenciasTemporales(sesion, temporal, restaurada, desde, hasta, hoy);
+    auditoria.registrar(
+        usuarioActual(), horario, "ACTUALIZACIÓN", anterior, temporal, "TEMPORAL", desde, hasta);
+    return respuesta(temporal);
+  }
+
+  private void actualizarOcurrenciasTemporales(
+      SesionHorario original,
+      SesionHorario temporal,
+      SesionHorario restaurada,
+      LocalDate desde,
+      LocalDate hasta,
+      LocalDate hoy) {
     for (var ocurrencia :
-        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(sesion.getId(), hoy)) {
+        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(original.getId(), hoy)) {
+      LocalDate fecha = ocurrencia.getFecha();
+      if (!fecha.isAfter(hasta)
+          && asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId())) {
+        throw new ConflictException(
+            "No se puede cambiar el horario: ya hay asistencia registrada en una sesión futura");
+      }
+      if (!fecha.isBefore(desde) && !fecha.isAfter(hasta)) {
+        if (fecha.getDayOfWeek() == temporal.getDia()) {
+          vincularOcurrencia(ocurrencia, temporal);
+        } else {
+          ocurrencia.setCancelada(true);
+          ocurrencia.setMotivoCancelacion("La asignación temporal cambió antes de la fecha");
+        }
+      } else if (fecha.isAfter(hasta)) {
+        if (fecha.getDayOfWeek() == restaurada.getDia()) {
+          vincularOcurrencia(ocurrencia, restaurada);
+        } else {
+          ocurrencia.setCancelada(true);
+          ocurrencia.setMotivoCancelacion("La asignación semanal cambió antes de la fecha");
+        }
+      }
+    }
+  }
+
+  private void vincularOcurrencia(
+      pe.edu.pucp.colegio.common.model.SesionClase ocurrencia, SesionHorario sesion) {
+    ocurrencia.setSesionHorario(sesion);
+    ocurrencia.setArea(sesion.getArea());
+    ocurrencia.setDocente(sesion.getDocente());
+    ocurrencia.setHoraInicio(sesion.getBloque().getHoraInicio());
+    ocurrencia.setHoraFin(sesion.getBloque().getHoraFin());
+  }
+
+  private void actualizarOcurrenciasFuturas(SesionHorario sesion, LocalDate hoy) {
+    actualizarOcurrenciasFuturas(sesion, hoy, sesion);
+  }
+
+  private void actualizarOcurrenciasFuturas(
+      SesionHorario sesionAnterior, LocalDate hoy, SesionHorario sesionNueva) {
+    Docente docenteNuevo = sesionNueva.getDocente();
+    for (var ocurrencia :
+        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(
+            sesionAnterior.getId(), hoy)) {
       if (asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId())) {
         throw new ConflictException(
             "No se puede cambiar la asignación: ya hay asistencia registrada en una sesión futura");
       }
-      if (ocurrencia.getFecha().getDayOfWeek() == nueva.getDia()) {
-        ocurrencia.setSesionHorario(nueva);
-        ocurrencia.setArea(nueva.getArea());
+      if (ocurrencia.getFecha().getDayOfWeek() == sesionNueva.getDia()) {
+        ocurrencia.setSesionHorario(sesionNueva);
+        ocurrencia.setArea(sesionNueva.getArea());
         ocurrencia.setDocente(docenteNuevo);
-        ocurrencia.setHoraInicio(nueva.getBloque().getHoraInicio());
-        ocurrencia.setHoraFin(nueva.getBloque().getHoraFin());
+        ocurrencia.setHoraInicio(sesionNueva.getBloque().getHoraInicio());
+        ocurrencia.setHoraFin(sesionNueva.getBloque().getHoraFin());
       } else if (!Boolean.TRUE.equals(ocurrencia.getCancelada())) {
         ocurrencia.setCancelada(true);
         ocurrencia.setMotivoCancelacion("La asignación semanal cambió antes de la fecha");
       }
     }
-    return respuesta(nueva);
   }
 
   @Transactional
   public void eliminarSesion(Integer horarioId, Integer sesionId) {
+    HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = buscarSesion(horarioId, sesionId);
+    SesionHorario anterior = copia(sesion);
     if (sesionesClase.existsBySesionHorarioId(sesion.getId())) {
       LocalDate hoy = LocalDate.now(clock);
       sesion.setVigenteHasta(
@@ -224,9 +365,45 @@ public class HorarioSeccionService {
         ocurrencia.setCancelada(true);
         ocurrencia.setMotivoCancelacion("La asignación semanal fue retirada");
       }
+      auditoria.registrar(
+          usuarioActual(),
+          horario,
+          "ELIMINACIÓN",
+          anterior,
+          null,
+          "PERMANENTE",
+          sesion.getVigenteHasta().plusDays(1),
+          null);
       return;
     }
     sesiones.delete(sesion);
+    auditoria.registrar(
+        usuarioActual(),
+        horario,
+        "ELIMINACIÓN",
+        anterior,
+        null,
+        "PERMANENTE",
+        LocalDate.now(clock),
+        null);
+  }
+
+  private SesionHorario copia(SesionHorario original) {
+    SesionHorario copia = new SesionHorario();
+    copia.setHorario(original.getHorario());
+    copia.setBloque(original.getBloque());
+    copia.setDia(original.getDia());
+    copia.setArea(original.getArea());
+    copia.setDocente(original.getDocente());
+    copia.setAula(original.getAula());
+    copia.setVigenteDesde(original.getVigenteDesde());
+    copia.setVigenteHasta(original.getVigenteHasta());
+    return copia;
+  }
+
+  private String usuarioActual() {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    return auth == null ? "sistema" : auth.getName();
   }
 
   @Transactional(readOnly = true)
@@ -239,7 +416,13 @@ public class HorarioSeccionService {
     Resolucion datos = resolver(horario, request);
     List<ConflictoSesionResponse> conflictos =
         detectarConflictos(
-            horario, datos, request.dia(), excluirSesionId, fechaDeConsulta(horario));
+            horario,
+            datos,
+            request.dia(),
+            excluirSesionId,
+            "TEMPORAL".equalsIgnoreCase(request.tipoVigencia()) && request.vigenteDesde() != null
+                ? request.vigenteDesde()
+                : fechaDeConsulta(horario));
     return new ValidacionSesionResponse(conflictos.isEmpty(), conflictos);
   }
 
@@ -249,6 +432,10 @@ public class HorarioSeccionService {
       SesionHorarioRequest request,
       LocalDate fechaEfectiva) {
     Resolucion datos = resolver(horario, request);
+    // Serializa las comprobaciones sobre grilla, docente y aula ante escrituras concurrentes.
+    horarios.findByIdForUpdate(horario.getId());
+    docentes.findByIdForUpdate(datos.docente().getId());
+    aulas.findByIdForUpdate(datos.aula().getId());
     List<ConflictoSesionResponse> conflictos =
         detectarConflictos(horario, datos, request.dia(), sesion.getId(), fechaEfectiva);
     List<ConflictoSesionResponse> cruces =
@@ -382,7 +569,9 @@ public class HorarioSeccionService {
     Seccion seccion = horario.getSeccion();
     long alumnos =
         matriculas.countAlumnosActivosPorSeccionEnAnhio(seccion.getId(), horario.getAnio());
-    if (alumnos > datos.aula().getCapacidad()) {
+    long capacidadRequerida =
+        seccion.getVacantesTotales() == null ? 0 : Math.max(seccion.getVacantesTotales(), alumnos);
+    if (capacidadRequerida > datos.aula().getCapacidad()) {
       conflictos.add(
           new ConflictoSesionResponse(
               TipoConflictoHorario.CAPACIDAD,
@@ -390,11 +579,13 @@ public class HorarioSeccionService {
                   + datos.aula().getCodigo()
                   + " tiene capacidad para "
                   + datos.aula().getCapacidad()
-                  + " alumnos y "
+                  + " alumnos y la sección "
                   + nombreSeccion(seccion)
-                  + " tiene "
+                  + " requiere espacio para "
+                  + capacidadRequerida
+                  + " ("
                   + alumnos
-                  + " matriculados en "
+                  + " matriculados) en "
                   + horario.getAnio()));
     }
     return conflictos;

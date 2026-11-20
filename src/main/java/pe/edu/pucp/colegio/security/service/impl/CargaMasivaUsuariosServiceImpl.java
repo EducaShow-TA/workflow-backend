@@ -21,6 +21,7 @@ import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
+import pe.edu.pucp.colegio.common.validation.TelefonoPolicy;
 import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.security.dto.CargaMasivaResultadoDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaCargadaDTO;
@@ -33,7 +34,6 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 import pe.edu.pucp.colegio.security.service.CargaMasivaUsuariosService;
 import pe.edu.pucp.colegio.security.service.LectorCsvUsuarios;
 
-/** Procesa cada fila válida de forma independiente para conservar los resultados parciales. */
 /** Coordina la validación y el procesamiento por filas de archivos CSV de usuarios. */
 @Service
 public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosService {
@@ -251,6 +251,15 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     validarTexto(errores, fila.fila(), "apellido_paterno", fila.apellidoPaterno(), 100, true);
     validarTexto(errores, fila.fila(), "apellido_materno", fila.apellidoMaterno(), 100, true);
     validarTexto(errores, fila.fila(), "telefono", fila.telefono(), 20, false);
+    if (fila.telefono() != null
+        && !fila.telefono().isBlank()
+        && !TelefonoPolicy.esValido(fila.telefono().trim())) {
+      agregar(
+          errores,
+          fila.fila(),
+          "telefono",
+          "El teléfono debe usar formato internacional, con 7 a 15 dígitos");
+    }
     validarCorreo(errores, fila.fila(), fila.correo());
     validarTexto(errores, fila.fila(), "username", fila.username(), 50, false);
     validarFecha(errores, fila.fila(), fila.fechaNacimiento());
@@ -290,7 +299,9 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     CuentaUsuario cuentaExistente = cuentas.findByPersonaDni(fila.dni()).orElse(null);
     String username =
         fila.username() == null
-            ? (cuentaExistente == null ? correo : cuentaExistente.getUsername())
+            ? (cuentaExistente == null
+                ? UsernamePolicy.generarDesdeDocumento(fila.dni())
+                : cuentaExistente.getUsername())
             : fila.username().trim();
     if (cuentaExistente != null) {
       if (cuentaExistente.getRol() != rol) {

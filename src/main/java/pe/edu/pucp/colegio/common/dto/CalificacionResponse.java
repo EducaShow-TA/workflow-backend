@@ -9,6 +9,7 @@ public record CalificacionResponse(
     Integer estudianteId,
     String estudiante,
     String competenciaCodigo,
+    Integer bimestre,
     String nota,
     String observacion,
     String evidenciaTipo,
@@ -17,4 +18,5 @@ public record CalificacionResponse(
     Long evidenciaTamanio,
     BigDecimal puntajeConsolidado,
     boolean consolidada,
-    LocalDateTime fechaRegistro) {}
+    LocalDateTime fechaRegistro,
+    long rectificaciones) {}

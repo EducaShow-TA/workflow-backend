@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.AreaLibreta;
@@ -50,6 +51,20 @@ public class LibretaPdfService {
       agregarEncabezado(documento, libreta, preliminar);
       for (PeriodoLibreta periodo : libreta.periodos()) {
         agregarPeriodo(documento, periodo);
+      }
+      if (libreta.comentarioPeriodo() != null && !libreta.comentarioPeriodo().isBlank()) {
+        Paragraph comentario =
+            new Paragraph(
+                "Comentario cualitativo del período",
+                new Font(Font.HELVETICA, 11, Font.BOLD, COLOR_INSTITUCIONAL));
+        comentario.setSpacingBefore(12);
+        documento.add(comentario);
+        documento.add(new Paragraph(libreta.comentarioPeriodo(), new Font(Font.HELVETICA, 10)));
+        if (libreta.autorComentario() != null) {
+          documento.add(
+              new Paragraph(
+                  "Registrado por: " + libreta.autorComentario(), new Font(Font.HELVETICA, 8)));
+        }
       }
       documento.close();
       return salida.toByteArray();
@@ -180,7 +195,7 @@ public class LibretaPdfService {
                   + evaluacion.ponderacion().stripTrailingZeros().toPlainString()
                   + "%)";
             })
-        .collect(java.util.stream.Collectors.joining("\n"));
+        .collect(Collectors.joining("\n"));
   }
 
   private void agregarCeldaEncabezado(PdfPTable tabla, String texto) {

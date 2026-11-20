@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.security;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -57,7 +58,7 @@ class CuentaUsuarioIntegrationTest {
   }
 
   @Test
-  void administradorCreaCuentaYLaListaYDuplicadoRetorna409ConRegistroError() throws Exception {
+  void administradorCreaCuentaYLaListaYDuplicadoRetorna409SinRegistrarElError() throws Exception {
     String token = login("admin@educore.edu.pe", "Admin2026!");
     String sufijo = UUID.randomUUID().toString().substring(0, 8);
     String dni = sufijo;
@@ -86,7 +87,7 @@ class CuentaUsuarioIntegrationTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.path").value("/api/v1/cuentas-usuario"));
-    assertTrue(errores.count() > antes, "El conflicto debe quedar en registros_error");
+    assertEquals(antes, errores.count(), "El conflicto 4xx no debe quedar en registros_error");
   }
 
   @Test

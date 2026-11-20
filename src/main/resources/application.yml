@@ -42,6 +42,9 @@ spring:
             pageable:
                 max-page-size: 100
 app:
+    pagos:
+      simulado:
+        enabled: ${PAGOS_SIMULADO_ENABLED:false}
     finanzas:
       monto-pension-predeterminado: ${FINANZAS_MONTO_PENSION_PREDETERMINADO:500.00}
     jwt:
@@ -58,8 +61,6 @@ app:
     asistencia:
       ventana-marcado-antes-minutos: ${ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS:15}
       ventana-marcado-despues-minutos: ${ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS:30}
-      tolerancia-docente-minutos: ${ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS:10}
-      ventana-docente-antes-minutos: ${ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS:30}
 logging:
     level:
         root: INFO

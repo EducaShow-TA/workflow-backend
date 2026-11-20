@@ -5,7 +5,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -13,10 +16,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.config.AsistenciaProperties;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteAjusteRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteResponse;
+import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.model.AsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
@@ -37,7 +40,7 @@ public class AsistenciaDocenteService {
   private final AsistenciaDocenteRepository asistencias;
   private final DocenteRepository docentes;
   private final SesionClaseRepository sesiones;
-  private final AsistenciaProperties properties;
+  private final ConfiguracionMarcajeDocenteService configuracionMarcaje;
   private final DocenteService docenteService;
   private final Clock clock;
 
@@ -45,21 +48,21 @@ public class AsistenciaDocenteService {
       AsistenciaDocenteRepository asistencias,
       DocenteRepository docentes,
       SesionClaseRepository sesiones,
-      AsistenciaProperties properties,
+      ConfiguracionMarcajeDocenteService configuracionMarcaje,
       DocenteService docenteService,
       Clock clock) {
     this.asistencias = asistencias;
     this.docentes = docentes;
     this.sesiones = sesiones;
-    this.properties = properties;
+    this.configuracionMarcaje = configuracionMarcaje;
     this.docenteService = docenteService;
     this.clock = clock;
   }
 
   /**
    * Registra la entrada del docente autenticado con la fecha y hora del servidor. Si tiene clases
-   * ese día, solo puede marcar desde {@code ventanaDocenteAntesMinutos} antes de su primera sesión
-   * y, pasada la tolerancia, la entrada queda como tardanza. Sin clases ese día, marca libremente.
+   * ese día, la ventana y la tolerancia globales se calculan desde su primera sesión. Sin clases,
+   * marca libremente.
    */
   @Transactional
   public AsistenciaDocenteResponse marcarEntrada(String usuario) {
@@ -67,8 +70,9 @@ public class AsistenciaDocenteService {
     LocalDateTime ahora = LocalDateTime.now(clock);
     LocalDate hoy = ahora.toLocalDate();
     LocalTime hora = ahora.toLocalTime().truncatedTo(ChronoUnit.SECONDS);
+    ConfiguracionMarcajeDocenteResponse configuracion = configuracionMarcaje.obtener();
     LocalTime inicioJornada = inicioJornada(docente.getId(), hoy);
-    validarAperturaMarcaje(inicioJornada, hora);
+    validarVentanaMarcaje(inicioJornada, hora, configuracion);
 
     AsistenciaDocente asistencia =
         asistencias
@@ -79,7 +83,7 @@ public class AsistenciaDocenteService {
           HttpStatus.CONFLICT, "La asistencia de hoy ya está registrada");
     }
     asistencia.marcarIngreso(hora);
-    clasificarTardanza(asistencia, inicioJornada);
+    clasificarTardanza(asistencia, inicioJornada, configuracion.toleranciaMinutos());
     AsistenciaDocenteResponse response = guardar(asistencia);
     log.info(
         "Docente {} marcó su entrada el {} a las {} ({})",
@@ -113,6 +117,42 @@ public class AsistenciaDocenteService {
     return respuesta(asistencia);
   }
 
+  /** Cierra como inasistencia el marcaje de docentes que superaron su tolerancia de entrada. */
+  @Transactional
+  public void procesarInasistenciasPendientes() {
+    LocalDateTime ahora = LocalDateTime.now(clock);
+    LocalDate hoy = ahora.toLocalDate();
+    ConfiguracionMarcajeDocenteResponse configuracion = configuracionMarcaje.obtener();
+    List<SesionClase> sesionesDeHoy =
+        sesiones.findAllByFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(hoy);
+    Map<Integer, LocalTime> iniciosPorDocente = new LinkedHashMap<>();
+    for (SesionClase sesion : sesionesDeHoy) {
+      iniciosPorDocente.putIfAbsent(sesion.getDocente().getId(), sesion.getHoraInicio());
+    }
+
+    for (var entrada : iniciosPorDocente.entrySet()) {
+      LocalTime cierre = entrada.getValue().plusMinutes(configuracion.ventanaDespuesMinutos());
+      if (!ahora.toLocalTime().isAfter(cierre)) {
+        continue;
+      }
+      Docente docente = docentes.findById(entrada.getKey()).orElse(null);
+      if (docente == null || !Boolean.TRUE.equals(docente.getActive())) {
+        continue;
+      }
+      AsistenciaDocente asistencia =
+          asistencias
+              .findByDocenteIdAndFechaAndActiveTrue(docente.getId(), hoy)
+              .orElseGet(() -> nuevaAsistencia(docente, hoy));
+      if (asistencia.getEstado() != EstadoAsistenciaDocente.PENDIENTE_MARCAJE) {
+        continue;
+      }
+      asistencia.ajustar(
+          EstadoAsistenciaDocente.INASISTENCIA,
+          "Inasistencia automática: venció la ventana de marcaje");
+      asistencias.saveAndFlush(asistencia);
+    }
+  }
+
   /** Lista las asistencias del docente autenticado, opcionalmente en un rango de fechas. */
   @Transactional
   public List<AsistenciaDocenteResponse> listarPropias(
@@ -130,6 +170,8 @@ public class AsistenciaDocenteService {
   @Transactional
   public AsistenciaDocenteResponse registrar(AsistenciaDocenteCreateRequest request) {
     Docente docente = buscarDocente(request.docenteId());
+    exigirMotivoRegistro(request.motivoAjuste());
+    validarFechaNoFutura(request.fecha());
     if (asistencias.existsByDocenteIdAndFechaAndActiveTrue(docente.getId(), request.fecha())) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "La asistencia del docente ya está registrada para esa fecha");
@@ -139,8 +181,29 @@ public class AsistenciaDocenteService {
     AsistenciaDocente asistencia = new AsistenciaDocente();
     asistencia.setDocente(docente);
     asistencia.setFecha(request.fecha());
-    aplicarRegistro(asistencia, request);
+    aplicarRegistro(asistencia, request, configuracionMarcaje.obtener());
     return guardar(asistencia);
+  }
+
+  /**
+   * Carga masiva (US-2.5): crea la asistencia de cada docente y fecha o, si ya existe, la reemplaza
+   * por lo indicado. Es de todo o nada: si una solicitud falla no se guarda ninguna.
+   */
+  @Transactional
+  public void registrarOActualizarLote(List<AsistenciaDocenteCreateRequest> solicitudes) {
+    ConfiguracionMarcajeDocenteResponse configuracion = configuracionMarcaje.obtener();
+    for (AsistenciaDocenteCreateRequest solicitud : solicitudes) {
+      Docente docente = buscarDocente(solicitud.docenteId());
+      validarHorario(solicitud.horaEntrada(), solicitud.horaSalida());
+      Optional<AsistenciaDocente> existente =
+          asistencias.findByDocenteIdAndFechaAndActiveTrue(docente.getId(), solicitud.fecha());
+      AsistenciaDocente asistencia =
+          existente.orElseGet(() -> nuevaAsistencia(docente, solicitud.fecha()));
+      existente.ifPresent(actual -> actual.ajustar(EstadoAsistenciaDocente.PENDIENTE_MARCAJE));
+      aplicarRegistro(asistencia, solicitud, configuracion);
+      guardar(asistencia);
+    }
+    log.info("Carga masiva de asistencia docente: {} registros guardados", solicitudes.size());
   }
 
   @Transactional(readOnly = true)
@@ -159,12 +222,15 @@ public class AsistenciaDocenteService {
   @Transactional
   public AsistenciaDocenteResponse ajustar(Integer id, AsistenciaDocenteAjusteRequest request) {
     AsistenciaDocente asistencia = buscarAsistencia(id);
+    validarFechaNoFutura(asistencia.getFecha());
     asistencia.ajustar(request.estado(), request.motivoAjuste());
     return respuesta(asistencia);
   }
 
   private void aplicarRegistro(
-      AsistenciaDocente asistencia, AsistenciaDocenteCreateRequest request) {
+      AsistenciaDocente asistencia,
+      AsistenciaDocenteCreateRequest request,
+      ConfiguracionMarcajeDocenteResponse configuracion) {
     EstadoAsistenciaDocente estado = request.estado();
     switch (estado) {
       case PENDIENTE_MARCAJE -> {
@@ -172,12 +238,20 @@ public class AsistenciaDocenteService {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST, "Una asistencia pendiente no puede incluir horas marcadas");
         }
+        if (request.motivoAjuste() != null && !request.motivoAjuste().isBlank()) {
+          asistencia.ajustar(estado, request.motivoAjuste());
+        }
       }
       case PRESENTE -> {
         exigirHoraEntrada(request.horaEntrada());
         asistencia.marcarIngreso(request.horaEntrada());
         clasificarTardanza(
-            asistencia, inicioJornada(asistencia.getDocente().getId(), asistencia.getFecha()));
+            asistencia,
+            inicioJornada(asistencia.getDocente().getId(), asistencia.getFecha()),
+            configuracion.toleranciaMinutos());
+        if (request.motivoAjuste() != null && !request.motivoAjuste().isBlank()) {
+          asistencia.ajustar(asistencia.getEstado(), request.motivoAjuste());
+        }
         if (request.horaSalida() != null) {
           asistencia.marcarSalida(request.horaSalida());
         }
@@ -195,6 +269,7 @@ public class AsistenciaDocenteService {
         }
       }
       case INASISTENCIA -> {
+        exigirMotivoRegistro(request.motivoAjuste());
         if (request.horaEntrada() != null || request.horaSalida() != null) {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST, "Una inasistencia no puede incluir horas marcadas");
@@ -210,13 +285,14 @@ public class AsistenciaDocenteService {
   /** Hora de inicio de la primera sesión del docente ese día, o nulo si no tiene clases. */
   private LocalTime inicioJornada(Integer docenteId, LocalDate fecha) {
     return sesiones
-        .findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(docenteId, fecha)
+        .findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            docenteId, fecha)
         .map(SesionClase::getHoraInicio)
         .orElse(null);
   }
 
-  private void clasificarTardanza(AsistenciaDocente asistencia, LocalTime inicioJornada) {
-    int tolerancia = properties.getToleranciaDocenteMinutos();
+  private void clasificarTardanza(
+      AsistenciaDocente asistencia, LocalTime inicioJornada, int tolerancia) {
     if (inicioJornada != null
         && asistencia.getHoraEntrada().isAfter(inicioJornada.plusMinutes(tolerancia))) {
       asistencia.ajustar(
@@ -225,14 +301,34 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void validarAperturaMarcaje(LocalTime inicioJornada, LocalTime hora) {
+  private void validarVentanaMarcaje(
+      LocalTime inicioJornada, LocalTime hora, ConfiguracionMarcajeDocenteResponse configuracion) {
     if (inicioJornada == null) {
       return;
     }
-    LocalTime apertura = inicioJornada.minusMinutes(properties.getVentanaDocenteAntesMinutos());
+    LocalTime apertura = inicioJornada.minusMinutes(configuracion.ventanaAntesMinutos());
+    LocalTime cierre = inicioJornada.plusMinutes(configuracion.ventanaDespuesMinutos());
     if (hora.isBefore(apertura)) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "El marcaje de entrada se habilita a partir de las " + apertura);
+    }
+    if (hora.isAfter(cierre)) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "El marcaje de entrada cerró a las " + cierre);
+    }
+  }
+
+  private void exigirMotivoRegistro(String motivo) {
+    if (motivo == null || motivo.isBlank()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El motivo es obligatorio para registrar la asistencia docente");
+    }
+  }
+
+  private void validarFechaNoFutura(LocalDate fecha) {
+    if (fecha.isAfter(LocalDate.now(clock))) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
     }
   }
 
@@ -252,7 +348,7 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void validarHorario(java.time.LocalTime entrada, java.time.LocalTime salida) {
+  private void validarHorario(LocalTime entrada, LocalTime salida) {
     if (salida != null && entrada == null) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Debe registrar la hora de entrada antes de la salida");
@@ -263,7 +359,7 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void exigirHoraEntrada(java.time.LocalTime entrada) {
+  private void exigirHoraEntrada(LocalTime entrada) {
     if (entrada == null) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "La hora de entrada es obligatoria para marcar asistencia");

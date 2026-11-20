@@ -3,11 +3,14 @@ package pe.edu.pucp.colegio.common.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,14 +18,43 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
+import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
-import pe.edu.pucp.colegio.common.dto.*;
+import pe.edu.pucp.colegio.common.dto.CalificacionParcialRequest;
+import pe.edu.pucp.colegio.common.dto.CalificacionParcialResponse;
+import pe.edu.pucp.colegio.common.dto.CalificacionTareaRequest;
+import pe.edu.pucp.colegio.common.dto.CierreActasResponse;
+import pe.edu.pucp.colegio.common.dto.EvaluacionParcialActualizacionRequest;
+import pe.edu.pucp.colegio.common.dto.EvaluacionParcialRequest;
+import pe.edu.pucp.colegio.common.dto.EvaluacionParcialResponse;
+import pe.edu.pucp.colegio.common.dto.RecalculoLogrosRequest;
+import pe.edu.pucp.colegio.common.dto.RecalculoLogrosResponse;
+import pe.edu.pucp.colegio.common.dto.ReglaConsolidacionRequest;
+import pe.edu.pucp.colegio.common.dto.ReglaConsolidacionResponse;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
-import pe.edu.pucp.colegio.common.model.*;
-import pe.edu.pucp.colegio.common.repository.*;
+import pe.edu.pucp.colegio.common.model.Calificacion;
+import pe.edu.pucp.colegio.common.model.CalificacionParcial;
+import pe.edu.pucp.colegio.common.model.Competencia;
+import pe.edu.pucp.colegio.common.model.Docente;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
+import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.model.ReglaConsolidacion;
+import pe.edu.pucp.colegio.common.model.Tarea;
+import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
+import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
+import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
+import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
+import pe.edu.pucp.colegio.common.repository.ReglaConsolidacionRepository;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
+import pe.edu.pucp.colegio.common.repository.TareaRepository;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
+/** Consolida evaluaciones parciales y administra el cierre de actas del período. */
 @Service
 public class ConsolidacionLogroService {
 
@@ -47,6 +79,9 @@ public class ConsolidacionLogroService {
   private final DocenteService docentes;
   private final SesionHorarioRepository asignacionesHorario;
   private final EvidenciaStorageService storage;
+  private final CatalogoLibretaSnapshotService catalogoLibretaSnapshots;
+  private final TareaRepository tareas;
+  private final Clock clock;
 
   public ConsolidacionLogroService(
       ReglaConsolidacionRepository reglas,
@@ -61,7 +96,10 @@ public class ConsolidacionLogroService {
       AuditoriaCalificacionService auditoriaCalificaciones,
       DocenteService docentes,
       SesionHorarioRepository asignacionesHorario,
-      EvidenciaStorageService storage) {
+      EvidenciaStorageService storage,
+      CatalogoLibretaSnapshotService catalogoLibretaSnapshots,
+      TareaRepository tareas,
+      Clock clock) {
     this.reglas = reglas;
     this.evaluaciones = evaluaciones;
     this.notasParciales = notasParciales;
@@ -75,6 +113,9 @@ public class ConsolidacionLogroService {
     this.docentes = docentes;
     this.asignacionesHorario = asignacionesHorario;
     this.storage = storage;
+    this.catalogoLibretaSnapshots = catalogoLibretaSnapshots;
+    this.tareas = tareas;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -163,6 +204,14 @@ public class ConsolidacionLogroService {
     evaluacion.setPonderacion(request.ponderacion());
     evaluacion.setBimestre(request.bimestre());
     evaluacion = evaluaciones.save(evaluacion);
+    BigDecimal ponderacion = evaluacion.getPonderacion();
+    tareas
+        .findFirstByEvaluacionParcialIdAndActiveTrue(evaluacion.getId())
+        .ifPresent(
+            tarea -> {
+              tarea.setPonderacion(ponderacion);
+              tareas.save(tarea);
+            });
     recalcularCompetencia(
         periodo,
         evaluacion.getCompetencia().getCodigo(),
@@ -180,6 +229,13 @@ public class ConsolidacionLogroService {
     evaluacion = evaluacionActiva(evaluacionId);
     evaluacion.setActive(false);
     evaluaciones.save(evaluacion);
+    tareas
+        .findFirstByEvaluacionParcialIdAndActiveTrue(evaluacionId)
+        .ifPresent(
+            tarea -> {
+              tarea.setEvaluacionParcial(null);
+              tareas.save(tarea);
+            });
     List<CalificacionParcial> notas =
         notasParciales.findAllByEvaluacionIdAndActiveTrueOrderByMatriculaId(evaluacionId);
     for (CalificacionParcial nota : notas) {
@@ -283,6 +339,12 @@ public class ConsolidacionLogroService {
             .findByEvaluacionIdAndMatriculaIdAndActiveTrue(evaluacionId, matriculaId)
             .orElseGet(CalificacionParcial::new);
     var notaAnterior = auditoriaCalificaciones.capturarParcial(nota);
+    boolean rectificacion =
+        nota.getId() != null
+            && notaAnterior != null
+            && (!Objects.equals(notaAnterior.nota(), request.nota())
+                || !Objects.equals(notaAnterior.justificada(), justificada));
+    String motivo = rectificacion ? MotivoRectificacion.exigir(request.motivo()) : null;
     nota.setEvaluacion(evaluacion);
     nota.setMatricula(matricula);
     nota.setNota(request.nota());
@@ -301,14 +363,17 @@ public class ConsolidacionLogroService {
       nota.setEvidenciaTipo(null);
       nota.setEvidenciaTamanio(null);
     }
-    nota.setFechaRegistro(LocalDateTime.now());
+    nota.setFechaRegistro(LocalDateTime.now(clock));
     nota = notasParciales.save(nota);
     auditoriaCalificaciones.registrarParcial(
         username,
         administrador ? "ADMINISTRADOR" : "DOCENTE",
-        "REGISTRAR_O_ACTUALIZAR",
+        rectificacion
+            ? AccionesCalificacion.RECTIFICAR
+            : AccionesCalificacion.REGISTRAR_O_ACTUALIZAR,
         notaAnterior,
-        nota);
+        nota,
+        motivo);
     recalcularCompetencia(
         periodo,
         evaluacion.getCompetencia().getCodigo(),
@@ -316,6 +381,90 @@ public class ConsolidacionLogroService {
         username,
         administrador ? "ADMINISTRADOR" : "DOCENTE",
         "RECALCULAR_NOTA_PARCIAL");
+    return respuestaNotaParcial(matricula, nota);
+  }
+
+  @Transactional
+  public CalificacionParcialResponse calificarEntregaDeTarea(
+      Integer evaluacionId,
+      Integer matriculaId,
+      CalificacionTareaRequest request,
+      EvidenciaEntrega evidencia,
+      String username,
+      boolean administrador) {
+    EvaluacionParcial evaluacion = evaluacionActiva(evaluacionId);
+    Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
+    evaluacion = evaluacionActiva(evaluacionId);
+    exigirAccesoDocente(username, administrador, periodo, evaluacion.getCompetencia().getCodigo());
+    Matricula matricula =
+        matriculas
+            .findById(matriculaId)
+            .filter(Matricula::getActive)
+            .filter(m -> m.getEstado() == EstadoMatricula.CONFIRMADA)
+            .filter(m -> m.getPeriodo().getId().equals(periodo.getId()))
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "La matrícula no está confirmada en el período indicado"));
+
+    boolean justificada = Boolean.TRUE.equals(request.justificada());
+    if (justificada == (request.nota() != null)) {
+      throw new BusinessException(
+          "Una evaluación justificada no debe tener nota y una evaluación sin justificar requiere"
+              + " nota");
+    }
+    String comentario = limpiar(request.comentario());
+
+    CalificacionParcial nota =
+        notasParciales
+            .findByEvaluacionIdAndMatriculaIdAndActiveTrue(evaluacionId, matriculaId)
+            .orElseGet(CalificacionParcial::new);
+    var notaAnterior = auditoriaCalificaciones.capturarParcial(nota);
+    boolean cambiaNota =
+        notaAnterior == null
+            || !Objects.equals(notaAnterior.nota(), request.nota())
+            || !Objects.equals(notaAnterior.justificada(), justificada);
+    if (!cambiaNota && Objects.equals(nota.getComentario(), comentario)) {
+      throw new BusinessException("No hay cambios que guardar");
+    }
+    boolean rectificacion = nota.getId() != null && notaAnterior != null && cambiaNota;
+    String motivo = rectificacion ? MotivoRectificacion.exigir(request.motivo()) : null;
+
+    nota.setEvaluacion(evaluacion);
+    nota.setMatricula(matricula);
+    nota.setNota(request.nota());
+    nota.setJustificada(justificada);
+    nota.setComentario(comentario);
+    if (evidencia != null) {
+      nota.setEvidenciaUrl(null);
+      nota.setEvidenciaArchivo(evidencia.clave());
+      nota.setEvidenciaNombre(evidencia.nombre());
+      nota.setEvidenciaTipo(evidencia.tipo());
+      nota.setEvidenciaTamanio(evidencia.tamanio());
+    }
+    if (cambiaNota || nota.getFechaRegistro() == null) {
+      nota.setFechaRegistro(LocalDateTime.now(clock));
+    }
+    nota = notasParciales.save(nota);
+    String rol = administrador ? "ADMINISTRADOR" : "DOCENTE";
+    auditoriaCalificaciones.registrarParcial(
+        username,
+        rol,
+        rectificacion
+            ? AccionesCalificacion.RECTIFICAR
+            : AccionesCalificacion.REGISTRAR_O_ACTUALIZAR,
+        notaAnterior,
+        nota,
+        motivo);
+    if (cambiaNota) {
+      recalcularCompetencia(
+          periodo,
+          evaluacion.getCompetencia().getCodigo(),
+          false,
+          username,
+          rol,
+          "RECALCULAR_NOTA_PARCIAL");
+    }
     return respuestaNotaParcial(matricula, nota);
   }
 
@@ -385,7 +534,8 @@ public class ConsolidacionLogroService {
     for (String codigo : evaluaciones.findDistinctCompetenciaCodigosByPeriodoId(periodoId)) {
       recalcularCompetencia(periodo, codigo, true, username, "ADMINISTRADOR", "CIERRE_ACTAS");
     }
-    LocalDateTime fechaCierre = LocalDateTime.now();
+    catalogoLibretaSnapshots.capturar(periodo);
+    LocalDateTime fechaCierre = LocalDateTime.now(clock);
     periodo.setActasCerradas(true);
     periodo.setFechaCierreActas(fechaCierre);
     periodo.setUsuarioCierreActas(username);
@@ -453,7 +603,7 @@ public class ConsolidacionLogroService {
     if (cerrar) {
       List<CalificacionParcial> completar = new ArrayList<>();
       Map<CalificacionParcial, AuditoriaCalificacionService.ParcialAnterior> anteriores =
-          new java.util.IdentityHashMap<>();
+          new IdentityHashMap<>();
       for (EvaluacionParcial evaluacion : evaluacionesActivas) {
         for (Matricula matricula : roster) {
           String key = clave(evaluacion.getId(), matricula.getId());
@@ -464,7 +614,7 @@ public class ConsolidacionLogroService {
             nota.setEvaluacion(evaluacion);
             nota.setMatricula(matricula);
             nota.setJustificada(false);
-            nota.setFechaRegistro(LocalDateTime.now());
+            nota.setFechaRegistro(LocalDateTime.now(clock));
             porEvaluacionMatricula.put(key, nota);
             existentes.add(nota);
             cambio = true;
@@ -489,8 +639,8 @@ public class ConsolidacionLogroService {
 
     ReglaConsolidacionResponse regla = obtenerRegla(codigo);
     Map<Integer, Calificacion> finalesExistentes = new HashMap<>();
-    calificaciones
-        .findAllByPeriodoIdAndCompetenciaCodigo(periodo.getId(), codigo)
+    calificaciones.findAllByPeriodoIdAndCompetenciaCodigo(periodo.getId(), codigo).stream()
+        .filter(c -> Boolean.TRUE.equals(c.getConsolidada()))
         .forEach(c -> finalesExistentes.put(c.getMatricula().getId(), c));
     Map<Integer, List<CalificacionParcial>> porMatricula = new HashMap<>();
     for (CalificacionParcial nota : existentes) {
@@ -505,7 +655,7 @@ public class ConsolidacionLogroService {
     int actualizados = 0;
     List<Calificacion> finalesAGuardar = new ArrayList<>();
     Map<Calificacion, AuditoriaCalificacionService.FinalAnterior> anterioresFinales =
-        new java.util.IdentityHashMap<>();
+        new IdentityHashMap<>();
     for (Matricula matricula : roster) {
       List<CalificacionParcial> notas = porMatricula.getOrDefault(matricula.getId(), List.of());
       ConsolidacionCalculada resultado = calcularResultado(notas, regla);
@@ -536,7 +686,7 @@ public class ConsolidacionLogroService {
       calificacion.setEvidenciaNombre(null);
       calificacion.setEvidenciaTipo(null);
       calificacion.setEvidenciaTamanio(null);
-      calificacion.setFechaRegistro(LocalDateTime.now());
+      calificacion.setFechaRegistro(LocalDateTime.now(clock));
       calificacion.setActive(true);
       finalesAGuardar.add(calificacion);
       actualizados++;
@@ -562,6 +712,8 @@ public class ConsolidacionLogroService {
   }
 
   private EvaluacionParcialResponse respuestaEvaluacion(EvaluacionParcial evaluacion) {
+    Tarea tarea =
+        tareas.findFirstByEvaluacionParcialIdAndActiveTrue(evaluacion.getId()).orElse(null);
     return new EvaluacionParcialResponse(
         evaluacion.getId(),
         evaluacion.getPeriodo().getId(),
@@ -569,7 +721,9 @@ public class ConsolidacionLogroService {
         evaluacion.getTitulo(),
         evaluacion.getDescripcion(),
         evaluacion.getPonderacion(),
-        evaluacion.getBimestre());
+        evaluacion.getBimestre(),
+        tarea == null ? null : tarea.getId(),
+        tarea == null ? null : tarea.getTitulo());
   }
 
   private CalificacionParcialResponse respuestaNotaParcial(
@@ -593,7 +747,8 @@ public class ConsolidacionLogroService {
                 ? nota.getEvidenciaUrl()
                 : "/api/v1/evaluaciones-parciales/calificaciones/" + nota.getId() + "/archivo",
         nota == null ? null : nota.getEvidenciaTamanio(),
-        nota == null ? null : nota.getFechaRegistro());
+        nota == null ? null : nota.getFechaRegistro(),
+        nota == null ? null : nota.getComentario());
   }
 
   private Periodo periodo(Integer id) {
@@ -691,6 +846,8 @@ public class ConsolidacionLogroService {
   }
 
   public record ConsolidacionCalculada(String nota, BigDecimal puntajeConsolidado) {}
+
+  public record EvidenciaEntrega(String clave, String nombre, String tipo, Long tamanio) {}
 
   private String clave(Integer evaluacionId, Integer matriculaId) {
     return evaluacionId + ":" + matriculaId;

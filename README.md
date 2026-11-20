@@ -6,6 +6,8 @@ Backend REST monolítico modular para el sistema de gestión integral de un cole
 
 El equipo integra cambios en `Development` mediante Pull Requests desde ramas personales permanentes; al cierre del sprint, integra `Development` en `main`. Usa Maven Wrapper (`mvnw.cmd` en Windows o `./mvnw` en Linux/macOS) para ejecutar `spotless:apply`, `spotless:check` y `verify` sin instalar Maven globalmente. El flujo detallado está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
+GitHub Actions publica los checks requeridos `build` (formato, pruebas y JaCoCo), `commits` (PR hacia `Development`) y `origen-development` (PR hacia `main`). El build produce el artifact `reporte-cobertura` y un resumen JaCoCo en el run. Los rulesets para proteger ambas ramas están versionados en [`.github/rulesets/`](.github/rulesets/); un administrador debe importarlos en *Settings → Rules → Rulesets* para que GitHub los exija al mergear.
+
 ## Tecnologías
 
 - Java 25 (`pom.xml`), Spring Boot 3.5.6.
@@ -26,7 +28,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 - Las fechas se representan como `YYYY-MM-DD` (por ejemplo, `2026-03-01`).
 - Los errores del API tienen el formato estándar `timestamp`, `status`, `error`, `message` y `path`. Se usan `400` para solicitudes inválidas, `401` para autenticación ausente o inválida, `403` para autorización denegada, `404` para recursos inexistentes, `409` para conflictos, `422` para algunas reglas de negocio y `500` para errores internos.
 - Todas las rutas protegidas requieren autenticación. Las operaciones de cuentas, matrícula, estudiantes, períodos, vacantes, catálogo curricular, secciones, aulas, horarios de sección, pensiones, plantillas horarias y logs están restringidas al rol `ADMINISTRADOR` mediante autorización a nivel de controlador. `GET /api/v1/auth/me` está disponible para cualquier usuario autenticado; login y recuperación son públicos.
-- La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; el catálogo de grados se inicializa con los grados 1.º a 5.º de secundaria mediante Flyway.
+- La consulta y gestión de secciones está disponible solo para `ADMINISTRADOR`; Flyway inicializa Inicial (3.º a 5.º), Primaria (1.º a 6.º) y Secundaria (1.º a 5.º).
 
 #### Resumen de rutas
 
@@ -40,6 +42,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/cuentas-usuario` | Listar cuentas (solo ADMINISTRADOR) |
 | `PUT` | `/api/v1/cuentas-usuario/{id}` | Editar usuario, correo de contacto y datos personales de una cuenta (solo ADMINISTRADOR) |
 | `PATCH` | `/api/v1/cuentas-usuario/{id}/estado` | Activar/desactivar una cuenta (solo ADMINISTRADOR) |
+| `PATCH` | `/api/v1/cuentas-usuario/{id}/rol` | Cambiar rol y asegurar el perfil correspondiente (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/cuentas-usuario/carga-masiva` | Cargar usuarios desde CSV (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/cuentas-usuario/carga-masiva/plantilla` | Descargar plantilla CSV (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/areas` | Listar áreas con competencias |
@@ -59,7 +62,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/evaluaciones-parciales?periodoId=&competenciaCodigo=` | Listar evaluaciones parciales |
 | `PUT/DELETE` | `/api/v1/evaluaciones-parciales/{id}` | Editar/desactivar evaluación parcial (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/evaluaciones-parciales/{id}/calificaciones` | Listar notas de la evaluación |
-| `PUT` | `/api/v1/evaluaciones-parciales/{evaluacionId}/matriculas/{matriculaId}` | Registrar nota parcial; admite JSON o multipart con evidencia (DOCENTE/ADMINISTRADOR) |
+| `PUT` | `/api/v1/evaluaciones-parciales/{evaluacionId}/matriculas/{matriculaId}` | Registrar nota parcial; admite JSON o multipart con evidencia (DOCENTE/ADMINISTRADOR). Cambiar una nota existente exige `motivo` (US-3.6) |
 | `GET` | `/api/v1/evaluaciones-parciales/calificaciones/{calificacionId}/archivo` | Descargar evidencia de una nota parcial |
 | `POST` | `/api/v1/logros/recalculo` | Recalcular logros del periodo (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/periodos/{periodoId}/cierre-actas` | Cerrar actas (solo ADMINISTRADOR) |
@@ -67,18 +70,40 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/tareas` | Crear una tarea con seguimiento por matrícula |
 | `GET` | `/api/v1/tareas?periodoId=` | Consultar tareas y entregas del periodo |
 | `PATCH` | `/api/v1/tareas/{tareaId}/entregas/{matriculaId}` | Actualizar cumplimiento de una entrega |
-| `POST` | `/api/v1/calificaciones` | Registrar calificación final y evidencia mediante multipart |
-| `GET` | `/api/v1/seguimiento/competencias/{codigo}` | Consultar calificaciones y evidencias de una competencia |
+| `GET` | `/api/v1/tareas/{tareaId}/entregas/{matriculaId}/archivo` | Descargar el archivo entregado por el alumno (docente de la clase o ADMINISTRADOR) |
+| `POST` | `/api/v1/calificaciones` | Registrar calificación manual por bimestre y evidencia mediante multipart; si ya existe, la rectifica con `motivo` obligatorio (US-3.6) |
+| `GET` | `/api/v1/calificaciones/{calificacionId}/historial` | Historial de registros y rectificaciones de una calificación (docente de la clase o ADMINISTRADOR) |
+| `GET` | `/api/v1/seguimiento/competencias/{codigo}?periodoId=&bimestre=` | Consultar calificaciones y evidencias de una competencia y bimestre |
 | `GET` | `/api/v1/evidencias/{calificacionId}/archivo` | Descargar archivo adjunto a una calificación |
-| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
-| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}` | Descargar PDF oficial tras cierre de actas o informe preliminar con marca de borrador (ADMINISTRADOR, DOCENTE, apoderado vinculado) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}&bimestre={1..4}` | Consultar libreta JSON interactiva del período y bimestre |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}&bimestre={1..4}` | Descargar PDF del período y bimestre |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/apoderados` | Listar vínculos familiares activos del estudiante |
+| `POST` | `/api/v1/estudiantes/{estudianteId}/apoderados/verificacion` | Verificar un documento antes de vincularlo como apoderado |
+| `POST` | `/api/v1/estudiantes/{estudianteId}/apoderados` | Crear o reactivar el vínculo con un apoderado |
+| `PUT` | `/api/v1/estudiantes/{estudianteId}/apoderados/{apoderadoId}` | Editar parentesco y condición de apoderado principal |
 | `GET` | `/api/v1/apoderados/mis-estudiantes` | Listar estudiantes vinculados al apoderado autenticado |
+| `GET` | `/api/v1/apoderados/mis-pagos` | Compromisos y boletas emitidas de los hijos del apoderado autenticado |
+| `POST` | `/api/v1/apoderados/mis-pagos/pagos` | Pago simulado opcional; deshabilitado por defecto y responde `503` |
+| `GET` | `/api/v1/apoderados/mis-pagos/comprobantes/{id}/pdf` | Descargar el comprobante de pago en PDF |
+| `GET` | `/api/v1/estudiantes/mi-ficha` | Datos del alumno autenticado y sus períodos de matrícula confirmada |
+| `GET` | `/api/v1/estudiantes/mi-horario?anio={anio}` | Consultar el horario propio según la matrícula confirmada (solo ALUMNO) |
+| `GET` | `/api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}` | Consultar el horario del estudiante vinculado (solo APODERADO) |
+| `GET` | `/api/v1/estudiantes/mis-tareas` | Tareas de las secciones vigentes del alumno con su estado (US-3.9) |
+| `GET` | `/api/v1/estudiantes/mis-tareas/{tareaId}` | Detalle de una tarea propia |
+| `POST` | `/api/v1/estudiantes/mis-tareas/{tareaId}/entrega` | Entregar o reemplazar el archivo de una tarea antes de su fecha límite (US-3.10) |
+| `GET` | `/api/v1/estudiantes/mis-tareas/{tareaId}/entrega/archivo` | Descargar el archivo propio entregado |
 | `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
 | `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
 | `GET` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion/documento` | Descargar el documento de sustento (con acceso al historial) |
+| `GET` | `/api/v1/reportes/asistencia-estudiantes` | Consultar reporte de asistencia con filtros (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/reportes/asistencia-estudiantes/csv` | Descargar reporte de asistencia en CSV |
+| `GET` | `/api/v1/reportes/asistencia-estudiantes/secciones` | Listar secciones disponibles para filtrar el reporte |
+| `POST/GET` | `/api/v1/sesiones-clase/{sesionId}/asistencias/carga-masiva` y `/plantilla` | Importar CSV o descargar plantilla de asistencia de alumnos |
+| `POST` | `/api/v1/asistencias-docentes/carga-masiva` | Importar marcajes de docentes desde CSV (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/asistencias-docentes/carga-masiva/plantilla` | Descargar plantilla CSV de marcajes docentes (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/sesiones-clase` | Crear una sesión (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/sesiones-clase?fecha=&seccionId=` | Consultar sesiones (DOCENTE o ADMINISTRADOR) |
 | `GET` | `/api/v1/sesiones-clase/{sesionId}` | Consultar una sesión |
@@ -93,9 +118,11 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/docentes/mis-asistencias` | Consultar marcajes propios (solo DOCENTE) |
 | `POST` | `/api/v1/docentes/mis-asistencias/entrada` | Marcar entrada propia (solo DOCENTE) |
 | `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marcar salida propia (solo DOCENTE) |
+| `GET/PATCH` | `/api/v1/configuracion/marcaje-docente` | Consultar o cambiar la ventana global de marcaje (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/docentes/mis-clases` | Secciones y áreas del docente con sus competencias activas (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases/{periodoId}/alumnos` | Alumnos confirmados de una de sus clases, para calificar (solo DOCENTE) |
-| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}&umbral={1..5}` | Contar notas finales C y detectar alumnos en riesgo en una de sus áreas (solo DOCENTE) |
+| `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}` | Contar notas C del bimestre actual con el umbral persistido (solo DOCENTE) |
+| `GET/PATCH` | `/api/v1/configuracion/riesgo-academico` | Consultar o cambiar el umbral global de notas C (solo ADMINISTRADOR, valor inicial 1) |
 | `POST` | `/api/v1/asistencias-docentes` | Registrar asistencia de cualquier docente (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes?fecha=&docenteId=` | Consultar asistencias de docentes (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/asistencias-docentes/{asistenciaId}` | Consultar una asistencia docente (solo ADMINISTRADOR) |
@@ -117,6 +144,10 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/horarios/secciones/{id}/sesiones` | Asignar bloque, día, área, docente y aula (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/horarios/secciones/{id}/sesiones/validar` | Validar una asignación sin guardarla |
 | `PUT/DELETE` | `/api/v1/horarios/secciones/{id}/sesiones/{sesionId}` | Editar o retirar una asignación (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/horarios/auditoria` | Consultar el historial de cambios de horarios (solo ADMINISTRADOR) |
+| `POST/GET/DELETE` | `/api/v1/calendario-escolar/dias-no-lectivos` y `/{id}` | Administrar y consultar días no lectivos |
+| `GET` | `/api/v1/apoderados/alertas-riesgo-academico` | Consultar alertas de riesgo académico de estudiantes vinculados |
+| `GET/PUT` | `/api/v1/estudiantes/{estudianteId}/libreta/comentario-periodo` | Consultar o actualizar comentario del período en la libreta |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos` | Listar periodos con filtros de año, grado o sección |
 | `POST/PUT` | `/api/v1/periodos/anhio` | Abrir o actualizar periodos académicos de un año |
@@ -142,13 +173,19 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/boletas-pension/{id}/comprobantes` | Consultar comprobantes de una boleta |
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
 | `GET` | `/api/v1/reportes/boletas-pension/pagina` | Consultar reporte de cobranza paginado |
+| `GET` | `/api/v1/reportes/cuadro-merito?periodoId={id}` | Ranking de una sección; también admite `gradoId`, `anio` y `seccionId` (solo ADMINISTRADOR, actas cerradas) |
+| `GET` | `/api/v1/reportes/cuadro-merito/pdf` y `/excel` | Descargar el cuadro de mérito con los mismos filtros |
 | `GET` | `/api/v1/logs/errores` | Consultar logs paginados (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/errores/{id}` | Consultar el detalle de un log (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/logs/calificaciones` | Consultar auditoría paginada de calificaciones (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/auditoria-finanzas` | Consultar auditoría paginada de transacciones y pagos (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/panel/administrador` | Resumen del panel del administrador: pendientes, indicadores, cobranza del año, ocupación por grado y actividad reciente (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/auditoria-finanzas/resumen` | Totales de eventos, pagos y monto cobrado con los mismos filtros |
+| `GET` | `/api/v1/auditoria-finanzas/csv` | Exportar a CSV todos los eventos filtrados |
 
 ### Asistencia de alumnos y docentes (US-2.1, US-2.3 y US-2.4)
 
-Las sesiones se crean con sección, área, docente, fecha y horas. Un alumno solo puede tener un registro por sesión. DOCENTE y ADMINISTRADOR pueden registrar y ajustar estados (`PRESENTE`, `AUSENTE`, `TARDANZA`, `JUSTIFICADA` o `PENDIENTE_MARCAJE`). La creación de sesiones está restringida a ADMINISTRADOR.
+Las sesiones se crean con sección, área, docente, fecha y horas. Al iniciar la aplicación se materializan automáticamente las sesiones pendientes desde hoy hasta el fin de cada período activo que tenga horario; el administrador también puede generarlas manualmente. Un alumno solo puede tener un registro por sesión. DOCENTE y ADMINISTRADOR pueden registrar y ajustar estados (`PRESENTE`, `AUSENTE`, `TARDANZA`, `JUSTIFICADA` o `PENDIENTE_MARCAJE`). La creación manual de sesiones está restringida a ADMINISTRADOR.
 
 Para registrar una asistencia, envía `POST /api/v1/sesiones-clase/{sesionId}/asistencias` con:
 
@@ -159,11 +196,11 @@ Para registrar una asistencia, envía `POST /api/v1/sesiones-clase/{sesionId}/as
 }
 ```
 
-El historial se consulta con `GET /api/v1/asistencias-estudiantes/{estudianteId}/historial`, opcionalmente con `desde=YYYY-MM-DD` y `hasta=YYYY-MM-DD`. Un alumno solo puede consultar su propio historial; un apoderado, el de los alumnos con quienes tiene un vínculo familiar activo. DOCENTE y ADMINISTRADOR pueden consultar cualquier historial.
+El historial se consulta con `GET /api/v1/asistencias-estudiantes/{estudianteId}/historial`, opcionalmente con `desde=YYYY-MM-DD` y `hasta=YYYY-MM-DD`. Un alumno solo puede consultar su propio historial; un apoderado, el de los alumnos con quienes tiene un vínculo familiar activo. Un docente solo puede consultar los registros de secciones que dicta; ADMINISTRADOR puede consultar cualquier historial.
 
 Para justificar una inasistencia registrada como `AUSENTE`, alumno o apoderado envía `PATCH /api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` como `multipart/form-data`, con las partes `motivo` y `documento`. El archivo se guarda usando el almacenamiento de evidencias (`app.storage.evidence-dir`, máximo 10 MB); el historial devuelve la URL para descargarlo. La justificación cambia el estado a `JUSTIFICADA`.
 
-La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
+La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión no cancelada del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
 
 Cada DOCENTE marca su propia jornada con la fecha y la hora **del servidor** (el cliente no envía cuerpo ni hora):
 
@@ -181,10 +218,11 @@ La ventana para marcar asistencia de alumnos y la tolerancia docente se configur
 | --- | ---: | --- |
 | `ASISTENCIA_VENTANA_MARCADO_ANTES_MINUTOS` | `15` | Minutos antes del inicio de sesión en que se abre el marcaje |
 | `ASISTENCIA_VENTANA_MARCADO_DESPUES_MINUTOS` | `30` | Minutos después del inicio en que se cierra el marcaje |
+| `ASISTENCIA_VENTANA_DOCENTE_DESPUES_MINUTOS` | `30` | Minutos después del inicio de la primera sesión en que se cierra el marcaje de entrada docente |
 | `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
 | `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` | `30` | Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada |
 
-Los límites de apertura y cierre del marcaje son inclusivos. Un administrador puede ajustar una asistencia ya registrada fuera de esa ventana.
+Los límites de apertura y cierre del marcaje son inclusivos. Los docentes deben respetar la ventana tanto al registrar como al corregir asistencias; solo un administrador puede ajustar una asistencia ya registrada fuera de esa ventana. Las asistencias `JUSTIFICADA` conservan su motivo y documento y no pueden cambiarse desde los endpoints de registro o ajuste.
 
 ### Secciones y vacantes (US-1.7)
 
@@ -195,6 +233,7 @@ Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/seccione
   {
     "id": 12,
     "gradoNumero": 1,
+    "nivelEducativo": "SECUNDARIA",
     "nombre": "A",
     "vacantesTotales": 30,
     "cantidadMatriculados": 2,
@@ -207,13 +246,14 @@ Las tres rutas de secciones requieren rol `ADMINISTRADOR`. `GET /api/v1/seccione
 
 `vacantesDisponibles` es la capacidad total menos `cantidadMatriculados`, con mínimo cero. Si una sección antigua tiene capacidad nula o no positiva, el listado la representa como `0` y `0` vacantes disponibles para que una fila inválida no interrumpa el resto del listado.
 
-`POST /api/v1/secciones` crea una sección para un grado de secundaria entre 1 y 5. El nombre debe contener una o dos letras mayúsculas; la capacidad debe ser un entero positivo.
+`POST /api/v1/secciones` crea una sección en `INICIAL`, `PRIMARIA` o `SECUNDARIA`. Requiere grado, nivel, nombre y capacidad. Si se omite `nivelEducativo`, se mantiene compatibilidad con solicitudes antiguas usando `SECUNDARIA`. El nombre debe contener una o dos letras mayúsculas; la capacidad debe ser un entero positivo.
 
 ```json
 {
   "gradoNumero": 1,
   "nombre": "A",
-  "vacantesTotales": 30
+  "vacantesTotales": 30,
+  "nivelEducativo": "SECUNDARIA"
 }
 ```
 
@@ -258,7 +298,7 @@ Las rutas `/api/v1/aulas` y `/api/v1/horarios/secciones` requieren el rol `ADMIN
 }
 ```
 
-`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`.
+`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que no puede alojar todas las vacantes de la sección (o los matriculados si son más) responde `422`. Al subir la capacidad de una sección o reducir la de un aula, el backend vuelve a validar las asignaciones vigentes y rechaza el cambio si alguna aula quedaría chica. Al agregar una asignación semanal, se generan de inmediato las ocurrencias para los períodos activos de ese horario; el proceso idempotente de inicio recupera las ocurrencias pendientes, y `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. Las ocurrencias asignadas a docentes inactivos se omiten y se contabilizan sin impedir las demás sesiones del período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
 
 ### Autenticación
 
@@ -290,7 +330,7 @@ Respuesta `200`:
 }
 ```
 
-Contraseña incorrecta, cuenta inexistente, inactiva o bloqueada producen `401` con el mismo mensaje: `Credenciales inválidas`. Para reducir diferencias de tiempo que podrían revelar si el usuario existe, el backend también ejecuta una verificación BCrypt ficticia al rechazar cuentas inexistentes, inactivas o bloqueadas. Los datos de login vacíos producen `400`.
+Una contraseña incorrecta para una cuenta activa produce `401` con `Credenciales inválidas`. Según la decisión del equipo documentada en el caso BE-01b, un username o correo sin cuenta asociada devuelve `401` con `No encontramos una cuenta con ese usuario o correo.`; este mensaje permite distinguir una cuenta inexistente. Para reducir diferencias de tiempo, en ese caso el backend ejecuta una verificación BCrypt ficticia. Una cuenta inactiva devuelve un mensaje específico solo cuando la contraseña es correcta; una cuenta bloqueada devuelve `Tu cuenta está bloqueada temporalmente. Intenta más tarde.` Los datos de login vacíos producen `400`.
 
 #### `GET /api/v1/auth/me`
 
@@ -305,6 +345,8 @@ No recibe parámetros ni cuerpo. Requiere JWT y responde `200` con el objeto `us
 ### Cuentas de usuario
 
 `POST /api/v1/cuentas-usuario`, `GET /api/v1/cuentas-usuario`, `PUT /api/v1/cuentas-usuario/{id}` y `PATCH /api/v1/cuentas-usuario/{id}/estado` están restringidos al rol `ADMINISTRADOR`. El alta recibe DNI, nombres, `username` (identificador de acceso, máximo 50 caracteres y solo letras ASCII/números), `correo` (correo de contacto, obligatorio y válido), contraseña y rol. El username no puede contener símbolos, espacios ni formato de correo y debe ser único sin distinguir mayúsculas; el correo de contacto también debe ser único entre cuentas. La contraseña debe tener al menos 8 caracteres, incluir una letra minúscula, una mayúscula, un dígito y un símbolo, y ocupar como máximo 72 bytes UTF-8. Al crear una cuenta ALUMNO o APODERADO también crea su perfil correspondiente. La contraseña se almacena con BCrypt. La consulta devuelve separados `username` y `correo`, datos personales y estado activo. La actualización permite cambiar datos personales, username y correo por separado; conserva DNI, rol y contraseña. El cambio de estado recibe `{ "activo": true|false }`, devuelve la cuenta actualizada y registra el cambio en auditoría. No se permite al administrador desactivar su propia cuenta. La carga CSV corresponde a US-5.9.
+
+`PATCH /api/v1/cuentas-usuario/{id}/rol` recibe `{ "rol": "DOCENTE" }`, actualiza la cuenta, crea o reactiva el perfil del rol cuando corresponda y registra el cambio en auditoría. No permite cambiar el rol de la cuenta administradora autenticada.
 
 El login público recibe `{ "username": "identificador", "password": "..." }` y admite como identificador el username o el correo de contacto. Si un correo está asociado a más de una cuenta, no se usa como identificador alternativo. El filtro JWT sigue identificando el token por username. El login y el filtro JWT rechazan las cuentas inactivas, por lo que la desactivación surte efecto también para tokens emitidos previamente.
 
@@ -376,13 +418,13 @@ El cuerpo de creación y actualización es equivalente al de área, con `areaCod
 }
 ```
 
-Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las quita. Las competencias se desactivan de forma lógica. La baja por `PATCH /estado` o `DELETE` responde `409` si la competencia tiene calificaciones finales o parciales; `tieneNotasRegistradas` refleja ambas modalidades e incluye registros históricos desactivados.
+Al actualizar, omitir `areaCodigos` conserva las relaciones; enviarlo vacío las quita. Las competencias se desactivan de forma lógica, incluso si tienen calificaciones; no se borran sus notas. `tieneNotasRegistradas` refleja calificaciones finales y parciales, incluidos registros históricos desactivados. Al cerrar un período, el sistema guarda una copia del catálogo activo y de sus relaciones; la libreta oficial usa esa copia aunque el catálogo se edite después.
 
 ### Estudiantes
 
 #### `POST /api/v1/estudiantes`
 
-Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO` y sus vínculos familiares en una sola transacción. No se recibe el rol en el cuerpo; la contraseña se almacena con BCrypt. Admite DNI de 8 dígitos o pasaporte alfanumérico de 6 a 12 caracteres. Devuelve `201` con:
+Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO`, sus vínculos familiares y las cuentas `APODERADO` que hagan falta en una sola transacción. No se recibe el rol en el cuerpo; las contraseñas se almacenan con BCrypt. Admite DNI de 8 dígitos o pasaporte alfanumérico de 6 a 12 caracteres. Devuelve `201`; cuando se crea una cuenta de apoderado incluye su username y contraseña temporal de un solo envío en `cuentasApoderados` (si ya tenía cuenta APODERADO, se reutiliza y no se devuelve contraseña):
 
 ```json
 {
@@ -391,7 +433,10 @@ Crea una Persona, un perfil de estudiante, una cuenta nueva con rol `ALUMNO` y s
   "username": "alumno01",
   "rol": "ALUMNO",
   "dni": "12345678",
-  "nombreCompleto": "Ana Pérez Rojas"
+  "nombreCompleto": "Ana Pérez Rojas",
+  "cuentasApoderados": [
+    { "dni": "87654321", "username": "usuario87654321", "contrasenhaTemporal": "Temporal1!xYz" }
+  ]
 }
 ```
 
@@ -422,6 +467,14 @@ Lista estudiantes activos y sus matrículas en una página. Acepta filtros opcio
 #### `POST /api/v1/estudiantes/{cuentaUsuarioId}/asignar`
 
 `cuentaUsuarioId` es el ID entero de una cuenta existente. No recibe cuerpo. Asigna el rol `ALUMNO` y crea el perfil de estudiante asociado a la Persona de la cuenta; responde `200` con la misma estructura de `EstudianteResponse`. La cuenta debe existir y estar vinculada a una Persona. Si no existe, responde `404`; si no tiene Persona o ya tiene perfil de estudiante, responde `400` o `409`.
+
+#### Vínculos de apoderados
+
+Las tres rutas de vínculos requieren rol `ADMINISTRADOR`. `GET /api/v1/estudiantes/{estudianteId}/apoderados` lista los vínculos activos. `POST` en la misma ruta recibe documento, nombres, apellidos, celular, correo opcional, parentesco y `esPrincipal`. Nombres, apellidos y celular solo son obligatorios si la persona aún no existe (`400` "Para un apoderado nuevo, …"); si ya existe, se conservan sus datos guardados y basta con documento, parentesco y `esPrincipal`. Valida celulares de 7 a 15 dígitos, con `+` opcional y sin separadores; crea o reutiliza la Persona y el perfil APODERADO, crea una cuenta `APODERADO` si no existe y responde `201`. Para cuentas nuevas devuelve `username` y `contrasenhaTemporal` en esa respuesta; la contraseña solo se muestra al crearla. El username se genera como `usuario` más el documento.
+
+`PUT /api/v1/estudiantes/{estudianteId}/apoderados/{apoderadoId}` recibe `{ "parentesco": "MADRE", "esPrincipal": true }` y permite editar el vínculo y, opcionalmente, los datos de contacto (`nombres`, `apellidoPaterno`, `apellidoMaterno`, `celular`, `correoElectronico`). Al marcar uno como principal, los demás vínculos activos dejan de ser principales. Si el estudiante todavía no tiene vínculos, el `POST` permite crear el primero; debe marcarse principal para poder confirmar su matrícula. Las rutas de vínculos responden `404` si el estudiante o vínculo no existe y `409` si el apoderado ya está vinculado. Quitar la condición de principal al apoderado principal responde `409`: se cambia designando a otro.
+
+`POST /api/v1/estudiantes/{estudianteId}/apoderados/verificacion` recibe `{ "tipoDocumento": "DNI", "numeroDocumento": "40111222" }` en el cuerpo (no en la URL, para que el documento no quede en logs ni historial) y solo busca coincidencias exactas. Responde `existe`, `puedeVincularse`, `motivo` y `tieneCuenta`; el nombre y el contacto **enmascarado** (`9••••4321`, `m•••@correo.com`) solo se devuelven cuando la persona ya es o puede ser apoderado de ese estudiante. Si tiene una cuenta de otro rol, si el tipo de documento no coincide o si es el propio estudiante, responde `puedeVincularse: false` con el motivo y sin datos personales. Cada consulta queda en `registros_auditoria` con la acción `CONSULTAR_DOCUMENTO`.
 
 ### Ventana de matrícula (US-1.1)
 
@@ -559,17 +612,41 @@ Si una matrícula no está en registro, no existe o no tiene apoderado principal
 
 ### Logs de errores
 
-`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres. Los errores internos 500 conservan su traza en el log, pero no la devuelven al cliente.
+`GET /api/v1/logs/errores` y `GET /api/v1/logs/errores/{id}` están restringidos a `ADMINISTRADOR`. La lista admite filtros opcionales `nivel`, `modulo`, `desde` y `hasta`, fechas ISO `YYYY-MM-DD` y paginación Spring (`page`, `size`, `sort`). El tamaño predeterminado es 20 y el máximo es 100. Solo se persisten errores 5xx; las respuestas 4xx, incluidas las de autenticación y rutas inexistentes, se registran en el log de aplicación, no en esta tabla. La purga diaria elimina registros con más de 90 días. La lista omite la traza; el detalle la incluye cuando fue capturada. Las trazas se truncan a 4000 caracteres y no se devuelven al cliente.
 
 ### Auditoría de cambios de calificaciones
 
-`GET /api/v1/logs/calificaciones` está restringido a `ADMINISTRADOR` y devuelve los cambios más recientes primero, paginados (20 por página por defecto). Admite filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo` y `tipo` (`FINAL` o `PARCIAL`).
+`GET /api/v1/logs/calificaciones` está restringido a `ADMINISTRADOR` y devuelve los cambios más recientes primero, paginados (20 por página por defecto). Admite filtros opcionales `periodoId`, `matriculaId`, `estudianteId`, `competenciaCodigo`, `tipo` (`FINAL` o `PARCIAL`) y `accion` (`RECTIFICACIONES`, `REGISTROS` o `AUTOMATICAS`).
 
 Cada registro identifica usuario, rol, fecha/hora, acción y los valores anteriores/nuevos. En calificaciones finales se guardan nota, puntaje consolidado, indicador de consolidación y observación; en las parciales, nota y estado de justificación. También se auditan los resultados recalculados, la materialización de faltantes al cerrar actas y las calificaciones parciales desactivadas junto con una evaluación. Los eventos se conservan en `auditoria_calificaciones`, separada de las tablas académicas y sin una operación de edición o borrado expuesta por la API.
 
+### Tareas del alumno (US-3.9, US-3.10)
+
+- El alumno ve solo las tareas de las secciones donde tiene matrícula confirmada en el período vigente (o el más reciente si no hay uno en curso), con área, docente del horario, consigna, fecha límite y ponderación.
+- Estado: `ENTREGADA` si la entrega está cumplida; `VENCIDA` si pasó la fecha límite sin entrega; si no, `PENDIENTE`. La hora se toma del reloj de la aplicación (`America/Lima`).
+- Entrega: multipart con la parte `archivo`, máximo 10 MB y extensiones `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`, `jpg`, `jpeg`, `png` o `zip`. Antes de la fecha límite se puede reemplazar el archivo; después responde `422`.
+- `entregas_tarea.origen` indica si la registró el `ALUMNO` (con archivo) o el `DOCENTE` (marcado manual). Si el docente revierte una entrega, el archivo se conserva para consulta y el alumno puede volver a entregar si no venció.
+
+### Rectificación de calificaciones (US-3.6)
+
+Registrar una nota que ya existe para la misma matrícula, competencia y bimestre es una **rectificación**:
+
+- `motivo` es obligatorio (10 a 500 caracteres); sin él responde `422`. En el primer registro no se pide.
+- Si la nota, la observación, el bimestre y la evidencia son iguales a los actuales responde `422` con "No hay cambios que guardar".
+- Si no se envía evidencia nueva se conserva la actual; en el primer registro la evidencia sigue siendo obligatoria.
+- Queda en `auditoria_calificaciones` con la acción `RECTIFICAR` y el motivo. Las notas parciales siguen la misma regla cuando cambia la nota o la justificación.
+- `CalificacionResponse.rectificaciones` indica cuántas veces se rectificó la nota y `GET /api/v1/calificaciones/{id}/historial` devuelve sus movimientos, del más reciente al más antiguo.
+- Con las actas cerradas no se puede rectificar, y el docente solo accede a las competencias que dicta.
+
+### Auditoría de transacciones y pagos (US-5.4)
+
+`GET /api/v1/auditoria-finanzas` está restringido a `ADMINISTRADOR` y devuelve los eventos más recientes primero, paginados (20 por página por defecto, máximo 100). Admite filtros opcionales `desde` y `hasta` (fechas ISO, día completo), `accion` (`COMPROMISO_GENERADO`, `BOLETA_GENERADA`, `PAGO_REGISTRADO`, `BOLETA_EN_MORA`), `medioPago`, `estudiante` (nombre o DNI), `gradoId`, `seccionId`, `comprobante` y `boletaId`. `/resumen` devuelve los totales con los mismos filtros y `/csv` exporta todos los eventos filtrados.
+
+Cada evento se guarda en `auditoria_finanzas` con los datos tal como estaban en ese momento: usuario y rol, estudiante, grado y sección, apoderado titular del compromiso, boleta y mes, estado anterior y nuevo, monto, medio de pago y número de comprobante. La generación automática de boletas y el paso a mora del proceso diario se registran con el usuario `SISTEMA`. El registro empieza con la migración V36; los textos anteriores de `registros_auditoria` no se convierten.
+
 ### Pensiones y cobranza (US-1.3–US-1.6, US-1.10, US-1.12)
 
-Todas las rutas de este módulo requieren rol `ADMINISTRADOR`. La confirmación de matrícula crea el compromiso asociado a la matrícula y una primera boleta automática. Las cuotas dividen el monto total en partes de dos decimales; cualquier residuo de redondeo se asigna a la última cuota. Las siguientes boletas se generan con el proceso diario, que también marca como `EN_MORA` las boletas `PENDIENTE` cuyo vencimiento ya pasó. La mora no agrega recargo monetario porque no hay una regla de penalidad configurada.
+Todas las rutas de este módulo requieren rol `ADMINISTRADOR`. La confirmación de matrícula crea el compromiso asociado a la matrícula y una primera boleta automática. Las cuotas dividen el monto total en partes de dos decimales; cualquier residuo de redondeo se asigna a la última cuota. Las siguientes boletas se generan con el proceso diario de la 01:10 (hora de Lima), que también marca como `EN_MORA` las boletas `PENDIENTE` cuyo vencimiento ya pasó. Al iniciar la aplicación se ejecuta un catch-up idempotente para generar las cuotas vencidas del cronograma y aplicar la mora acumulada mientras estuvo apagada. La mora no agrega recargo monetario porque no hay una regla de penalidad configurada.
 
 `GET /api/v1/compromisos-pago?estudianteId=31` lista compromisos; `GET /api/v1/compromisos-pago/{id}` consulta uno. Las boletas se consultan mediante `GET /api/v1/boletas-pension` con filtros opcionales `estudianteId`, `periodoId`, `mes` (`YYYY-MM`) y `estado` (`PENDIENTE`, `PAGADA`, `EN_MORA`). `GET /api/v1/boletas-pension/{id}` consulta el detalle.
 
@@ -591,7 +668,13 @@ Al aceptar el pago, la boleta pasa a `PAGADA` y se crea un comprobante. Un monto
 
 El reporte `GET /api/v1/reportes/boletas-pension` admite `gradoId`, `seccionId`, `estado`, `vencimientoDesde` y `vencimientoHasta` (`YYYY-MM-DD`). Devuelve las boletas filtradas, `montoPendiente` y la cantidad de `familiasMorosas` distintas incluidas en el resultado. Un rango de fechas invertido responde `422`.
 
-US-1.12 queda cubierto como registro del pago y emisión del comprobante. Este backend no integra una pasarela externa; el pago `VIRTUAL` registrado por esta ruta se considera verificado por el administrador.
+### Pagos del apoderado (US-1.8, US-1.12)
+
+Las rutas `/api/v1/apoderados/mis-pagos` están restringidas a `APODERADO` y solo devuelven o modifican datos de los estudiantes vinculados a su cuenta (`403` en otro caso). `GET` devuelve, por hijo, cada compromiso vigente con su situación (`AL_DIA`, `CON_PENDIENTES` o `CON_MORA`), montos pagado y por pagar, conteo de cuotas pagadas, en mora, pendientes y por emitir, fecha de la próxima emisión y las boletas ya emitidas con su comprobante. Las cuotas aún no emitidas solo se cuentan; no se crean boletas por adelantado.
+
+`POST /pagos` recibe `{ "boletaIds": [12, 13] }`. El pago simulado está deshabilitado por defecto (`app.pagos.simulado.enabled=false`) y responde `503`; solo se puede habilitar explícitamente para pruebas con `PAGOS_SIMULADO_ENABLED=true`. No procesa un cobro real y no debe habilitarse en producción. Cuando está habilitado, paga todas las boletas en una sola transacción, emite un comprobante `VIRTUAL` con referencia `SIM-…` por boleta y deja auditoría con el apoderado como responsable. `GET /comprobantes/{id}/pdf` genera el comprobante en PDF, que aclara que no es un comprobante electrónico de SUNAT.
+
+El pago administrativo de `POST /api/v1/boletas-pension/{id}/pagos` se mantiene: un pago `VIRTUAL` registrado por esa ruta se considera verificado por el administrador.
 
 ## Estructura
 
@@ -772,6 +855,8 @@ En Fedora y Windows se usa MySQL Connector/J con el prefijo `jdbc:mysql:`.
 | `MAIL_USERNAME` | Cuenta SMTP para la recuperación de contraseña | Vacío |
 | `MAIL_PASSWORD` | Contraseña SMTP (en Gmail, una contraseña de aplicación) | Vacío |
 
+Al iniciar, el backend ejecuta catch-up de finanzas y sesiones automáticamente. Puede desactivarse con `APP_JOBS_CATCH_UP_ON_STARTUP=false` (propiedad `app.jobs.catch-up-on-startup`).
+
 ## Verificación manual
 
 Con la base de datos activa y las variables configuradas, inicia la aplicación con `./mvnw spring-boot:run` en Linux/macOS o ` .\mvnw.cmd spring-boot:run` en PowerShell. Flyway aplica las migraciones disponibles y Hibernate valida las entidades contra las tablas. Si el inicio falla, revisa el primer `Caused by` en el log: puede indicar una variable faltante, un error de conexión o un esquema incompatible.
@@ -797,14 +882,14 @@ curl http://localhost:8080/api/v1/auth/me \
 
 El proyecto cuenta con pruebas unitarias y de integración para autenticación y recuperación, cuentas y carga CSV, catálogo, estudiantes y matrícula, finanzas, asistencia de estudiantes y docentes, aulas y horarios, consolidación de notas, libretas, autorización y registros de error. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
 
-`verify` ejecuta también `spotless:check` y JaCoCo. JaCoCo genera el reporte en `target/site/jacoco/index.html` y falla el build si la cobertura de líneas de `pe.edu.pucp.colegio.security.service.impl` es menor al 70 %.
+`verify` ejecuta también `spotless:check` y JaCoCo 0.8.15. JaCoCo genera el reporte en `target/site/jacoco/index.html` y falla el build si la cobertura de líneas de `pe.edu.pucp.colegio.security.service.impl` o `pe.edu.pucp.colegio.common.service` es menor al 70 %. En CI se valida que ambos paquetes tengan clases en `jacoco.csv`, se publica un resumen de instrucciones y ramas y se sube el reporte como `reporte-cobertura`.
 
 ```bash
 ./mvnw test       # ejecuta las pruebas
 ./mvnw verify     # pruebas, formato y umbral de cobertura
 ```
 
-## Estado actual de historias — Sprint 1 y Sprint 2
+## Estado actual de historias — Sprints 1, 2 y 3
 
 La tabla usa dos estados:
 
@@ -817,35 +902,54 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | --- | --- |
 | US-1.1 Ventana de matrícula | **Completa**: permite configurar, consultar, editar y dar de baja ventanas; muestra estados `PENDIENTE`, `VIGENTE` y `VENCIDO`, valida superposiciones y el backend bloquea matrículas fuera de vigencia. |
 | US-1.2 Registro y asignación de estudiantes | **Completa**: alta de estudiantes y apoderados, listado filtrado/paginado, matrícula por periodo, confirmación y retiro lógico. |
-| US-1.7 Vacantes por grado y sección | **Completa**: capacidad, vacantes disponibles y rechazo de una reducción inferior a la ocupación activa. |
-| US-1.9 Datos de apoderados | **Parcial**: el alta de estudiantes y la carga CSV registran o actualizan datos y vínculos familiares; no hay una pantalla o ruta independiente para editar un vínculo existente. |
-| US-3.5 Áreas y competencias | **Completa**: CRUD y baja lógica; la baja de una competencia se bloquea con `409` cuando existen calificaciones finales o parciales, y `tieneNotasRegistradas` refleja esos registros. |
+| US-1.7 Vacantes por grado y sección | **Completa**: capacidad y disponibilidad por sección en Inicial, Primaria y Secundaria, con rechazo de reducciones inferiores a la ocupación activa. |
+| US-1.9 Datos de apoderados | **Completa**: alta y edición de vínculos, verificación previa del documento con contacto enmascarado y auditoría, correo validado y teléfono en formato internacional; las altas crean cuentas APODERADO cuando faltan y el principal no puede quedar vacío. La interfaz administra los apoderados de cada estudiante desde el listado y muestra las credenciales de las cuentas nuevas. |
+| US-3.5 Áreas y competencias | **Completa**: CRUD y baja lógica de competencias aunque tengan calificaciones; las libretas oficiales conservan el catálogo y las relaciones vigentes al cierre del período. |
 | US-4.3 Bloques y franjas horarias | **Completa**: plantillas, bloques y recreos calculados, con validación de duración y estado; la interfaz permite administrar plantillas. |
 | US-5.1 Baja lógica de usuarios | **Completa**: se conserva el historial y una cuenta inactiva no puede iniciar sesión ni usar tokens previos. |
-| US-5.2 Usuarios, roles y permisos | **Parcial**: los cuatro roles tienen permisos fijos en los módulos existentes y se asignan al crear la cuenta; la edición no permite cambiar el rol ni configurar permisos. |
+| US-5.2 Usuarios, roles y permisos | **Completa según criterios**: permite asignar los cuatro roles y restringe rutas por rol; los cambios de rol se auditan. La configuración granular de permisos por cuenta no está en los criterios de aceptación. |
 | US-5.5 Log de errores | **Completa**: captura y consulta administrativa con filtros, paginación y detalle. |
 | US-5.6 Inicio de sesión y recuperación | **Parcial**: inicio de sesión, bloqueo y recuperación están implementados en backend e interfaz, pero completar la recuperación requiere configurar y probar un servicio de correo accesible. |
-| US-5.7 Política mínima de contraseña | **Completa**: altas de cuentas, registro de estudiantes y restablecimiento validan al menos 8 caracteres, minúscula, mayúscula, dígito, símbolo y un máximo de 72 bytes UTF-8 compatible con BCrypt; las contraseñas siguen almacenándose con BCrypt. |
-| US-5.9 Carga masiva CSV | **Completa**: carga por filas, altas/actualizaciones, perfiles y vínculos familiares; hay pantalla para cargar y revisar resultados. |
+| US-5.7 Política mínima de contraseña | **Parcial**: hay reglas fijas de complejidad y almacenamiento BCrypt; la configuración administrativa y la caducidad siguen pendientes. |
+| US-5.9 Carga masiva CSV | **Completa**: carga por filas, validación de conflictos, altas/actualizaciones, perfiles y vínculos familiares; hay pantalla para cargar y revisar resultados. |
 | US-1.3 Compromiso de pago | **Completa**: se crea al confirmar la matrícula con monto, cuotas y vencimientos. |
 | US-1.4 Boletas de pensión | **Completa**: primera boleta al confirmar y generación automática diaria y manual idempotente. |
 | US-1.5 Estados de boletas | **Completa**: consulta, registro administrativo de pago y emisión de comprobante. |
 | US-1.6 Morosidad | **Completa**: el proceso diario marca como `EN_MORA` las boletas vencidas impagas; la historia no incluye recargo monetario. |
 | US-1.10 Reporte de cobranza | **Completa**: filtros por grado, sección, estado y fechas; incluye monto pendiente y familias morosas distintas. |
-| US-1.12 Pago en línea | **Parcial**: la interfaz y API registran un pago como verificado por administración; no hay integración con una pasarela externa. |
-| US-2.1 Asistencia de estudiantes por sesión | **Completa**: creación de sesiones, listas, registro en bloque o individual, ajustes e historial. |
-| US-2.3 Marcaje de entrada y salida docente | **Completa**: marcaje propio sujeto a las ventanas de tiempo configuradas. |
-| US-2.4 Gestión de asistencia docente | **Completa**: consulta, registro y ajuste administrativo con motivo. |
+| US-1.8 Pagos del apoderado | **Completa**: compromisos y boletas emitidas de los hijos vinculados, situación del compromiso anual, estado por boleta y descarga del comprobante en PDF. |
+| US-1.12 Pago en línea | **En proceso**: el flujo simulado está deshabilitado por defecto y solo se conserva como opción explícita de prueba. Falta integrar una pasarela real y verificar su confirmación antes de marcar boletas como pagadas. |
+| US-2.1 Asistencia de estudiantes por sesión | **Completa**: registro de docentes dentro de la primera hora de clase y con marcaje docente de presencia; administración puede corregir fuera de la ventana. |
+| US-2.3 Marcaje de entrada y salida docente | **Completa**: marcaje propio sujeto a apertura previa y cierre 30 minutos después del inicio de la primera sesión. |
+| US-2.4 Gestión de asistencia docente | **Completa**: consulta, registro y ajuste administrativo con motivo obligatorio para estados que requieren justificación. |
+| US-1.11 Recordatorio de pago próximo | **Completa**: el panel familiar muestra avisos configurables para boletas pendientes próximas a vencer, con monto y fecha límite; al registrarse el pago, el aviso desaparece. |
+| US-2.2 Carga masiva de asistencia de alumnos | **Completa**: docentes y administración descargan la plantilla de la sesión, validan el CSV con errores por fila antes de guardar y registran la asistencia en lote desde el detalle de la sesión. |
+| US-2.5 Carga masiva de asistencia de docentes | **Completa**: administración descarga una plantilla, valida el CSV con errores por fila antes de guardar y registra o actualiza marcajes en lote; la pantalla está integrada con el backend. |
+| US-2.8 Justificación de inasistencia | **Completa**: alumno o apoderado vinculado adjunta motivo y documento; el cambio se registra en el historial. |
+| US-2.9 Configuración de marcaje docente | **Completa**: configuración persistida de ventana y tolerancia, expuesta para administración. |
 | US-3.1 Reglas de consolidación | **Completa**: umbrales configurables por competencia. |
 | US-3.2 Calificaciones por competencia | **Completa**: evaluaciones parciales ponderadas, calificaciones cualitativas y auditoría de cambios. |
 | US-3.3 Libretas e informes de progreso | **Completa**: consulta de libreta y descarga PDF, con cierre de actas y modo preliminar. |
-| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área, con umbral de 1 a 5 notas finales `C`; devuelve el conteo por alumno y el resumen de riesgo. |
-| US-3.7 Seguimiento de tareas | **Completa**: creación de tareas y actualización/consulta de entregas por matrícula. |
+| US-3.4 Detección de riesgo académico | **Completa**: endpoint docente por período y área; el umbral global persistido (inicialmente 1) marca riesgo cuando las notas `C` manuales o parciales del bimestre actual superan ese valor. Solo administración puede cambiarlo. |
+| US-3.7 Seguimiento de tareas | **Completa**: las entregas se crean para las matrículas confirmadas, incluso cuando se confirman después de crear la tarea. |
+| US-3.6 Rectificación de calificaciones | **Completa**: motivo obligatorio al cambiar una nota final o parcial, acción `RECTIFICAR` con motivo en la auditoría, historial por calificación y conservación de la evidencia. |
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
+| US-3.9 Tareas del alumno | **Completa**: lista solo las tareas de las secciones del alumno con estado Pendiente, Entregada o Vencida. |
+| US-3.10 Entrega de tareas | **Completa**: archivo de hasta 10 MB antes de la fecha límite, registro de fecha y hora, reemplazo y descarga para el alumno y el docente. |
+| US-3.11 Alerta académica al apoderado | **Pendiente**: existe detección de riesgo para docentes, pero no alerta en el portal del apoderado. |
+| US-3.12 Comentarios cualitativos en libreta | **Completa**: comentario libre por alumno y período, editable por administración o docente asignado, visible a los usuarios autorizados y añadido al PDF de la libreta. |
+| US-3.13 Cuadro de mérito | **Completa**: ranking por período, condicionado al cierre de actas y disponible para administración. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
-| US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según capacidad y matrícula de la sección. |
-| US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada de cambios y eventos de consolidación/cierre. |
+| US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según vacantes totales y matrícula de la sección; cambios posteriores de capacidad de sección o aula revalidan las asignaciones vigentes. |
+| US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada con nombres de estudiante, competencia y área, además de cambios y eventos de consolidación/cierre. |
+| US-5.4 Auditoría de transacciones y pagos | **Completa**: registro estructurado de compromisos, boletas generadas, pagos y pasos a mora con estado anterior y nuevo, apoderado titular, medio de pago, comprobante y usuario; consulta administrativa paginada con filtros, totales, historial por boleta y exportación CSV. |
+| US-2.6 Reporte de inasistencias y tardanzas | **Completa**: consolidado por rango de fechas, grado y sección con totales de asistencias, tardanzas e inasistencias, para administración y docentes, con exportación a CSV. |
+| US-2.7 Historial de asistencia del alumno o apoderado | **Completa**: historial diario filtrable por fechas, restringido al propio alumno o a los hijos vinculados del apoderado; `mi-ficha` identifica al alumno autenticado. La interfaz ofrece un portal del apoderado (panel por hijo e historial) y un portal del estudiante (panel y calendario mensual con cada clase). |
+| US-4.6 Horario consolidado del docente | **Completa**: grilla única con todas las secciones del docente, con área, grado, sección y aula en cada bloque, y vista semanal o del día actual. |
+| US-4.5 Auditoría de cambios de horario | **Completa**: registro append-only con responsable, fecha, detalle y valores anteriores/nuevos; admite vigencia permanente o temporal con restauración al cerrar el rango y consulta administrativa filtrada por fechas. |
+| US-4.7 Horario vigente de alumno/apoderado | **Completa**: consulta autenticada del horario propio o de hijo vinculado, grilla semanal de solo lectura y actualización periódica de la pantalla. |
+| US-4.8 Exportación de horario | **Completa**: docentes, alumnos y apoderados pueden imprimir o guardar como PDF su horario propio/autorizado con curso, aula, sección y año escolar. |
 
 El inventario de pantallas por rol está en el [README del frontend](https://github.com/EducaShow-TA/workflow-frontend/blob/Development/README.md). La carga de datos manual para explorar varios de estos flujos está en [`postman/README.md`](postman/README.md). La colección de carga prepara un escenario reutilizable; la colección de pruebas ejecuta aserciones automatizadas. Ninguna sustituye la verificación de la interfaz ni cubre por sí sola todos los criterios de aceptación.
 

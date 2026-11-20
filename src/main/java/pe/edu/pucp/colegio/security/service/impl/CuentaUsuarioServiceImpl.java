@@ -16,13 +16,16 @@ import pe.edu.pucp.colegio.common.model.Apoderado;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CambiarRolCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
@@ -36,6 +39,7 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
   private final PersonaRepository personas;
   private final EstudianteRepository estudiantes;
   private final ApoderadoRepository apoderados;
+  private final DocenteRepository docentes;
   private final RegistroAuditoriaRepository auditorias;
   private final PasswordEncoder encoder;
 
@@ -44,12 +48,14 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
       PersonaRepository personas,
       EstudianteRepository estudiantes,
       ApoderadoRepository apoderados,
+      DocenteRepository docentes,
       RegistroAuditoriaRepository auditorias,
       PasswordEncoder encoder) {
     this.cuentas = cuentas;
     this.personas = personas;
     this.estudiantes = estudiantes;
     this.apoderados = apoderados;
+    this.docentes = docentes;
     this.auditorias = auditorias;
     this.encoder = encoder;
   }
@@ -192,6 +198,77 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
           usernameResponsable);
     }
     return aDto(cuenta);
+  }
+
+  @Override
+  @Transactional
+  public CuentaResponseDTO cambiarRol(
+      Integer id, CambiarRolCuentaRequestDTO request, String usernameResponsable) {
+    CuentaUsuario cuenta =
+        cuentas
+            .findById(id)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta no encontrada"));
+    CuentaUsuario responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
+    if (responsable != null && responsable.getId().equals(id)) {
+      throw new ConflictException("No se puede cambiar el rol de la cuenta autenticada");
+    }
+    if (cuenta.getPersona() == null) {
+      throw new ConflictException(
+          "La cuenta debe estar vinculada a una Persona para cambiar su rol");
+    }
+    Rol rolAnterior = cuenta.getRol();
+    if (rolAnterior == request.rol()) {
+      return aDto(cuenta);
+    }
+    asegurarPerfil(cuenta.getPersona(), request.rol());
+    cuenta.setRol(request.rol());
+    auditorias.save(
+        new RegistroAuditoria(
+            responsable == null ? null : responsable.getId(),
+            responsable == null ? null : responsable.getRol().name(),
+            AccionAuditoria.ACTUALIZAR,
+            "Cambio de rol de cuenta "
+                + cuenta.getUsername()
+                + ": "
+                + rolAnterior
+                + " -> "
+                + request.rol()));
+    log.info(
+        "event=cuenta_rol_actualizado id={} rol_anterior={} rol_nuevo={} por={}",
+        id,
+        rolAnterior,
+        request.rol(),
+        usernameResponsable);
+    return aDto(cuenta);
+  }
+
+  private void asegurarPerfil(Persona persona, Rol rol) {
+    if (rol == Rol.ALUMNO) {
+      Estudiante estudiante = estudiantes.findByPersonaDni(persona.getDni()).orElse(null);
+      if (estudiante == null) {
+        estudiante = new Estudiante();
+        estudiante.setPersona(persona);
+      }
+      estudiante.setActive(true);
+      estudiantes.save(estudiante);
+    } else if (rol == Rol.APODERADO) {
+      Apoderado apoderado = apoderados.findByPersonaDni(persona.getDni()).orElse(null);
+      if (apoderado == null) {
+        apoderado = new Apoderado();
+        apoderado.setPersona(persona);
+      }
+      apoderado.setActive(true);
+      apoderados.save(apoderado);
+    } else if (rol == Rol.DOCENTE) {
+      var docente = docentes.findByPersonaId(persona.getId()).orElse(null);
+      if (docente == null) {
+        docente = new pe.edu.pucp.colegio.common.model.Docente();
+        docente.setPersona(persona);
+      }
+      docente.setActive(true);
+      docentes.save(docente);
+    }
   }
 
   private CuentaResponseDTO aDto(CuentaUsuario c) {

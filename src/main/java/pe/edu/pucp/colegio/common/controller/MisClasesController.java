@@ -40,8 +40,7 @@ public class MisClasesController {
   public RiesgoAcademicoResponse riesgoAcademico(
       @PathVariable Integer periodoId,
       @RequestParam String areaCodigo,
-      @RequestParam(defaultValue = "2") int umbral,
       Authentication authentication) {
-    return clases.riesgoAcademico(authentication.getName(), periodoId, areaCodigo, umbral);
+    return clases.riesgoAcademico(authentication.getName(), periodoId, areaCodigo);
   }
 }

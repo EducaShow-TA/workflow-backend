@@ -47,6 +47,8 @@ public class AuditoriaCalificacion {
   @Column(name = "evaluacion_id")
   private Integer evaluacionId;
 
+  @Column private Integer bimestre;
+
   @Column(name = "nota_anterior", length = 2)
   private String notaAnterior;
 
@@ -77,6 +79,9 @@ public class AuditoriaCalificacion {
   @Column(name = "observacion_nueva", length = 1000)
   private String observacionNueva;
 
+  @Column(length = 500)
+  private String motivo;
+
   protected AuditoriaCalificacion() {}
 
   public AuditoriaCalificacion(
@@ -90,6 +95,7 @@ public class AuditoriaCalificacion {
       Integer estudianteId,
       String competenciaCodigo,
       Integer evaluacionId,
+      Integer bimestre,
       String notaAnterior,
       String notaNueva,
       BigDecimal puntajeAnterior,
@@ -110,6 +116,7 @@ public class AuditoriaCalificacion {
     this.estudianteId = estudianteId;
     this.competenciaCodigo = competenciaCodigo;
     this.evaluacionId = evaluacionId;
+    this.bimestre = bimestre;
     this.notaAnterior = notaAnterior;
     this.notaNueva = notaNueva;
     this.puntajeAnterior = puntajeAnterior;
@@ -166,6 +173,10 @@ public class AuditoriaCalificacion {
     return evaluacionId;
   }
 
+  public Integer getBimestre() {
+    return bimestre;
+  }
+
   public String getNotaAnterior() {
     return notaAnterior;
   }
@@ -204,5 +215,13 @@ public class AuditoriaCalificacion {
 
   public String getObservacionNueva() {
     return observacionNueva;
+  }
+
+  public String getMotivo() {
+    return motivo;
+  }
+
+  public void setMotivo(String motivo) {
+    this.motivo = motivo;
   }
 }

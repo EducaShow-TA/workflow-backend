@@ -94,3 +94,8 @@ uploads/evidencias/
 localResources/
 READMELOCAL.md
 .notes/
+
+# --- Despliegue local (no incluir en commits) ---
+/Dockerfile
+/compose.yaml
+/.dockerignore

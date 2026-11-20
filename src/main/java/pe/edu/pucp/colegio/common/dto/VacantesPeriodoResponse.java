@@ -16,4 +16,5 @@ public record VacantesPeriodoResponse(
     long matriculasActivas,
     int vacantesDisponibles,
     boolean hayVacantes,
-    EstadoPeriodo estado) {}
+    EstadoPeriodo estado,
+    boolean actasCerradas) {}

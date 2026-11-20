@@ -11,8 +11,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
-import pe.edu.pucp.colegio.common.audit.NivelLog;
-import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
 import pe.edu.pucp.colegio.common.exception.ErrorRespuestaDTO;
 
 @Component
@@ -20,11 +18,9 @@ public class JwtEntryPoint implements AuthenticationEntryPoint {
 
   private static final Logger log = LoggerFactory.getLogger(JwtEntryPoint.class);
 
-  private final RegistroErrorService registroError;
   private final ObjectMapper json;
 
-  public JwtEntryPoint(RegistroErrorService registroError, ObjectMapper json) {
-    this.registroError = registroError;
+  public JwtEntryPoint(ObjectMapper json) {
     this.json = json;
   }
 
@@ -34,18 +30,7 @@ public class JwtEntryPoint implements AuthenticationEntryPoint {
       throws IOException {
     var cuerpo =
         ErrorRespuestaDTO.de(HttpStatus.UNAUTHORIZED, "No autenticado", request.getRequestURI());
-    try {
-      registroError.registrar(
-          NivelLog.ADVERTENCIA,
-          "AUTH_401",
-          request.getMethod(),
-          request.getRequestURI(),
-          401,
-          cuerpo.message(),
-          null);
-    } catch (RuntimeException ex) {
-      log.error("event=registro_error_no_persistido codigo={}", "AUTH_401", ex);
-    }
+    log.warn("event=authentication_required path={}", request.getRequestURI());
     response.setStatus(HttpStatus.UNAUTHORIZED.value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
     json.writeValue(response.getWriter(), cuerpo);
