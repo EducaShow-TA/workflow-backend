@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,18 +17,13 @@ import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
 import pe.edu.pucp.colegio.common.dto.MiClaseResponse;
 import pe.edu.pucp.colegio.common.dto.RiesgoAcademicoResponse;
 import pe.edu.pucp.colegio.common.model.Area;
-import pe.edu.pucp.colegio.common.model.Calificacion;
-import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
-import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
-import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.ConfiguracionRiesgoAcademicoRepository;
-import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.SesionClaseRepository;
@@ -46,9 +40,7 @@ public class MisClasesService {
   private final PeriodoRepository periodos;
   private final AreaRepository areas;
   private final MatriculaRepository matriculas;
-  private final CalificacionRepository calificaciones;
-  private final CalificacionParcialRepository notasParciales;
-  private final EvaluacionParcialRepository evaluaciones;
+  private final ConteoRiesgoAcademicoService conteoRiesgo;
   private final ConfiguracionRiesgoAcademicoRepository configuracionRiesgo;
   private final Clock clock;
 
@@ -58,9 +50,7 @@ public class MisClasesService {
       PeriodoRepository periodos,
       AreaRepository areas,
       MatriculaRepository matriculas,
-      CalificacionRepository calificaciones,
-      CalificacionParcialRepository notasParciales,
-      EvaluacionParcialRepository evaluaciones,
+      ConteoRiesgoAcademicoService conteoRiesgo,
       ConfiguracionRiesgoAcademicoRepository configuracionRiesgo,
       Clock clock) {
     this.docenteService = docenteService;
@@ -68,9 +58,7 @@ public class MisClasesService {
     this.periodos = periodos;
     this.areas = areas;
     this.matriculas = matriculas;
-    this.calificaciones = calificaciones;
-    this.notasParciales = notasParciales;
-    this.evaluaciones = evaluaciones;
+    this.conteoRiesgo = conteoRiesgo;
     this.configuracionRiesgo = configuracionRiesgo;
     this.clock = clock;
   }
@@ -196,43 +184,17 @@ public class MisClasesService {
             .map(competencia -> competencia.getCodigo())
             .toList();
     int bimestre = BimestreAcademico.actual(periodo, LocalDate.now(clock));
-    Map<Integer, Integer> notasCPorMatricula = new HashMap<>();
-    if (!competencias.isEmpty()) {
-      for (Calificacion nota :
-          calificaciones.findAllByPeriodoIdAndCompetenciaCodigoInAndActiveTrue(
-              periodoId, competencias)) {
-        int bimestreNota =
-            nota.getBimestre() == null
-                ? BimestreAcademico.actual(periodo, nota.getFechaRegistro().toLocalDate())
-                : nota.getBimestre();
-        if (!Boolean.TRUE.equals(nota.getConsolidada())
-            && bimestre == bimestreNota
-            && "C".equalsIgnoreCase(nota.getNota())) {
-          notasCPorMatricula.merge(nota.getMatricula().getId(), 1, Integer::sum);
-        }
-      }
-      List<Integer> evaluacionIds =
-          evaluaciones
-              .findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodoId, bimestre)
-              .stream()
-              .filter(e -> competencias.contains(e.getCompetencia().getCodigo()))
-              .map(e -> e.getId())
-              .toList();
-      if (!evaluacionIds.isEmpty()) {
-        for (CalificacionParcial nota :
-            notasParciales.findAllByEvaluacionIdInAndActiveTrue(evaluacionIds)) {
-          if (!Boolean.TRUE.equals(nota.getJustificada()) && "C".equalsIgnoreCase(nota.getNota())) {
-            notasCPorMatricula.merge(nota.getMatricula().getId(), 1, Integer::sum);
-          }
-        }
-      }
-    }
+    Map<Integer, Map<String, Integer>> notasCPorMatricula =
+        conteoRiesgo.contar(periodo, competencias, bimestre);
     List<AlumnoRiesgoAcademicoResponse> alumnos =
         alumnosDe(periodo).stream()
             .map(
                 matricula -> {
                   Estudiante estudiante = matricula.getEstudiante();
-                  int notasC = notasCPorMatricula.getOrDefault(matricula.getId(), 0);
+                  int notasC =
+                      notasCPorMatricula.getOrDefault(matricula.getId(), Map.of()).values().stream()
+                          .mapToInt(Integer::intValue)
+                          .sum();
                   return new AlumnoRiesgoAcademicoResponse(
                       matricula.getId(),
                       estudiante.getId(),
