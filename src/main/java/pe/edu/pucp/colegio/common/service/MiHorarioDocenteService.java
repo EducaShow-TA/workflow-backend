@@ -42,10 +42,11 @@ public class MiHorarioDocenteService {
     if (docente == null) {
       return List.of();
     }
-    return sesiones
-        .listarHorarioDocente(
-            docente.getId(), anio, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31))
-        .stream()
+    LocalDate desde = LocalDate.of(anio, 1, 1);
+    LocalDate hasta = LocalDate.of(anio, 12, 31);
+    LocalDate hoy = LocalDate.now(java.time.ZoneId.of("America/Lima"));
+    LocalDate fecha = hoy.isBefore(desde) ? desde : hoy.isAfter(hasta) ? hasta : hoy;
+    return sesiones.listarHorarioDocente(docente.getId(), anio, desde, hasta, fecha).stream()
         .map(
             sesion ->
                 new HorarioDocenteResponse(

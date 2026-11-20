@@ -11,6 +11,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -73,6 +75,7 @@ public class HorarioSeccionService {
   private final CuentaUsuarioRepository cuentas;
   private final MatriculaRepository matriculas;
   private final Clock clock;
+  private final AuditoriaHorarioService auditoria;
 
   public HorarioSeccionService(
       HorarioSeccionRepository horarios,
@@ -86,7 +89,8 @@ public class HorarioSeccionService {
       AulaRepository aulas,
       CuentaUsuarioRepository cuentas,
       MatriculaRepository matriculas,
-      Clock clock) {
+      Clock clock,
+      AuditoriaHorarioService auditoria) {
     this.horarios = horarios;
     this.sesiones = sesiones;
     this.sesionesClase = sesionesClase;
@@ -99,6 +103,7 @@ public class HorarioSeccionService {
     this.cuentas = cuentas;
     this.matriculas = matriculas;
     this.clock = clock;
+    this.auditoria = auditoria;
   }
 
   private record Resolucion(BloqueHorario bloque, Area area, Docente docente, Aula aula) {}
@@ -160,7 +165,17 @@ public class HorarioSeccionService {
     sesion.setVigenteDesde(
         primerDiaAnio.isAfter(LocalDate.now(clock)) ? primerDiaAnio : LocalDate.now(clock));
     aplicar(horario, sesion, request, fechaDeConsulta(horario));
-    return respuesta(sesiones.save(sesion));
+    sesion = sesiones.save(sesion);
+    auditoria.registrar(
+        usuarioActual(),
+        horario,
+        "CREACIÓN",
+        null,
+        sesion,
+        "PERMANENTE",
+        sesion.getVigenteDesde(),
+        null);
+    return respuesta(sesion);
   }
 
   @Transactional
@@ -169,10 +184,24 @@ public class HorarioSeccionService {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = buscarSesion(horarioId, sesionId);
     LocalDate hoy = LocalDate.now(clock);
+    if ("TEMPORAL".equalsIgnoreCase(request.tipoVigencia())) {
+      return actualizarTemporalmente(horario, sesion, request, hoy);
+    }
     if (sesion.getVigenteDesde().isAfter(hoy)) {
+      SesionHorario anterior = copia(sesion);
       aplicar(horario, sesion, request, fechaDeConsulta(horario));
       actualizarOcurrenciasFuturas(sesion, hoy);
-      return respuesta(sesiones.save(sesion));
+      sesion = sesiones.save(sesion);
+      auditoria.registrar(
+          usuarioActual(),
+          horario,
+          "ACTUALIZACIÓN",
+          anterior,
+          sesion,
+          "PERMANENTE",
+          sesion.getVigenteDesde(),
+          sesion.getVigenteHasta());
+      return respuesta(sesion);
     }
 
     LocalDate vigenciaNueva = hoy.plusDays(1);
@@ -181,6 +210,7 @@ public class HorarioSeccionService {
           "La asignación tiene sesiones fechadas; los cambios para el próximo año requieren un horario nuevo");
     }
     LocalDate finAnterior = sesion.getVigenteHasta();
+    SesionHorario anterior = copia(sesion);
     sesion.setVigenteHasta(hoy);
     sesiones.save(sesion);
 
@@ -191,7 +221,100 @@ public class HorarioSeccionService {
     aplicar(horario, nueva, request, vigenciaNueva);
     nueva = sesiones.save(nueva);
     actualizarOcurrenciasFuturas(sesion, hoy, nueva);
+    auditoria.registrar(
+        usuarioActual(),
+        horario,
+        "ACTUALIZACIÓN",
+        anterior,
+        nueva,
+        "PERMANENTE",
+        vigenciaNueva,
+        nueva.getVigenteHasta());
     return respuesta(nueva);
+  }
+
+  private SesionHorarioResponse actualizarTemporalmente(
+      HorarioSeccion horario, SesionHorario sesion, SesionHorarioRequest request, LocalDate hoy) {
+    LocalDate desde = request.vigenteDesde();
+    LocalDate hasta = request.vigenteHasta();
+    LocalDate inicioAnio = LocalDate.of(horario.getAnio(), 1, 1);
+    LocalDate finAnio = LocalDate.of(horario.getAnio(), 12, 31);
+    if (desde == null || hasta == null || desde.isAfter(hasta)) {
+      throw new BusinessException("Indica un rango válido para la vigencia temporal");
+    }
+    if (!desde.isAfter(hoy) || desde.isBefore(inicioAnio) || hasta.isAfter(finAnio)) {
+      throw new BusinessException(
+          "La vigencia temporal debe ser futura y estar dentro del año del horario");
+    }
+    if (!sesion.getVigenteDesde().isBefore(desde)
+        || (sesion.getVigenteHasta() != null
+            && sesion.getVigenteHasta().isBefore(hasta.plusDays(1)))) {
+      throw new BusinessException(
+          "El rango debe estar cubierto por la vigencia actual de la asignación");
+    }
+
+    SesionHorario anterior = copia(sesion);
+    LocalDate finAnterior = sesion.getVigenteHasta();
+    sesion.setVigenteHasta(desde.minusDays(1));
+    sesiones.save(sesion);
+
+    SesionHorario temporal = new SesionHorario();
+    temporal.setHorario(horario);
+    temporal.setVigenteDesde(desde);
+    temporal.setVigenteHasta(hasta);
+    aplicar(horario, temporal, request, desde);
+    temporal = sesiones.save(temporal);
+
+    SesionHorario restaurada = copia(anterior);
+    restaurada.setVigenteDesde(hasta.plusDays(1));
+    restaurada.setVigenteHasta(finAnterior);
+    restaurada = sesiones.save(restaurada);
+    actualizarOcurrenciasTemporales(anterior, temporal, restaurada, desde, hasta, hoy);
+    auditoria.registrar(
+        usuarioActual(), horario, "ACTUALIZACIÓN", anterior, temporal, "TEMPORAL", desde, hasta);
+    return respuesta(temporal);
+  }
+
+  private void actualizarOcurrenciasTemporales(
+      SesionHorario anterior,
+      SesionHorario temporal,
+      SesionHorario restaurada,
+      LocalDate desde,
+      LocalDate hasta,
+      LocalDate hoy) {
+    for (var ocurrencia :
+        sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(anterior.getId(), hoy)) {
+      LocalDate fecha = ocurrencia.getFecha();
+      if (!fecha.isAfter(hasta)
+          && asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId())) {
+        throw new ConflictException(
+            "No se puede cambiar el horario: ya hay asistencia registrada en una sesión futura");
+      }
+      if (!fecha.isBefore(desde) && !fecha.isAfter(hasta)) {
+        if (fecha.getDayOfWeek() == temporal.getDia()) {
+          vincularOcurrencia(ocurrencia, temporal);
+        } else {
+          ocurrencia.setCancelada(true);
+          ocurrencia.setMotivoCancelacion("La asignación temporal cambió antes de la fecha");
+        }
+      } else if (fecha.isAfter(hasta)) {
+        if (fecha.getDayOfWeek() == restaurada.getDia()) {
+          vincularOcurrencia(ocurrencia, restaurada);
+        } else {
+          ocurrencia.setCancelada(true);
+          ocurrencia.setMotivoCancelacion("La asignación semanal cambió antes de la fecha");
+        }
+      }
+    }
+  }
+
+  private void vincularOcurrencia(
+      pe.edu.pucp.colegio.common.model.SesionClase ocurrencia, SesionHorario sesion) {
+    ocurrencia.setSesionHorario(sesion);
+    ocurrencia.setArea(sesion.getArea());
+    ocurrencia.setDocente(sesion.getDocente());
+    ocurrencia.setHoraInicio(sesion.getBloque().getHoraInicio());
+    ocurrencia.setHoraFin(sesion.getBloque().getHoraFin());
   }
 
   private void actualizarOcurrenciasFuturas(SesionHorario sesion, LocalDate hoy) {
@@ -223,7 +346,9 @@ public class HorarioSeccionService {
 
   @Transactional
   public void eliminarSesion(Integer horarioId, Integer sesionId) {
+    HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = buscarSesion(horarioId, sesionId);
+    SesionHorario anterior = copia(sesion);
     if (sesionesClase.existsBySesionHorarioId(sesion.getId())) {
       LocalDate hoy = LocalDate.now(clock);
       sesion.setVigenteHasta(
@@ -234,9 +359,45 @@ public class HorarioSeccionService {
         ocurrencia.setCancelada(true);
         ocurrencia.setMotivoCancelacion("La asignación semanal fue retirada");
       }
+      auditoria.registrar(
+          usuarioActual(),
+          horario,
+          "ELIMINACIÓN",
+          anterior,
+          null,
+          "PERMANENTE",
+          hoy.plusDays(1),
+          null);
       return;
     }
     sesiones.delete(sesion);
+    auditoria.registrar(
+        usuarioActual(),
+        horario,
+        "ELIMINACIÓN",
+        anterior,
+        null,
+        "PERMANENTE",
+        LocalDate.now(clock),
+        null);
+  }
+
+  private SesionHorario copia(SesionHorario original) {
+    SesionHorario copia = new SesionHorario();
+    copia.setHorario(original.getHorario());
+    copia.setBloque(original.getBloque());
+    copia.setDia(original.getDia());
+    copia.setArea(original.getArea());
+    copia.setDocente(original.getDocente());
+    copia.setAula(original.getAula());
+    copia.setVigenteDesde(original.getVigenteDesde());
+    copia.setVigenteHasta(original.getVigenteHasta());
+    return copia;
+  }
+
+  private String usuarioActual() {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    return auth == null ? "sistema" : auth.getName();
   }
 
   @Transactional(readOnly = true)
@@ -249,7 +410,13 @@ public class HorarioSeccionService {
     Resolucion datos = resolver(horario, request);
     List<ConflictoSesionResponse> conflictos =
         detectarConflictos(
-            horario, datos, request.dia(), excluirSesionId, fechaDeConsulta(horario));
+            horario,
+            datos,
+            request.dia(),
+            excluirSesionId,
+            "TEMPORAL".equalsIgnoreCase(request.tipoVigencia()) && request.vigenteDesde() != null
+                ? request.vigenteDesde()
+                : fechaDeConsulta(horario));
     return new ValidacionSesionResponse(conflictos.isEmpty(), conflictos);
   }
 
