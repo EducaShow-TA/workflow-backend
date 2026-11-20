@@ -27,6 +27,10 @@ public class Tarea extends EntidadBase {
   @Column(precision = 5, scale = 2)
   private BigDecimal ponderacion;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "evaluacion_parcial_id")
+  private EvaluacionParcial evaluacionParcial;
+
   public Periodo getPeriodo() {
     return periodo;
   }
@@ -73,5 +77,13 @@ public class Tarea extends EntidadBase {
 
   public void setPonderacion(BigDecimal ponderacion) {
     this.ponderacion = ponderacion;
+  }
+
+  public EvaluacionParcial getEvaluacionParcial() {
+    return evaluacionParcial;
+  }
+
+  public void setEvaluacionParcial(EvaluacionParcial evaluacionParcial) {
+    this.evaluacionParcial = evaluacionParcial;
   }
 }

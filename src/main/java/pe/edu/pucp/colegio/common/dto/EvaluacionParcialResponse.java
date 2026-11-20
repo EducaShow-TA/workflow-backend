@@ -9,4 +9,6 @@ public record EvaluacionParcialResponse(
     String titulo,
     String descripcion,
     BigDecimal ponderacion,
-    Integer bimestre) {}
+    Integer bimestre,
+    Integer tareaId,
+    String tareaTitulo) {}

@@ -50,6 +50,9 @@ public class CalificacionParcial extends EntidadBase {
   @Column(name = "fecha_registro", nullable = false)
   private LocalDateTime fechaRegistro;
 
+  @Column(length = 1000)
+  private String comentario;
+
   public EvaluacionParcial getEvaluacion() {
     return evaluacion;
   }
@@ -128,5 +131,13 @@ public class CalificacionParcial extends EntidadBase {
 
   public void setFechaRegistro(LocalDateTime fechaRegistro) {
     this.fechaRegistro = fechaRegistro;
+  }
+
+  public String getComentario() {
+    return comentario;
+  }
+
+  public void setComentario(String comentario) {
+    this.comentario = comentario;
   }
 }

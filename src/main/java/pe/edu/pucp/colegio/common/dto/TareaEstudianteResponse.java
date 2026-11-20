@@ -22,7 +22,13 @@ public record TareaEstudianteResponse(
     OrigenEntregaTarea origen,
     String archivoNombre,
     Long archivoTamanio,
-    boolean puedeEntregar) {
+    boolean puedeEntregar,
+    boolean cuentaParaNota,
+    Integer bimestre,
+    String nota,
+    boolean notaJustificada,
+    String comentario,
+    LocalDateTime fechaCalificacion) {
 
   public enum Estado {
     PENDIENTE,

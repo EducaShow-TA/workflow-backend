@@ -18,13 +18,16 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.TareaEstudianteResponse;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
 import pe.edu.pucp.colegio.common.model.Area;
+import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.model.EntregaTarea;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.OrigenEntregaTarea;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.SesionHorario;
 import pe.edu.pucp.colegio.common.model.Tarea;
+import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.EntregaTareaRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
@@ -43,6 +46,7 @@ public class TareasEstudianteService {
   private final EntregaTareaRepository entregas;
   private final SesionHorarioRepository sesiones;
   private final EvidenciaStorageService storage;
+  private final CalificacionParcialRepository notasParciales;
   private final Clock clock;
 
   public TareasEstudianteService(
@@ -52,6 +56,7 @@ public class TareasEstudianteService {
       EntregaTareaRepository entregas,
       SesionHorarioRepository sesiones,
       EvidenciaStorageService storage,
+      CalificacionParcialRepository notasParciales,
       Clock clock) {
     this.fichas = fichas;
     this.matriculas = matriculas;
@@ -59,6 +64,7 @@ public class TareasEstudianteService {
     this.entregas = entregas;
     this.sesiones = sesiones;
     this.storage = storage;
+    this.notasParciales = notasParciales;
     this.clock = clock;
   }
 
@@ -79,7 +85,12 @@ public class TareasEstudianteService {
     Matricula matricula = matriculaDeTarea(estudianteId(username), tarea);
     EntregaTarea entrega =
         entregas.findByTareaIdAndMatriculaIdAndActiveTrue(tareaId, matricula.getId()).orElse(null);
-    return respuesta(tarea, entrega, docentesPorArea(tarea.getPeriodo()), LocalDateTime.now(clock));
+    return respuesta(
+        tarea,
+        entrega,
+        notaDe(tarea, matricula),
+        docentesPorArea(tarea.getPeriodo()),
+        LocalDateTime.now(clock));
   }
 
   @Transactional
@@ -90,6 +101,11 @@ public class TareasEstudianteService {
     if (ahora.isAfter(tarea.getFechaLimite())) {
       throw new BusinessException(
           "La fecha límite de la tarea ya pasó; ya no se puede entregar por el sistema");
+    }
+    CalificacionParcial nota = notaDe(tarea, matricula);
+    if (calificada(nota)) {
+      throw new BusinessException(
+          "Tu docente ya calificó esta tarea; ya no puedes cambiar tu entrega");
     }
     if (archivo == null || archivo.isEmpty()) {
       throw new BusinessException("Adjunta el archivo de tu tarea");
@@ -115,7 +131,7 @@ public class TareasEstudianteService {
     entrega.setFechaCumplimiento(ahora);
     entrega.setOrigen(OrigenEntregaTarea.ALUMNO);
     entregas.save(entrega);
-    return respuesta(tarea, entrega, docentesPorArea(tarea.getPeriodo()), ahora);
+    return respuesta(tarea, entrega, nota, docentesPorArea(tarea.getPeriodo()), ahora);
   }
 
   @Transactional(readOnly = true)
@@ -177,8 +193,32 @@ public class TareasEstudianteService {
       porTarea.put(entrega.getTarea().getId(), entrega);
     }
     Map<String, Asignacion> docentes = docentesPorArea(matricula.getPeriodo());
-    return tareas.buscarPorPeriodo(matricula.getPeriodo().getId()).stream()
-        .map(tarea -> respuesta(tarea, porTarea.get(tarea.getId()), docentes, ahora))
+    List<Tarea> delPeriodo = tareas.buscarPorPeriodo(matricula.getPeriodo().getId());
+    List<Integer> evaluacionIds =
+        delPeriodo.stream()
+            .map(Tarea::getEvaluacionParcial)
+            .filter(evaluacion -> evaluacion != null)
+            .map(EvaluacionParcial::getId)
+            .toList();
+    Map<Integer, CalificacionParcial> notasPorEvaluacion = new HashMap<>();
+    if (!evaluacionIds.isEmpty()) {
+      for (CalificacionParcial nota :
+          notasParciales.findAllByEvaluacionIdInAndMatriculaIdAndActiveTrue(
+              evaluacionIds, matricula.getId())) {
+        notasPorEvaluacion.put(nota.getEvaluacion().getId(), nota);
+      }
+    }
+    return delPeriodo.stream()
+        .map(
+            tarea ->
+                respuesta(
+                    tarea,
+                    porTarea.get(tarea.getId()),
+                    evaluacionVigente(tarea) == null
+                        ? null
+                        : notasPorEvaluacion.get(tarea.getEvaluacionParcial().getId()),
+                    docentes,
+                    ahora))
         .toList();
   }
 
@@ -217,8 +257,30 @@ public class TareasEstudianteService {
     return porCompetencia;
   }
 
+  private CalificacionParcial notaDe(Tarea tarea, Matricula matricula) {
+    EvaluacionParcial evaluacion = evaluacionVigente(tarea);
+    return evaluacion == null
+        ? null
+        : notasParciales
+            .findByEvaluacionIdAndMatriculaIdAndActiveTrue(evaluacion.getId(), matricula.getId())
+            .orElse(null);
+  }
+
+  private static EvaluacionParcial evaluacionVigente(Tarea tarea) {
+    EvaluacionParcial evaluacion = tarea.getEvaluacionParcial();
+    return evaluacion != null && Boolean.TRUE.equals(evaluacion.getActive()) ? evaluacion : null;
+  }
+
+  private static boolean calificada(CalificacionParcial nota) {
+    return nota != null && (nota.getNota() != null || Boolean.TRUE.equals(nota.getJustificada()));
+  }
+
   private TareaEstudianteResponse respuesta(
-      Tarea tarea, EntregaTarea entrega, Map<String, Asignacion> docentes, LocalDateTime ahora) {
+      Tarea tarea,
+      EntregaTarea entrega,
+      CalificacionParcial nota,
+      Map<String, Asignacion> docentes,
+      LocalDateTime ahora) {
     boolean entregada = entrega != null && Boolean.TRUE.equals(entrega.getCumplida());
     boolean vencida = ahora.isAfter(tarea.getFechaLimite());
     TareaEstudianteResponse.Estado estado =
@@ -228,6 +290,7 @@ public class TareasEstudianteService {
                 ? TareaEstudianteResponse.Estado.VENCIDA
                 : TareaEstudianteResponse.Estado.PENDIENTE;
     Asignacion asignacion = docentes.get(tarea.getCompetencia().getCodigo());
+    EvaluacionParcial evaluacion = evaluacionVigente(tarea);
     Area area =
         asignacion != null
             ? null
@@ -249,7 +312,13 @@ public class TareasEstudianteService {
         entregada ? entrega.getOrigen() : null,
         entrega == null ? null : entrega.getArchivoNombre(),
         entrega == null ? null : entrega.getArchivoTamanio(),
-        !vencida);
+        !vencida && !calificada(nota),
+        evaluacion != null,
+        evaluacion == null ? null : evaluacion.getBimestre(),
+        calificada(nota) ? nota.getNota() : null,
+        calificada(nota) && Boolean.TRUE.equals(nota.getJustificada()),
+        calificada(nota) ? nota.getComentario() : null,
+        calificada(nota) ? nota.getFechaRegistro() : null);
   }
 
   private static String extension(String nombre) {

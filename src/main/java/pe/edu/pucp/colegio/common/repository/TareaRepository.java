@@ -14,4 +14,8 @@ public interface TareaRepository extends JpaRepository<Tarea, Integer> {
   @Query(
       "select t from Tarea t join fetch t.periodo join fetch t.competencia where t.periodo.id = :periodoId and t.active = true order by t.fechaLimite")
   List<Tarea> buscarPorPeriodo(@Param("periodoId") Integer periodoId);
+
+  java.util.Optional<Tarea> findFirstByEvaluacionParcialIdAndActiveTrue(Integer evaluacionId);
+
+  boolean existsByEvaluacionParcialIdAndActiveTrue(Integer evaluacionId);
 }

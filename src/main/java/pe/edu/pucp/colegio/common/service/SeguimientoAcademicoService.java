@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +33,8 @@ public class SeguimientoAcademicoService {
   private final MatriculaRepository matriculas;
   private final EvidenciaStorageService storage;
   private final AuditoriaCalificacionService auditoriaCalificaciones;
+  private final CalificacionParcialRepository notasParciales;
+  private final ConsolidacionLogroService consolidacion;
   private final Clock clock;
 
   public SeguimientoAcademicoService(
@@ -44,6 +47,8 @@ public class SeguimientoAcademicoService {
       EvaluacionParcialRepository evaluaciones,
       EvidenciaStorageService storage,
       AuditoriaCalificacionService auditoriaCalificaciones,
+      CalificacionParcialRepository notasParciales,
+      ConsolidacionLogroService consolidacion,
       Clock clock) {
     this.tareas = tareas;
     this.entregas = entregas;
@@ -54,6 +59,8 @@ public class SeguimientoAcademicoService {
     this.evaluaciones = evaluaciones;
     this.storage = storage;
     this.auditoriaCalificaciones = auditoriaCalificaciones;
+    this.notasParciales = notasParciales;
+    this.consolidacion = consolidacion;
     this.clock = clock;
   }
 
@@ -68,6 +75,12 @@ public class SeguimientoAcademicoService {
     tarea.setDescripcion(request.descripcion().trim());
     tarea.setFechaLimite(request.fechaLimite());
     tarea.setPonderacion(request.ponderacion());
+    if (request.evaluacionParcialId() != null) {
+      EvaluacionParcial evaluacion =
+          evaluacionParaVincular(request.evaluacionParcialId(), periodo, competencia);
+      tarea.setEvaluacionParcial(evaluacion);
+      tarea.setPonderacion(evaluacion.getPonderacion());
+    }
     tarea = tareas.save(tarea);
     List<Matricula> roster =
         matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
@@ -103,6 +116,38 @@ public class SeguimientoAcademicoService {
     entrega.setFechaCumplimiento(cumplida ? LocalDateTime.now(clock) : null);
     entrega.setOrigen(cumplida ? OrigenEntregaTarea.DOCENTE : null);
     entregas.save(entrega);
+    return tareaResponse(tarea);
+  }
+
+  @Transactional
+  public TareaResponse calificarEntrega(
+      Integer tareaId,
+      Integer matriculaId,
+      CalificacionTareaRequest request,
+      String username,
+      boolean administrador) {
+    Tarea tarea =
+        tareas
+            .buscarActiva(tareaId)
+            .orElseThrow(() -> new BusinessException("Tarea no encontrada"));
+    EvaluacionParcial evaluacion = tarea.getEvaluacionParcial();
+    if (evaluacion == null || !Boolean.TRUE.equals(evaluacion.getActive())) {
+      throw new BusinessException("Esta tarea no cuenta para la nota");
+    }
+    ConsolidacionLogroService.EvidenciaEntrega evidencia =
+        entregas
+            .findByTareaIdAndMatriculaIdAndActiveTrue(tareaId, matriculaId)
+            .filter(entrega -> entrega.getArchivoClave() != null)
+            .map(
+                entrega ->
+                    new ConsolidacionLogroService.EvidenciaEntrega(
+                        entrega.getArchivoClave(),
+                        entrega.getArchivoNombre(),
+                        entrega.getArchivoTipo(),
+                        entrega.getArchivoTamanio()))
+            .orElse(null);
+    consolidacion.calificarEntregaDeTarea(
+        evaluacion.getId(), matriculaId, request, evidencia, username, administrador);
     return tareaResponse(tarea);
   }
 
@@ -298,6 +343,28 @@ public class SeguimientoAcademicoService {
     return c;
   }
 
+  private EvaluacionParcial evaluacionParaVincular(
+      Integer evaluacionId, Periodo periodo, Competencia competencia) {
+    EvaluacionParcial evaluacion =
+        evaluaciones
+            .findById(evaluacionId)
+            .filter(EvaluacionParcial::getActive)
+            .orElseThrow(() -> new BusinessException("Evaluación parcial no encontrada"));
+    if (!evaluacion.getPeriodo().getId().equals(periodo.getId())
+        || !evaluacion.getCompetencia().getCodigo().equals(competencia.getCodigo())) {
+      throw new BusinessException(
+          "La evaluación parcial debe ser de la misma sección y competencia que la tarea");
+    }
+    if (Boolean.TRUE.equals(periodo.getActasCerradas())) {
+      throw new BusinessException(
+          "No se pueden modificar calificaciones: las actas están cerradas");
+    }
+    if (tareas.existsByEvaluacionParcialIdAndActiveTrue(evaluacionId)) {
+      throw new BusinessException("Esa evaluación parcial ya está vinculada a otra tarea");
+    }
+    return evaluacion;
+  }
+
   private void validarUrl(String url, MultipartFile archivo) {
     if (archivo != null && !archivo.isEmpty() || url == null || url.isBlank()) return;
     try {
@@ -310,23 +377,24 @@ public class SeguimientoAcademicoService {
   }
 
   private TareaResponse tareaResponse(Tarea tarea) {
+    EvaluacionParcial evaluacion =
+        tarea.getEvaluacionParcial() != null
+                && Boolean.TRUE.equals(tarea.getEvaluacionParcial().getActive())
+            ? tarea.getEvaluacionParcial()
+            : null;
+    Map<Integer, CalificacionParcial> notas = new HashMap<>();
+    if (evaluacion != null) {
+      for (CalificacionParcial nota :
+          notasParciales.findAllByEvaluacionIdAndActiveTrueOrderByMatriculaId(evaluacion.getId())) {
+        notas.put(nota.getMatricula().getId(), nota);
+      }
+    }
     List<EntregaTarea> registradas =
         entregas.findAllByTareaIdAndActiveTrueOrderByMatriculaId(tarea.getId());
     List<TareaResponse.EntregaResponse> estados =
         new ArrayList<>(
             registradas.stream()
-                .map(
-                    e ->
-                        new TareaResponse.EntregaResponse(
-                            e.getMatricula().getId(),
-                            e.getMatricula().getEstudiante().getId(),
-                            e.getMatricula().getEstudiante().getPersona().getNombreCompleto(),
-                            Boolean.TRUE.equals(e.getCumplida()),
-                            e.getFechaCumplimiento(),
-                            e.getOrigen(),
-                            e.getArchivoNombre(),
-                            e.getArchivoTamanio(),
-                            e.getArchivoFecha()))
+                .map(e -> entregaResponse(e.getMatricula(), e, notas.get(e.getMatricula().getId())))
                 .toList());
     Set<Integer> conEntrega =
         registradas.stream().map(e -> e.getMatricula().getId()).collect(Collectors.toSet());
@@ -336,17 +404,7 @@ public class SeguimientoAcademicoService {
         matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
             tarea.getPeriodo().getId(), List.of(EstadoMatricula.CONFIRMADA))) {
       if (conEntrega.add(matricula.getId())) {
-        estados.add(
-            new TareaResponse.EntregaResponse(
-                matricula.getId(),
-                matricula.getEstudiante().getId(),
-                matricula.getEstudiante().getPersona().getNombreCompleto(),
-                false,
-                null,
-                null,
-                null,
-                null,
-                null));
+        estados.add(entregaResponse(matricula, null, notas.get(matricula.getId())));
       }
     }
     return new TareaResponse(
@@ -358,7 +416,29 @@ public class SeguimientoAcademicoService {
         tarea.getDescripcion(),
         tarea.getFechaLimite(),
         tarea.getPonderacion(),
+        evaluacion == null ? null : evaluacion.getId(),
+        evaluacion == null ? null : evaluacion.getTitulo(),
+        evaluacion == null ? null : evaluacion.getBimestre(),
         estados);
+  }
+
+  private TareaResponse.EntregaResponse entregaResponse(
+      Matricula matricula, EntregaTarea entrega, CalificacionParcial nota) {
+    return new TareaResponse.EntregaResponse(
+        matricula.getId(),
+        matricula.getEstudiante().getId(),
+        matricula.getEstudiante().getPersona().getNombreCompleto(),
+        entrega != null && Boolean.TRUE.equals(entrega.getCumplida()),
+        entrega == null ? null : entrega.getFechaCumplimiento(),
+        entrega == null ? null : entrega.getOrigen(),
+        entrega == null ? null : entrega.getArchivoNombre(),
+        entrega == null ? null : entrega.getArchivoTamanio(),
+        entrega == null ? null : entrega.getArchivoFecha(),
+        nota == null ? null : nota.getId(),
+        nota == null ? null : nota.getNota(),
+        nota != null && Boolean.TRUE.equals(nota.getJustificada()),
+        nota == null ? null : nota.getComentario(),
+        nota == null ? null : nota.getFechaRegistro());
   }
 
   private void asegurarEntregas(Tarea tarea) {
