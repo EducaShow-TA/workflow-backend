@@ -74,6 +74,7 @@ public class HorarioSeccionService {
   private final AulaRepository aulas;
   private final CuentaUsuarioRepository cuentas;
   private final MatriculaRepository matriculas;
+  private final GeneracionSesionClaseService generacionSesiones;
   private final Clock clock;
   private final AuditoriaHorarioService auditoria;
 
@@ -89,6 +90,7 @@ public class HorarioSeccionService {
       AulaRepository aulas,
       CuentaUsuarioRepository cuentas,
       MatriculaRepository matriculas,
+      GeneracionSesionClaseService generacionSesiones,
       Clock clock,
       AuditoriaHorarioService auditoria) {
     this.horarios = horarios;
@@ -102,6 +104,7 @@ public class HorarioSeccionService {
     this.aulas = aulas;
     this.cuentas = cuentas;
     this.matriculas = matriculas;
+    this.generacionSesiones = generacionSesiones;
     this.clock = clock;
     this.auditoria = auditoria;
   }
@@ -166,6 +169,7 @@ public class HorarioSeccionService {
         primerDiaAnio.isAfter(LocalDate.now(clock)) ? primerDiaAnio : LocalDate.now(clock));
     aplicar(horario, sesion, request, fechaDeConsulta(horario));
     sesion = sesiones.save(sesion);
+    generacionSesiones.generarParaHorario(horario.getSeccion().getId(), horario.getAnio());
     auditoria.registrar(
         usuarioActual(),
         horario,

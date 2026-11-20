@@ -2,10 +2,13 @@ package pe.edu.pucp.colegio.common.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,8 @@ import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 /** Materializa como ocurrencias fechadas las asignaciones semanales del periodo. */
 @Service
 public class GeneracionSesionClaseService {
+
+  private static final Logger log = LoggerFactory.getLogger(GeneracionSesionClaseService.class);
 
   private final PeriodoRepository periodos;
   private final HorarioSeccionRepository horarios;
@@ -74,7 +79,7 @@ public class GeneracionSesionClaseService {
     LocalDate hoy = LocalDate.now(clock);
     LocalDate desde = periodo.getFechaInicio().isAfter(hoy) ? periodo.getFechaInicio() : hoy;
     if (desde.isAfter(periodo.getFechaFin())) {
-      return new GeneracionSesionesResponse(periodoId, 0, 0, 0);
+      return new GeneracionSesionesResponse(periodoId, 0, 0, 0, 0);
     }
     Map<LocalDate, DiaNoLectivo> cierres =
         diasNoLectivos
@@ -85,6 +90,7 @@ public class GeneracionSesionClaseService {
     int creadas = 0;
     int canceladas = 0;
     int omitidas = 0;
+    Map<Integer, Integer> ocurrenciasOmitidasPorDocente = new LinkedHashMap<>();
     List<SesionHorario> celdas = asignaciones.findAllByHorarioId(horario.getId());
     for (LocalDate fecha = desde;
         !fecha.isAfter(periodo.getFechaFin());
@@ -115,8 +121,8 @@ public class GeneracionSesionClaseService {
         }
         Docente docente = celda.getDocente();
         if (!Boolean.TRUE.equals(docente.getActive())) {
-          throw new ResponseStatusException(
-              HttpStatus.CONFLICT, "El docente asignado no tiene un perfil docente activo");
+          ocurrenciasOmitidasPorDocente.merge(docente.getId(), 1, Integer::sum);
+          continue;
         }
         SesionClase sesion = new SesionClase();
         sesion.setSeccion(horario.getSeccion());
@@ -130,7 +136,28 @@ public class GeneracionSesionClaseService {
         creadas++;
       }
     }
-    return new GeneracionSesionesResponse(periodoId, creadas, canceladas, omitidas);
+    ocurrenciasOmitidasPorDocente.forEach(
+        (docenteId, cantidad) ->
+            log.warn(
+                "event=sesiones_clase_omitidas_docente_inactivo periodoId={} docenteId={} ocurrencias={}",
+                periodoId,
+                docenteId,
+                cantidad));
+    return new GeneracionSesionesResponse(
+        periodoId,
+        creadas,
+        canceladas,
+        omitidas,
+        ocurrenciasOmitidasPorDocente.values().stream().mapToInt(Integer::intValue).sum());
+  }
+
+  /** Materializa las asignaciones nuevas en los períodos activos del horario. */
+  @Transactional
+  public List<GeneracionSesionesResponse> generarParaHorario(Integer seccionId, Integer anio) {
+    return periodos.findAllBySeccionIdAndActiveTrue(seccionId).stream()
+        .filter(periodo -> periodo.getFechaInicio().getYear() == anio)
+        .map(periodo -> generarPeriodo(periodo.getId()))
+        .toList();
   }
 
   @Transactional

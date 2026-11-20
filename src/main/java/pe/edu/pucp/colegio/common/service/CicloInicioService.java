@@ -62,11 +62,12 @@ public class CicloInicioService {
       try {
         var resultado = generacionSesiones.generarPeriodo(periodo.getId());
         log.info(
-            "event=catchup_sesiones_completado periodoId={} creadas={} canceladas={} omitidas={}",
+            "event=catchup_sesiones_completado periodoId={} creadas={} canceladas={} omitidasNoLectivas={} omitidasDocenteInactivo={}",
             resultado.periodoId(),
             resultado.creadas(),
             resultado.canceladasPorCalendario(),
-            resultado.omitidasNoLectivas());
+            resultado.omitidasNoLectivas(),
+            resultado.omitidasDocenteInactivo());
       } catch (RuntimeException e) {
         log.warn(
             "event=catchup_sesiones_fallido periodoId={} causa={}",
