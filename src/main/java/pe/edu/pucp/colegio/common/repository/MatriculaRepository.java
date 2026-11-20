@@ -11,6 +11,8 @@ import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Matricula;
 
 public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
+  Optional<Matricula> findByEstudianteIdAndPeriodoIdAndEstado(
+      Integer estudianteId, Integer periodoId, EstadoMatricula estado);
 
   @EntityGraph(attributePaths = {"estudiante", "estudiante.persona"})
   List<Matricula> findAllByIdIn(List<Integer> ids);

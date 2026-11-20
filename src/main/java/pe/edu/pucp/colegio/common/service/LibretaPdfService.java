@@ -51,6 +51,20 @@ public class LibretaPdfService {
       for (PeriodoLibreta periodo : libreta.periodos()) {
         agregarPeriodo(documento, periodo);
       }
+      if (libreta.comentarioPeriodo() != null && !libreta.comentarioPeriodo().isBlank()) {
+        Paragraph comentario =
+            new Paragraph(
+                "Comentario cualitativo del período",
+                new Font(Font.HELVETICA, 11, Font.BOLD, COLOR_INSTITUCIONAL));
+        comentario.setSpacingBefore(12);
+        documento.add(comentario);
+        documento.add(new Paragraph(libreta.comentarioPeriodo(), new Font(Font.HELVETICA, 10)));
+        if (libreta.autorComentario() != null) {
+          documento.add(
+              new Paragraph(
+                  "Registrado por: " + libreta.autorComentario(), new Font(Font.HELVETICA, 8)));
+        }
+      }
       documento.close();
       return salida.toByteArray();
     } catch (DocumentException | IOException exception) {

@@ -30,12 +30,14 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
           + "join fetch s.aula "
           + "where s.docente.id = :docenteId and h.anio = :anio "
           + "and s.vigenteDesde <= :hasta and (s.vigenteHasta is null or s.vigenteHasta >= :desde) "
+          + "and s.vigenteDesde <= :fecha and (s.vigenteHasta is null or s.vigenteHasta >= :fecha) "
           + "order by s.dia, b.horaInicio")
   List<SesionHorario> listarHorarioDocente(
       @Param("docenteId") Integer docenteId,
       @Param("anio") Integer anio,
       @Param("desde") java.time.LocalDate desde,
-      @Param("hasta") java.time.LocalDate hasta);
+      @Param("hasta") java.time.LocalDate hasta,
+      @Param("fecha") java.time.LocalDate fecha);
 
   @EntityGraph(attributePaths = "docente.persona")
   @Query(
@@ -50,6 +52,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
           + "where h.anio = :anio "
           + "and s.vigenteDesde <= :hasta "
           + "and (s.vigenteHasta is null or s.vigenteHasta >= :desde) "
+          + "and s.vigenteDesde <= :fecha and (s.vigenteHasta is null or s.vigenteHasta >= :fecha) "
           + "and exists (select m.id from Matricula m "
           + "where m.estudiante.persona.id = :personaId "
           + "and m.active = true and m.estado = :estado "
@@ -63,6 +66,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("anio") Integer anio,
       @Param("desde") java.time.LocalDate desde,
       @Param("hasta") java.time.LocalDate hasta,
+      @Param("fecha") java.time.LocalDate fecha,
       @Param("estado") EstadoMatricula estado);
 
   @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})

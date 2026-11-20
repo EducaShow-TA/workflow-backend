@@ -11,7 +11,29 @@ public record LibretaNotasResponse(
     int anhioEscolar,
     Integer bimestre,
     int evaluacionesSinBimestre,
-    List<PeriodoLibreta> periodos) {
+    List<PeriodoLibreta> periodos,
+    String comentarioPeriodo,
+    String autorComentario) {
+
+  public LibretaNotasResponse(
+      Integer estudianteId,
+      String estudiante,
+      Integer periodoSolicitadoId,
+      int anhioEscolar,
+      Integer bimestre,
+      int evaluacionesSinBimestre,
+      List<PeriodoLibreta> periodos) {
+    this(
+        estudianteId,
+        estudiante,
+        periodoSolicitadoId,
+        anhioEscolar,
+        bimestre,
+        evaluacionesSinBimestre,
+        periodos,
+        null,
+        null);
+  }
 
   public record PeriodoLibreta(
       Integer periodoId,

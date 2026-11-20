@@ -909,6 +909,11 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-2.1 Asistencia de estudiantes por sesión | **Completa**: registro de docentes dentro de la primera hora de clase y con marcaje docente de presencia; administración puede corregir fuera de la ventana. |
 | US-2.3 Marcaje de entrada y salida docente | **Completa**: marcaje propio sujeto a apertura previa y cierre 30 minutos después del inicio de la primera sesión. |
 | US-2.4 Gestión de asistencia docente | **Completa**: consulta, registro y ajuste administrativo con motivo obligatorio para estados que requieren justificación. |
+| US-1.11 Recordatorio de pago próximo | **Completa**: el panel familiar muestra avisos configurables para boletas pendientes próximas a vencer, con monto y fecha límite; al registrarse el pago, el aviso desaparece. |
+| US-2.2 Carga masiva de asistencia de alumnos | **Completa**: docentes y administración descargan la plantilla de la sesión, validan el CSV con errores por fila antes de guardar y registran la asistencia en lote desde el detalle de la sesión. |
+| US-2.5 Carga masiva de asistencia de docentes | **Completa**: administración descarga una plantilla, valida el CSV con errores por fila antes de guardar y registra o actualiza marcajes en lote; la pantalla está integrada con el backend. |
+| US-2.8 Justificación de inasistencia | **Completa**: alumno o apoderado vinculado adjunta motivo y documento; el cambio se registra en el historial. |
+| US-2.9 Configuración de marcaje docente | **Completa**: configuración persistida de ventana y tolerancia, expuesta para administración. |
 | US-3.1 Reglas de consolidación | **Completa**: umbrales configurables por competencia. |
 | US-3.2 Calificaciones por competencia | **Completa**: evaluaciones parciales ponderadas, calificaciones cualitativas y auditoría de cambios. |
 | US-3.3 Libretas e informes de progreso | **Completa**: consulta de libreta y descarga PDF, con cierre de actas y modo preliminar. |
@@ -918,6 +923,9 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-3.8 Evidencia pedagógica | **Completa**: evidencia por URL o archivo, descarga y límite de tamaño. |
 | US-3.9 Tareas del alumno | **Completa**: lista solo las tareas de las secciones del alumno con estado Pendiente, Entregada o Vencida. |
 | US-3.10 Entrega de tareas | **Completa**: archivo de hasta 10 MB antes de la fecha límite, registro de fecha y hora, reemplazo y descarga para el alumno y el docente. |
+| US-3.11 Alerta académica al apoderado | **Pendiente**: existe detección de riesgo para docentes, pero no alerta en el portal del apoderado. |
+| US-3.12 Comentarios cualitativos en libreta | **Completa**: comentario libre por alumno y período, editable por administración o docente asignado, visible a los usuarios autorizados y añadido al PDF de la libreta. |
+| US-3.13 Cuadro de mérito | **Completa**: ranking por período, condicionado al cierre de actas y disponible para administración. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
 | US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según vacantes totales y matrícula de la sección; cambios posteriores de capacidad de sección o aula revalidan las asignaciones vigentes. |
@@ -926,6 +934,9 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-2.6 Reporte de inasistencias y tardanzas | **Completa**: consolidado por rango de fechas, grado y sección con totales de asistencias, tardanzas e inasistencias, para administración y docentes, con exportación a CSV. |
 | US-2.7 Historial de asistencia del alumno o apoderado | **Completa**: historial diario filtrable por fechas, restringido al propio alumno o a los hijos vinculados del apoderado; `mi-ficha` identifica al alumno autenticado. La interfaz ofrece un portal del apoderado (panel por hijo e historial) y un portal del estudiante (panel y calendario mensual con cada clase). |
 | US-4.6 Horario consolidado del docente | **Completa**: grilla única con todas las secciones del docente, con área, grado, sección y aula en cada bloque, y vista semanal o del día actual. |
+| US-4.5 Auditoría de cambios de horario | **Completa**: registro append-only con responsable, fecha, detalle y valores anteriores/nuevos; admite vigencia permanente o temporal con restauración al cerrar el rango y consulta administrativa filtrada por fechas. |
+| US-4.7 Horario vigente de alumno/apoderado | **Completa**: consulta autenticada del horario propio o de hijo vinculado, grilla semanal de solo lectura y actualización periódica de la pantalla. |
+| US-4.8 Exportación de horario | **Completa**: docentes, alumnos y apoderados pueden imprimir o guardar como PDF su horario propio/autorizado con curso, aula, sección y año escolar. |
 
 El inventario de pantallas por rol está en el [README del frontend](https://github.com/EducaShow-TA/workflow-frontend/blob/Development/README.md). La carga de datos manual para explorar varios de estos flujos está en [`postman/README.md`](postman/README.md). La colección de carga prepara un escenario reutilizable; la colección de pruebas ejecuta aserciones automatizadas. Ninguna sustituye la verificación de la interfaz ni cubre por sí sola todos los criterios de aceptación.
 

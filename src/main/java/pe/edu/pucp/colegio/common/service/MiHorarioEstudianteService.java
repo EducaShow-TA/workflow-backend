@@ -93,8 +93,10 @@ public class MiHorarioEstudianteService {
   private List<HorarioEstudianteResponse> listarPorPersona(Integer personaId, Integer anio) {
     LocalDate desde = LocalDate.of(anio, 1, 1);
     LocalDate hasta = LocalDate.of(anio, 12, 31);
+    LocalDate hoy = LocalDate.now(java.time.ZoneId.of("America/Lima"));
+    LocalDate fecha = hoy.isBefore(desde) ? desde : hoy.isAfter(hasta) ? hasta : hoy;
     return sesiones
-        .listarHorarioEstudiante(personaId, anio, desde, hasta, EstadoMatricula.CONFIRMADA)
+        .listarHorarioEstudiante(personaId, anio, desde, hasta, fecha, EstadoMatricula.CONFIRMADA)
         .stream()
         .map(
             sesion ->
