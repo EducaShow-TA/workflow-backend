@@ -36,8 +36,6 @@ public class AuditoriaHorarioController {
           LocalDate hasta) {
     LocalDate fin = hasta == null ? LocalDate.now(clock) : hasta;
     LocalDate inicio = desde == null ? fin.minusMonths(3) : desde;
-    if (inicio.isAfter(fin))
-      throw new IllegalArgumentException("El inicio no puede ser posterior al fin");
     return auditoria.listar(horarioId, inicio, fin);
   }
 }
