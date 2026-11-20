@@ -209,7 +209,7 @@ La ventana para marcar asistencia de alumnos y la tolerancia docente se configur
 | `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
 | `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` | `30` | Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada |
 
-Los límites de apertura y cierre del marcaje son inclusivos. Un administrador puede ajustar una asistencia ya registrada fuera de esa ventana.
+Los límites de apertura y cierre del marcaje son inclusivos. Los docentes deben respetar la ventana tanto al registrar como al corregir asistencias; solo un administrador puede ajustar una asistencia ya registrada fuera de esa ventana. Las asistencias `JUSTIFICADA` conservan su motivo y documento y no pueden cambiarse desde los endpoints de registro o ajuste.
 
 ### Secciones y vacantes (US-1.7)
 
