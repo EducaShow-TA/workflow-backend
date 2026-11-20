@@ -218,9 +218,6 @@ public class CatalogoService {
             .orElseThrow(
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "Competencia no encontrada"));
-    if (!request.activo() && tieneNotasRegistradas(competencia)) {
-      throw conflict("No se puede desactivar una competencia con calificaciones registradas");
-    }
     competencia.setActivo(request.activo());
     competencias.save(competencia);
     return toCatalogoCompetencia(

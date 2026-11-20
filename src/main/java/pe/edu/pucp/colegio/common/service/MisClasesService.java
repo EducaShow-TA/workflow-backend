@@ -168,7 +168,7 @@ public class MisClasesService {
 
   private RiesgoAcademicoResponse calcularRiesgoAcademico(
       String usuario, Integer periodoId, String areaCodigo, int umbral) {
-    Docente docente = docenteService.obtenerDeCuenta(usuario);
+    Docente docente = docenteService.obtenerExistenteDeCuenta(usuario);
     Periodo periodo =
         periodos
             .findById(periodoId)

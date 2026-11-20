@@ -16,7 +16,6 @@ import pe.edu.pucp.colegio.common.dto.FilaReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.ReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.SeccionReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.TotalesAsistenciaResponse;
-import pe.edu.pucp.colegio.common.exception.BusinessException;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Seccion;
@@ -70,7 +69,8 @@ public class ReporteAsistenciaService {
   public ReporteAsistenciaResponse generar(
       LocalDate desde, LocalDate hasta, Integer gradoId, Integer seccionId, String username) {
     if (desde.isAfter(hasta)) {
-      throw new BusinessException("La fecha inicial no puede ser posterior a la fecha final");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "La fecha inicial no puede ser posterior a la fecha final");
     }
     Integer personaIdDocente = personaIdDocente(buscarCuenta(username));
     if (personaIdDocente != null && seccionId != null) {

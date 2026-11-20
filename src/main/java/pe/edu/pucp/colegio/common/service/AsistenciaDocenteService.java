@@ -170,6 +170,8 @@ public class AsistenciaDocenteService {
   @Transactional
   public AsistenciaDocenteResponse registrar(AsistenciaDocenteCreateRequest request) {
     Docente docente = buscarDocente(request.docenteId());
+    exigirMotivoRegistro(request.motivoAjuste());
+    validarFechaNoFutura(request.fecha());
     if (asistencias.existsByDocenteIdAndFechaAndActiveTrue(docente.getId(), request.fecha())) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "La asistencia del docente ya está registrada para esa fecha");
@@ -220,6 +222,7 @@ public class AsistenciaDocenteService {
   @Transactional
   public AsistenciaDocenteResponse ajustar(Integer id, AsistenciaDocenteAjusteRequest request) {
     AsistenciaDocente asistencia = buscarAsistencia(id);
+    validarFechaNoFutura(asistencia.getFecha());
     asistencia.ajustar(request.estado(), request.motivoAjuste());
     return respuesta(asistencia);
   }
@@ -234,6 +237,9 @@ public class AsistenciaDocenteService {
         if (request.horaEntrada() != null || request.horaSalida() != null) {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST, "Una asistencia pendiente no puede incluir horas marcadas");
+        }
+        if (request.motivoAjuste() != null && !request.motivoAjuste().isBlank()) {
+          asistencia.ajustar(estado, request.motivoAjuste());
         }
       }
       case PRESENTE -> {
@@ -279,7 +285,8 @@ public class AsistenciaDocenteService {
   /** Hora de inicio de la primera sesión del docente ese día, o nulo si no tiene clases. */
   private LocalTime inicioJornada(Integer docenteId, LocalDate fecha) {
     return sesiones
-        .findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(docenteId, fecha)
+        .findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            docenteId, fecha)
         .map(SesionClase::getHoraInicio)
         .orElse(null);
   }
@@ -315,6 +322,13 @@ public class AsistenciaDocenteService {
     if (motivo == null || motivo.isBlank()) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "El motivo es obligatorio para registrar la asistencia docente");
+    }
+  }
+
+  private void validarFechaNoFutura(LocalDate fecha) {
+    if (fecha.isAfter(LocalDate.now(clock))) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
     }
   }
 

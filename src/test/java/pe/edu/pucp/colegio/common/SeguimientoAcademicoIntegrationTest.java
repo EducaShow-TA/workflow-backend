@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -323,10 +324,12 @@ class SeguimientoAcademicoIntegrationTest {
   }
 
   @Test
-  void registrarSinEvidenciaSeRechazaConUnMensajeClaro() throws Exception {
+  void registrarSinEvidenciaEsValidoPorqueLaEvidenciaEsOpcional() throws Exception {
     enviar(nota("A", null, null, null))
-        .andExpect(status().isUnprocessableEntity())
-        .andExpect(jsonPath("$.message").value(containsString("evidencia")));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nota").value("A"))
+        .andExpect(jsonPath("$.evidenciaTipo").value(nullValue()))
+        .andExpect(jsonPath("$.evidenciaUrl").value(nullValue()));
   }
 
   @Test

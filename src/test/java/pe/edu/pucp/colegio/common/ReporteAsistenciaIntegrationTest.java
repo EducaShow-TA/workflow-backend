@@ -302,14 +302,14 @@ class ReporteAsistenciaIntegrationTest {
   }
 
   @Test
-  void reporte_rangoInvertido_responde422() throws Exception {
+  void reporte_rangoInvertido_responde400() throws Exception {
     mvc.perform(
             get(RUTA)
                 .param("desde", FECHA.toString())
                 .param("hasta", FECHA.minusDays(1).toString())
                 .with(user(administrador()).roles("ADMINISTRADOR")))
-        .andExpect(status().isUnprocessableEntity())
-        .andExpect(jsonPath("$.status").value(422))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.path").value(RUTA));
   }
 

@@ -173,8 +173,8 @@ public class SesionClaseService {
   }
 
   /**
-   * Guarda la asistencia de varios alumnos a la vez. Registrar por primera vez exige la ventana de
-   * marcado (salvo al administrador); corregir lo ya registrado se permite en cualquier momento.
+   * Guarda la asistencia de varios alumnos a la vez. Docentes deben respetar la ventana de marcado
+   * tanto al registrar como al corregir; administración puede corregir fuera de ella.
    */
   @Transactional
   public ListaAsistenciaResponse guardarAsistencias(
@@ -191,6 +191,7 @@ public class SesionClaseService {
 
     Set<Integer> vistos = new HashSet<>();
     boolean hayNuevos = false;
+    boolean hayCambios = false;
     for (AsistenciaEstudianteRequest fila : request.asistencias()) {
       if (!vistos.add(fila.estudianteId())) {
         throw new ResponseStatusException(
@@ -218,8 +219,9 @@ public class SesionClaseService {
       hayNuevos |=
           existente == null
               || existente.getEstadoAsistencia() == EstadoAsistencia.PENDIENTE_MARCAJE;
+      hayCambios |= existente != null && existente.getEstadoAsistencia() != fila.estado();
     }
-    if (hayNuevos && !acceso.administrador()) {
+    if ((hayNuevos || hayCambios) && !acceso.administrador()) {
       ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
       exigirDocentePresente(sesion);
     }
@@ -288,7 +290,8 @@ public class SesionClaseService {
       Integer estudianteId,
       AsistenciaEstudianteAjusteRequest request,
       Acceso acceso) {
-    exigirAcceso(buscarSesion(sesionId), acceso);
+    SesionClase sesion = buscarSesion(sesionId);
+    exigirAcceso(sesion, acceso);
     AsistenciaEstudiante asistencia =
         asistencias
             .findBySesionClaseIdAndEstudianteIdAndActiveTrue(sesionId, estudianteId)
@@ -297,7 +300,16 @@ public class SesionClaseService {
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "No existe la asistencia del estudiante en la sesión"));
+    if (asistencia.getEstadoAsistencia() == EstadoAsistencia.JUSTIFICADA
+        && request.estado() != EstadoAsistencia.JUSTIFICADA) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "La asistencia está justificada y no se puede cambiar aquí");
+    }
     if (asistencia.getEstadoAsistencia() != request.estado()) {
+      if (!acceso.administrador()) {
+        ventanaMarcado.validar(sesion.getFecha(), sesion.getHoraInicio(), sesion.getHoraFin());
+        exigirDocentePresente(sesion);
+      }
       aplicarEstado(asistencia, request.estado());
       asistencia.anotarCorreccion(acceso.usuario(), LocalDateTime.now(clock));
     }

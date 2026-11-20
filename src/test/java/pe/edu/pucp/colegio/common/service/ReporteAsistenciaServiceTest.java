@@ -23,7 +23,6 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.FilaReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.ReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.SeccionReporteAsistenciaResponse;
-import pe.edu.pucp.colegio.common.exception.BusinessException;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Persona;
@@ -50,9 +49,11 @@ class ReporteAsistenciaServiceTest {
   @InjectMocks ReporteAsistenciaService service;
 
   @Test
-  void generar_rangoInvertido_lanzaBusinessException() {
+  void generar_rangoInvertido_lanzaBadRequest() {
     assertThatThrownBy(() -> service.generar(HASTA, DESDE, null, null, "admin"))
-        .isInstanceOf(BusinessException.class);
+        .isInstanceOfSatisfying(
+            ResponseStatusException.class,
+            e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     verify(asistencias, never()).consolidarPorAlumno(any(), any(), any(), any(), any());
   }
 

@@ -73,8 +73,8 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/calificaciones/{calificacionId}/historial` | Historial de registros y rectificaciones de una calificación (docente de la clase o ADMINISTRADOR) |
 | `GET` | `/api/v1/seguimiento/competencias/{codigo}?periodoId=&bimestre=` | Consultar calificaciones y evidencias de una competencia y bimestre |
 | `GET` | `/api/v1/evidencias/{calificacionId}/archivo` | Descargar archivo adjunto a una calificación |
-| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}` | Consultar libreta JSON interactiva (ADMINISTRADOR, DOCENTE, apoderado vinculado o alumno propio) |
-| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}` | Descargar PDF oficial tras cierre de actas o informe preliminar con marca de borrador (ADMINISTRADOR, DOCENTE, apoderado vinculado) |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta?periodoId={id}&bimestre={1..4}` | Consultar libreta JSON interactiva del período y bimestre |
+| `GET` | `/api/v1/estudiantes/{estudianteId}/libreta/pdf?periodoId={id}&bimestre={1..4}` | Descargar PDF del período y bimestre |
 | `POST` | `/api/v1/estudiantes` | Crear una cuenta y perfil de estudiante |
 | `GET` | `/api/v1/estudiantes` | Listar estudiantes con filtros y paginación |
 | `POST` | `/api/v1/estudiantes/{cuentaUsuarioId}/asignar` | Asignar perfil de estudiante a una cuenta existente |
@@ -187,7 +187,7 @@ El historial se consulta con `GET /api/v1/asistencias-estudiantes/{estudianteId}
 
 Para justificar una inasistencia registrada como `AUSENTE`, alumno o apoderado envía `PATCH /api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` como `multipart/form-data`, con las partes `motivo` y `documento`. El archivo se guarda usando el almacenamiento de evidencias (`app.storage.evidence-dir`, máximo 10 MB); el historial devuelve la URL para descargarlo. La justificación cambia el estado a `JUSTIFICADA`.
 
-La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
+La asistencia diaria de docentes puede consultarse, registrarse y ajustarse por ADMINISTRADOR. El registro de un ingreso se contrasta con el inicio de la primera sesión no cancelada del docente de ese día. Si supera la tolerancia configurada, queda como `TARDANZA`; un ajuste manual requiere motivo.
 
 Cada DOCENTE marca su propia jornada con la fecha y la hora **del servidor** (el cliente no envía cuerpo ni hora):
 
@@ -209,7 +209,7 @@ La ventana para marcar asistencia de alumnos y la tolerancia docente se configur
 | `ASISTENCIA_TOLERANCIA_DOCENTE_MINUTOS` | `10` | Minutos de tolerancia desde la primera sesión docente del día |
 | `ASISTENCIA_VENTANA_DOCENTE_ANTES_MINUTOS` | `30` | Minutos antes de la primera sesión del día desde los que el docente puede marcar su entrada |
 
-Los límites de apertura y cierre del marcaje son inclusivos. Un administrador puede ajustar una asistencia ya registrada fuera de esa ventana.
+Los límites de apertura y cierre del marcaje son inclusivos. Los docentes deben respetar la ventana tanto al registrar como al corregir asistencias; solo un administrador puede ajustar una asistencia ya registrada fuera de esa ventana. Las asistencias `JUSTIFICADA` conservan su motivo y documento y no pueden cambiarse desde los endpoints de registro o ajuste.
 
 ### Secciones y vacantes (US-1.7)
 
@@ -285,7 +285,7 @@ Las rutas `/api/v1/aulas` y `/api/v1/horarios/secciones` requieren el rol `ADMIN
 }
 ```
 
-`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
+`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que no puede alojar todas las vacantes de la sección (o los matriculados si son más) responde `422`. Al subir la capacidad de una sección o reducir la de un aula, el backend vuelve a validar las asignaciones vigentes y rechaza el cambio si alguna aula quedaría chica. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
 
 ### Autenticación
 
@@ -920,7 +920,7 @@ Es una revisión del código disponible, no una aprobación formal de criterios 
 | US-3.10 Entrega de tareas | **Completa**: archivo de hasta 10 MB antes de la fecha límite, registro de fecha y hora, reemplazo y descarga para el alumno y el docente. |
 | US-4.1 Horarios por sección, aula y docente | **Completa**: asignación de sesiones y consultas de horario en backend; pantallas de horario para administración y docente. |
 | US-4.2 Detección de cruces | **Completa**: validación y rechazo de conflictos de horario. |
-| US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según capacidad y matrícula de la sección. |
+| US-4.4 Capacidad del aula | **Completa**: validación al programar sesiones según vacantes totales y matrícula de la sección; cambios posteriores de capacidad de sección o aula revalidan las asignaciones vigentes. |
 | US-5.3 Auditoría de calificaciones | **Completa**: consulta administrativa paginada con nombres de estudiante, competencia y área, además de cambios y eventos de consolidación/cierre. |
 | US-5.4 Auditoría de transacciones y pagos | **Completa**: registro estructurado de compromisos, boletas generadas, pagos y pasos a mora con estado anterior y nuevo, apoderado titular, medio de pago, comprobante y usuario; consulta administrativa paginada con filtros, totales, historial por boleta y exportación CSV. |
 | US-2.6 Reporte de inasistencias y tardanzas | **Completa**: consolidado por rango de fechas, grado y sección con totales de asistencias, tardanzas e inasistencias, para administración y docentes, con exportación a CSV. |

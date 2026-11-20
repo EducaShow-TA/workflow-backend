@@ -41,6 +41,7 @@ public interface AsistenciaEstudianteRepository
   @Query(
       "select a from AsistenciaEstudiante a where a.active = true "
           + "and a.estudiante.id = :estudianteId and a.sesionClase.active = true "
+          + "and a.sesionClase.cancelada = false "
           + "and (:desde is null or a.sesionClase.fecha >= :desde) "
           + "and (:hasta is null or a.sesionClase.fecha <= :hasta) "
           + "order by a.sesionClase.fecha desc, a.sesionClase.horaInicio desc")

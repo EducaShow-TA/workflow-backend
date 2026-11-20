@@ -199,7 +199,12 @@ class AsistenciaRestIntegrationTest {
     LocalTime salida = entrada.plusHours(7);
     AsistenciaDocenteCreateRequest request =
         new AsistenciaDocenteCreateRequest(
-            f.docenteId(), f.fecha(), EstadoAsistenciaDocente.PRESENTE, entrada, salida, null);
+            f.docenteId(),
+            f.fecha(),
+            EstadoAsistenciaDocente.PRESENTE,
+            entrada,
+            salida,
+            "Corrección del registro de asistencia");
 
     mvc.perform(
             post("/api/v1/asistencias-docentes")
@@ -208,7 +213,8 @@ class AsistenciaRestIntegrationTest {
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.docenteId").value(f.docenteId()))
         .andExpect(jsonPath("$.estado").value("PRESENTE"))
-        .andExpect(jsonPath("$.horaEntrada").value("10:03:00"));
+        .andExpect(jsonPath("$.horaEntrada").value("10:03:00"))
+        .andExpect(jsonPath("$.motivoAjuste").value("Corrección del registro de asistencia"));
   }
 
   @Test
@@ -309,7 +315,7 @@ class AsistenciaRestIntegrationTest {
                             EstadoAsistenciaDocente.PRESENTE,
                             LocalTime.of(8, 0),
                             null,
-                            null))))
+                            "Registro manual de asistencia"))))
         .andExpect(status().isForbidden());
   }
 
@@ -390,7 +396,7 @@ class AsistenciaRestIntegrationTest {
                                 EstadoAsistenciaDocente.PRESENTE,
                                 LocalTime.of(8, 0),
                                 null,
-                                null))))
+                                "Registro manual de asistencia"))))
             .andExpect(status().isCreated())
             .andReturn();
     JsonNode response = objectMapper.readTree(resultado.getResponse().getContentAsString());

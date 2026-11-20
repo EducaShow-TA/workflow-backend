@@ -50,6 +50,11 @@ class AsistenciaDocenteServiceTest {
 
   @BeforeEach
   void preparar() {
+    ReflectionTestUtils.setField(
+        service,
+        "clock",
+        Clock.fixed(
+            FECHA.atStartOfDay(ZoneId.of("America/Lima")).toInstant(), ZoneId.of("America/Lima")));
     docente = new Docente();
     ReflectionTestUtils.setField(docente, "id", 1);
     docente.setPersona(new Persona("10000001", "Ana", "Docente", "Prueba"));
@@ -62,7 +67,8 @@ class AsistenciaDocenteServiceTest {
   @Test
   void registraIngresoPuntualDeUnDocente() {
     when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            1, FECHA))
         .thenReturn(Optional.empty());
     when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -78,14 +84,15 @@ class AsistenciaDocenteServiceTest {
     when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
     SesionClase sesion = new SesionClase();
     sesion.setHoraInicio(LocalTime.of(8, 0));
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            1, FECHA))
         .thenReturn(Optional.of(sesion));
     when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
+    assertEquals("Registro manual de asistencia", response.motivoAjuste());
   }
 
   @Test
@@ -164,7 +171,7 @@ class AsistenciaDocenteServiceTest {
     var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
+    assertEquals("Registro manual de asistencia", response.motivoAjuste());
   }
 
   @Test
@@ -196,7 +203,8 @@ class AsistenciaDocenteServiceTest {
   private void prepararSesion(String horaInicio) {
     SesionClase sesion = new SesionClase();
     sesion.setHoraInicio(LocalTime.parse(horaInicio));
-    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(
+            1, FECHA))
         .thenReturn(Optional.of(sesion));
   }
 
@@ -208,6 +216,6 @@ class AsistenciaDocenteServiceTest {
         estado,
         entrada == null ? null : LocalTime.parse(entrada),
         salida == null ? null : LocalTime.parse(salida),
-        null);
+        "Registro manual de asistencia");
   }
 }
