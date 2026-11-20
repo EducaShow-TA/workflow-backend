@@ -19,9 +19,9 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.config.AsistenciaProperties;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteAjusteRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteCreateRequest;
+import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.model.AsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
@@ -39,7 +39,7 @@ class AsistenciaDocenteServiceTest {
   @Mock AsistenciaDocenteRepository asistencias;
   @Mock DocenteRepository docentes;
   @Mock SesionClaseRepository sesiones;
-  @Mock AsistenciaProperties properties;
+  @Mock ConfiguracionMarcajeDocenteService configuracionMarcaje;
 
   @InjectMocks AsistenciaDocenteService service;
 
@@ -51,7 +51,9 @@ class AsistenciaDocenteServiceTest {
     ReflectionTestUtils.setField(docente, "id", 1);
     docente.setPersona(new Persona("10000001", "Ana", "Docente", "Prueba"));
     Mockito.lenient().when(docentes.findById(1)).thenReturn(Optional.of(docente));
-    Mockito.lenient().when(properties.getToleranciaDocenteMinutos()).thenReturn(10);
+    Mockito.lenient()
+        .when(configuracionMarcaje.obtener())
+        .thenReturn(new ConfiguracionMarcajeDocenteResponse(15, 30, 30));
   }
 
   @Test
@@ -66,6 +68,21 @@ class AsistenciaDocenteServiceTest {
     assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
     assertEquals(LocalTime.of(8, 0), response.horaEntrada());
     verify(asistencias).saveAndFlush(any(AsistenciaDocente.class));
+  }
+
+  @Test
+  void registraTardanzaConLaToleranciaGlobalConfigurada() {
+    when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
+    SesionClase sesion = new SesionClase();
+    sesion.setHoraInicio(LocalTime.of(8, 0));
+    when(sesiones.findFirstByDocenteIdAndFechaAndActiveTrueOrderByHoraInicioAsc(1, FECHA))
+        .thenReturn(Optional.of(sesion));
+    when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
+
+    assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
+    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
   }
 
   @Test
@@ -125,26 +142,26 @@ class AsistenciaDocenteServiceTest {
   }
 
   @Test
-  void llegadaDentroDelMargenSeMantienePresente() {
+  void llegadaEnElUltimoMinutoDeToleranciaSeMantienePresente() {
     prepararSesion("08:00");
     when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
     when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:10", null));
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:15", null));
 
     assertEquals(EstadoAsistenciaDocente.PRESENTE, response.estado());
   }
 
   @Test
-  void llegadaPosteriorAlMargenSeClasificaComoTardanza() {
+  void llegadaPosteriorALaToleranciaGlobalSeClasificaComoTardanza() {
     prepararSesion("08:00");
     when(asistencias.existsByDocenteIdAndFechaAndActiveTrue(1, FECHA)).thenReturn(false);
     when(asistencias.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:11", null));
+    var response = service.registrar(registro(EstadoAsistenciaDocente.PRESENTE, "08:16", null));
 
     assertEquals(EstadoAsistenciaDocente.TARDANZA, response.estado());
-    assertEquals("Marcaje posterior a la tolerancia de 10 minutos", response.motivoAjuste());
+    assertEquals("Marcaje posterior a la tolerancia de 15 minutos", response.motivoAjuste());
   }
 
   private void prepararSesion(String horaInicio) {

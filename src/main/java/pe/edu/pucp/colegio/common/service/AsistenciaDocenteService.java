@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.config.AsistenciaProperties;
+import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteAjusteRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteResponse;
@@ -38,7 +38,7 @@ public class AsistenciaDocenteService {
   private final AsistenciaDocenteRepository asistencias;
   private final DocenteRepository docentes;
   private final SesionClaseRepository sesiones;
-  private final AsistenciaProperties properties;
+  private final ConfiguracionMarcajeDocenteService configuracionMarcaje;
   private final DocenteService docenteService;
   private final Clock clock;
 
@@ -46,21 +46,21 @@ public class AsistenciaDocenteService {
       AsistenciaDocenteRepository asistencias,
       DocenteRepository docentes,
       SesionClaseRepository sesiones,
-      AsistenciaProperties properties,
+      ConfiguracionMarcajeDocenteService configuracionMarcaje,
       DocenteService docenteService,
       Clock clock) {
     this.asistencias = asistencias;
     this.docentes = docentes;
     this.sesiones = sesiones;
-    this.properties = properties;
+    this.configuracionMarcaje = configuracionMarcaje;
     this.docenteService = docenteService;
     this.clock = clock;
   }
 
   /**
    * Registra la entrada del docente autenticado con la fecha y hora del servidor. Si tiene clases
-   * ese día, solo puede marcar desde {@code ventanaDocenteAntesMinutos} antes de su primera sesión
-   * y, pasada la tolerancia, la entrada queda como tardanza. Sin clases ese día, marca libremente.
+   * ese día, la ventana y la tolerancia globales se calculan desde su primera sesión. Sin clases,
+   * marca libremente.
    */
   @Transactional
   public AsistenciaDocenteResponse marcarEntrada(String usuario) {
@@ -68,8 +68,9 @@ public class AsistenciaDocenteService {
     LocalDateTime ahora = LocalDateTime.now(clock);
     LocalDate hoy = ahora.toLocalDate();
     LocalTime hora = ahora.toLocalTime().truncatedTo(ChronoUnit.SECONDS);
+    ConfiguracionMarcajeDocenteResponse configuracion = configuracionMarcaje.obtener();
     LocalTime inicioJornada = inicioJornada(docente.getId(), hoy);
-    validarVentanaMarcaje(inicioJornada, hora);
+    validarVentanaMarcaje(inicioJornada, hora, configuracion);
 
     AsistenciaDocente asistencia =
         asistencias
@@ -80,7 +81,7 @@ public class AsistenciaDocenteService {
           HttpStatus.CONFLICT, "La asistencia de hoy ya está registrada");
     }
     asistencia.marcarIngreso(hora);
-    clasificarTardanza(asistencia, inicioJornada);
+    clasificarTardanza(asistencia, inicioJornada, configuracion.toleranciaMinutos());
     AsistenciaDocenteResponse response = guardar(asistencia);
     log.info(
         "Docente {} marcó su entrada el {} a las {} ({})",
@@ -140,7 +141,7 @@ public class AsistenciaDocenteService {
     AsistenciaDocente asistencia = new AsistenciaDocente();
     asistencia.setDocente(docente);
     asistencia.setFecha(request.fecha());
-    aplicarRegistro(asistencia, request);
+    aplicarRegistro(asistencia, request, configuracionMarcaje.obtener());
     return guardar(asistencia);
   }
 
@@ -185,7 +186,9 @@ public class AsistenciaDocenteService {
   }
 
   private void aplicarRegistro(
-      AsistenciaDocente asistencia, AsistenciaDocenteCreateRequest request) {
+      AsistenciaDocente asistencia,
+      AsistenciaDocenteCreateRequest request,
+      ConfiguracionMarcajeDocenteResponse configuracion) {
     EstadoAsistenciaDocente estado = request.estado();
     switch (estado) {
       case PENDIENTE_MARCAJE -> {
@@ -198,7 +201,9 @@ public class AsistenciaDocenteService {
         exigirHoraEntrada(request.horaEntrada());
         asistencia.marcarIngreso(request.horaEntrada());
         clasificarTardanza(
-            asistencia, inicioJornada(asistencia.getDocente().getId(), asistencia.getFecha()));
+            asistencia,
+            inicioJornada(asistencia.getDocente().getId(), asistencia.getFecha()),
+            configuracion.toleranciaMinutos());
         if (request.motivoAjuste() != null && !request.motivoAjuste().isBlank()) {
           asistencia.ajustar(asistencia.getEstado(), request.motivoAjuste());
         }
@@ -240,8 +245,8 @@ public class AsistenciaDocenteService {
         .orElse(null);
   }
 
-  private void clasificarTardanza(AsistenciaDocente asistencia, LocalTime inicioJornada) {
-    int tolerancia = properties.getToleranciaDocenteMinutos();
+  private void clasificarTardanza(
+      AsistenciaDocente asistencia, LocalTime inicioJornada, int tolerancia) {
     if (inicioJornada != null
         && asistencia.getHoraEntrada().isAfter(inicioJornada.plusMinutes(tolerancia))) {
       asistencia.ajustar(
@@ -250,12 +255,15 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void validarVentanaMarcaje(LocalTime inicioJornada, LocalTime hora) {
+  private void validarVentanaMarcaje(
+      LocalTime inicioJornada,
+      LocalTime hora,
+      ConfiguracionMarcajeDocenteResponse configuracion) {
     if (inicioJornada == null) {
       return;
     }
-    LocalTime apertura = inicioJornada.minusMinutes(properties.getVentanaDocenteAntesMinutos());
-    LocalTime cierre = inicioJornada.plusMinutes(properties.getVentanaDocenteDespuesMinutos());
+    LocalTime apertura = inicioJornada.minusMinutes(configuracion.ventanaAntesMinutos());
+    LocalTime cierre = inicioJornada.plusMinutes(configuracion.ventanaDespuesMinutos());
     if (hora.isBefore(apertura)) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "El marcaje de entrada se habilita a partir de las " + apertura);
