@@ -3,34 +3,25 @@ package pe.edu.pucp.colegio.common;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import org.junit.jupiter.api.BeforeEach;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
-import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @WithMockUser(username = "catalogo-test", roles = "ADMINISTRADOR")
+@Transactional
 class CatalogoCrudIntegrationTest {
 
   @Autowired MockMvc mvc;
   @Autowired AreaRepository areas;
-  @Autowired CompetenciaRepository competencias;
-  @Autowired JdbcTemplate jdbc;
-
-  @BeforeEach
-  void limpiarCatalogo() {
-    jdbc.update("DELETE FROM areas_competencias");
-    competencias.deleteAll();
-    areas.deleteAll();
-  }
 
   @Test
   void areaSeRelacionaConVariasCompetenciasActualizaVinculosYSeEliminaSinBorrarlas()
@@ -169,6 +160,7 @@ class CatalogoCrudIntegrationTest {
 
   @Test
   void rechazaReferenciasInexistentesDatosInvalidosYCodigosInconsistentes() throws Exception {
+    String codigoInexistente = "NO-EXISTE-" + UUID.randomUUID().toString().substring(0, 8);
     mvc.perform(
             post("/api/v1/areas")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -182,7 +174,7 @@ class CatalogoCrudIntegrationTest {
         .andExpect(status().isBadRequest());
 
     mvc.perform(
-            put("/api/v1/areas/MAT")
+            put("/api/v1/areas/{codigo}", codigoInexistente)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(areaJson("OTRO", "Matemática", null)))
         .andExpect(status().isNotFound());

@@ -348,7 +348,7 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void validarHorario(java.time.LocalTime entrada, java.time.LocalTime salida) {
+  private void validarHorario(LocalTime entrada, LocalTime salida) {
     if (salida != null && entrada == null) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Debe registrar la hora de entrada antes de la salida");
@@ -359,7 +359,7 @@ public class AsistenciaDocenteService {
     }
   }
 
-  private void exigirHoraEntrada(java.time.LocalTime entrada) {
+  private void exigirHoraEntrada(LocalTime entrada) {
     if (entrada == null) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "La hora de entrada es obligatoria para marcar asistencia");

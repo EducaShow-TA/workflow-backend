@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -47,8 +48,8 @@ public interface AsistenciaEstudianteRepository
           + "order by a.sesionClase.fecha desc, a.sesionClase.horaInicio desc")
   List<AsistenciaEstudiante> buscarHistorial(
       @Param("estudianteId") Integer estudianteId,
-      @Param("desde") java.time.LocalDate desde,
-      @Param("hasta") java.time.LocalDate hasta);
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta);
 
   /**
    * Consolida por alumno y sección los estados marcados en el rango (US-2.6). Excluye pendientes,
@@ -88,8 +89,8 @@ public interface AsistenciaEstudianteRepository
           + " group by e.id, p.nombre, p.apellidoPaterno, p.apellidoMaterno, g.id, g.numero,"
           + " g.nivelEducativo, sec.id, sec.codigo")
   List<ConsolidadoAsistenciaFila> consolidarPorAlumno(
-      @Param("desde") java.time.LocalDate desde,
-      @Param("hasta") java.time.LocalDate hasta,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta,
       @Param("gradoId") Integer gradoId,
       @Param("seccionId") Integer seccionId,
       @Param("personaId") Integer personaIdDocente);

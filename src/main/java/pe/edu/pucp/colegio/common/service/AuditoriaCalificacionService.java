@@ -22,6 +22,7 @@ import pe.edu.pucp.colegio.common.model.CalificacionParcial;
 import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 
+/** Registra y consulta cambios académicos auditables en las calificaciones. */
 @Service
 public class AuditoriaCalificacionService {
 

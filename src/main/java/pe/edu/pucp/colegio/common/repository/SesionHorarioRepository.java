@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.repository;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -35,9 +36,9 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
   List<SesionHorario> listarHorarioDocente(
       @Param("docenteId") Integer docenteId,
       @Param("anio") Integer anio,
-      @Param("desde") java.time.LocalDate desde,
-      @Param("hasta") java.time.LocalDate hasta,
-      @Param("fecha") java.time.LocalDate fecha);
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta,
+      @Param("fecha") LocalDate fecha);
 
   @EntityGraph(attributePaths = "docente.persona")
   @Query(
@@ -64,9 +65,9 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
   List<SesionHorario> listarHorarioEstudiante(
       @Param("personaId") Integer personaId,
       @Param("anio") Integer anio,
-      @Param("desde") java.time.LocalDate desde,
-      @Param("hasta") java.time.LocalDate hasta,
-      @Param("fecha") java.time.LocalDate fecha,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta,
+      @Param("fecha") LocalDate fecha,
       @Param("estado") EstadoMatricula estado);
 
   @EntityGraph(attributePaths = {"bloque", "area", "docente", "docente.persona", "aula"})
@@ -80,8 +81,8 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
   List<SesionHorario> buscarAsignacionesDocente(
       @Param("personaId") Integer personaId,
       @Param("seccionId") Integer seccionId,
-      @Param("desde") java.time.LocalDate desde,
-      @Param("hasta") java.time.LocalDate hasta);
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta);
 
   @Query(
       "select distinct s from SesionHorario s join fetch s.area a left join fetch a.competencias "
@@ -106,7 +107,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("horarioId") Integer horarioId,
       @Param("bloqueId") Integer bloqueId,
       @Param("dia") DayOfWeek dia,
-      @Param("fecha") java.time.LocalDate fecha,
+      @Param("fecha") LocalDate fecha,
       @Param("excluirId") Integer excluirId);
 
   /** Horarios (sección y año) que tienen al menos una clase en el aula. */
@@ -120,7 +121,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
           + "and (s.vigenteHasta is null or s.vigenteHasta >= :hoy)")
   List<SesionHorario> findVigentesBySeccionId(
       @Param("seccionId") Integer seccionId,
-      @Param("hoy") java.time.LocalDate hoy,
+      @Param("hoy") LocalDate hoy,
       @Param("anioActual") Integer anioActual);
 
   @Query(
@@ -144,7 +145,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("docenteId") Integer docenteId,
       @Param("dia") DayOfWeek dia,
       @Param("anio") Integer anio,
-      @Param("fecha") java.time.LocalDate fecha,
+      @Param("fecha") LocalDate fecha,
       @Param("inicio") LocalTime inicio,
       @Param("fin") LocalTime fin,
       @Param("excluirId") Integer excluirId);
@@ -170,7 +171,7 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("aulaId") Integer aulaId,
       @Param("dia") DayOfWeek dia,
       @Param("anio") Integer anio,
-      @Param("fecha") java.time.LocalDate fecha,
+      @Param("fecha") LocalDate fecha,
       @Param("inicio") LocalTime inicio,
       @Param("fin") LocalTime fin,
       @Param("excluirId") Integer excluirId);

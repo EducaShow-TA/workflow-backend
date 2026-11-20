@@ -2,6 +2,8 @@ package pe.edu.pucp.colegio.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -74,9 +76,8 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(estado)
         .body(
             new ErrorConfirmacionMatriculaResponse(
-                java.time.OffsetDateTime.now()
-                    .format(
-                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
+                OffsetDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")),
                 estado.value(),
                 estado.getReasonPhrase(),
                 e.getMessage(),

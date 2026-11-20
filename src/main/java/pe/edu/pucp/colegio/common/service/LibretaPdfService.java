@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse;
 import pe.edu.pucp.colegio.common.dto.LibretaNotasResponse.AreaLibreta;
@@ -194,7 +195,7 @@ public class LibretaPdfService {
                   + evaluacion.ponderacion().stripTrailingZeros().toPlainString()
                   + "%)";
             })
-        .collect(java.util.stream.Collectors.joining("\n"));
+        .collect(Collectors.joining("\n"));
   }
 
   private void agregarCeldaEncabezado(PdfPTable tabla, String texto) {

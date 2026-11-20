@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.common.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,7 @@ public class RiesgoApoderadoService {
                             competencia.getCodigo(),
                             competencia.getNombre(),
                             notas.get(competencia.getCodigo())))
-                .sorted(java.util.Comparator.comparing(CompetenciaEnRiesgo::nombre))
+                .sorted(Comparator.comparing(CompetenciaEnRiesgo::nombre))
                 .toList();
         int cantidad = competencias.stream().mapToInt(CompetenciaEnRiesgo::notasC).sum();
         if (cantidad > umbral) {

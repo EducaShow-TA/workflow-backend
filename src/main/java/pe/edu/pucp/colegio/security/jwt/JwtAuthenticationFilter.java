@@ -1,8 +1,11 @@
 package pe.edu.pucp.colegio.security.jwt;
 
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,9 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private void authenticate(CuentaUsuario user) {
     var auth =
         new UsernamePasswordAuthenticationToken(
-            user.getUsername(),
-            null,
-            java.util.List.of(new SimpleGrantedAuthority("ROLE_" + user.getRol())));
+            user.getUsername(), null, List.of(new SimpleGrantedAuthority("ROLE_" + user.getRol())));
     SecurityContextHolder.getContext().setAuthentication(auth);
   }
 }

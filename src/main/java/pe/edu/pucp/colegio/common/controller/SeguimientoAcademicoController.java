@@ -12,16 +12,32 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.dto.*;
+import pe.edu.pucp.colegio.common.dto.CalificacionRequest;
+import pe.edu.pucp.colegio.common.dto.CalificacionResponse;
+import pe.edu.pucp.colegio.common.dto.CalificacionTareaRequest;
+import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
+import pe.edu.pucp.colegio.common.dto.EstadoEntregaRequest;
+import pe.edu.pucp.colegio.common.dto.HistorialCalificacionResponse;
+import pe.edu.pucp.colegio.common.dto.TareaRequest;
+import pe.edu.pucp.colegio.common.dto.TareaResponse;
 import pe.edu.pucp.colegio.common.model.Calificacion;
 import pe.edu.pucp.colegio.common.model.Tarea;
 import pe.edu.pucp.colegio.common.service.EvidenciaStorageService;
 import pe.edu.pucp.colegio.common.service.MisClasesService;
 import pe.edu.pucp.colegio.common.service.SeguimientoAcademicoService;
 
+/** Endpoints de seguimiento académico, evidencias y calificaciones. */
 @RestController
 @PreAuthorize("hasAnyRole('DOCENTE', 'ADMINISTRADOR')")
 public class SeguimientoAcademicoController {

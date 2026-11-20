@@ -13,6 +13,8 @@ import com.lowagie.text.pdf.PdfWriter;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
@@ -167,8 +169,8 @@ public class CuadroMeritoDocumentoService {
     if (valor == null) {
       return "Sin puesto";
     }
-    if (valor instanceof java.math.BigDecimal decimal) {
-      return decimal.setScale(4, java.math.RoundingMode.HALF_UP).toPlainString();
+    if (valor instanceof BigDecimal decimal) {
+      return decimal.setScale(4, RoundingMode.HALF_UP).toPlainString();
     }
     return valor.toString();
   }

@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -28,11 +29,30 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
-import pe.edu.pucp.colegio.common.dto.*;
+import pe.edu.pucp.colegio.common.dto.BoletaPensionReporteResponse;
+import pe.edu.pucp.colegio.common.dto.BoletaPensionResponse;
+import pe.edu.pucp.colegio.common.dto.ComprobantePagoResponse;
+import pe.edu.pucp.colegio.common.dto.CompromisoPagoRequest;
+import pe.edu.pucp.colegio.common.dto.CompromisoPagoResponse;
+import pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse;
+import pe.edu.pucp.colegio.common.dto.PaginaBoletasResponse;
+import pe.edu.pucp.colegio.common.dto.RegistrarPagoRequest;
+import pe.edu.pucp.colegio.common.dto.ReporteBoletasPaginadoResponse;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
 import pe.edu.pucp.colegio.common.exception.ConflictException;
-import pe.edu.pucp.colegio.common.model.*;
-import pe.edu.pucp.colegio.common.repository.*;
+import pe.edu.pucp.colegio.common.model.BoletaPension;
+import pe.edu.pucp.colegio.common.model.ComprobantePago;
+import pe.edu.pucp.colegio.common.model.CompromisoPago;
+import pe.edu.pucp.colegio.common.model.EstadoBoleta;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.MecanismoGeneracion;
+import pe.edu.pucp.colegio.common.model.VinculoFamiliar;
+import pe.edu.pucp.colegio.common.repository.BoletaPensionFiltros;
+import pe.edu.pucp.colegio.common.repository.BoletaPensionRepository;
+import pe.edu.pucp.colegio.common.repository.ComprobantePagoRepository;
+import pe.edu.pucp.colegio.common.repository.CompromisoPagoRepository;
+import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 /** Compromisos, cronograma de pensiones, comprobantes, mora y cobranza consolidada. */
@@ -390,8 +410,7 @@ public class FinanzasService {
       throw new ConflictException(
           "Ya existe una boleta para el estudiante, concepto y mes indicados");
     }
-    int indice =
-        Math.toIntExact(java.time.temporal.ChronoUnit.MONTHS.between(c.getMesInicio(), mes)) + 1;
+    int indice = Math.toIntExact(ChronoUnit.MONTHS.between(c.getMesInicio(), mes)) + 1;
     BoletaPension b = new BoletaPension();
     b.setCompromiso(c);
     b.setMesCobro(mes);
@@ -421,7 +440,7 @@ public class FinanzasService {
   }
 
   private void validarMesCompromiso(CompromisoPago c, YearMonth mes) {
-    long indice = java.time.temporal.ChronoUnit.MONTHS.between(c.getMesInicio(), mes);
+    long indice = ChronoUnit.MONTHS.between(c.getMesInicio(), mes);
     if (indice < 0 || indice >= c.getNumeroCuotas())
       throw new BusinessException("El mes no pertenece al cronograma del compromiso");
   }

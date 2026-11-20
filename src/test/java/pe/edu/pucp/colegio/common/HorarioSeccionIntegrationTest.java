@@ -44,6 +44,7 @@ import pe.edu.pucp.colegio.common.repository.GradoRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.PlantillaHorarioRepository;
 import pe.edu.pucp.colegio.common.repository.SeccionRepository;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
@@ -54,7 +55,7 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 @Transactional
 class HorarioSeccionIntegrationTest {
 
-  private static final int ANIO = 2027;
+  private static final int ANIO = LocalDate.now().getYear() + 1;
   private static final String BASE = "/api/v1/horarios/secciones";
 
   @Autowired MockMvc mvc;
@@ -70,6 +71,7 @@ class HorarioSeccionIntegrationTest {
   @Autowired pe.edu.pucp.colegio.common.repository.PeriodoRepository periodos;
   @Autowired pe.edu.pucp.colegio.common.repository.MatriculaRepository matriculas;
   @Autowired PlantillaHorarioRepository plantillas;
+  @Autowired SesionHorarioRepository sesionesHorario;
 
   /** Datos mínimos que necesita un horario: sección, plantilla, área, docente y aula. */
   record Escenario(
@@ -283,6 +285,46 @@ class HorarioSeccionIntegrationTest {
                 .content(sesion(e, e.bloque1Id(), "WEDNESDAY", e.docenteId(), e.aulaId())))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.dia").value("WEDNESDAY"));
+  }
+
+  @Test
+  void actualizaSesionConVigenciaTemporalYPersisteElRango() throws Exception {
+    Escenario e = escenario();
+    int horarioId = idDe(crearHorario(e).andExpect(status().isCreated()));
+    int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
+    LocalDate desde = LocalDate.of(ANIO, 1, 2);
+    LocalDate hasta = LocalDate.of(ANIO, 1, 31);
+
+    mvc.perform(
+            put(BASE + "/" + horarioId + "/sesiones/" + sesionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    cuerpo(
+                        Map.of(
+                            "bloqueId",
+                            e.bloque1Id(),
+                            "dia",
+                            "MONDAY",
+                            "areaCodigo",
+                            e.areaCodigo(),
+                            "docenteId",
+                            e.docenteId(),
+                            "aulaId",
+                            e.aulaId(),
+                            "tipoVigencia",
+                            "TEMPORAL",
+                            "vigenteDesde",
+                            desde.toString(),
+                            "vigenteHasta",
+                            hasta.toString()))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.vigenteDesde").value(desde.toString()))
+        .andExpect(jsonPath("$.vigenteHasta").value(hasta.toString()));
+
+    assertThat(sesionesHorario.findAllByHorarioId(horarioId))
+        .anyMatch(
+            sesion ->
+                desde.equals(sesion.getVigenteDesde()) && hasta.equals(sesion.getVigenteHasta()));
   }
 
   @Test
