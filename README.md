@@ -88,6 +88,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/apoderados/mis-pagos/comprobantes/{id}/pdf` | Descargar el comprobante de pago en PDF |
 | `GET` | `/api/v1/estudiantes/mi-ficha` | Datos del alumno autenticado y sus períodos de matrícula confirmada |
 | `GET` | `/api/v1/estudiantes/mi-horario?anio={anio}` | Consultar el horario propio según la matrícula confirmada (solo ALUMNO) |
+| `GET` | `/api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}` | Consultar el horario del estudiante vinculado (solo APODERADO) |
 | `GET` | `/api/v1/estudiantes/mis-tareas` | Tareas de las secciones vigentes del alumno con su estado (US-3.9) |
 | `GET` | `/api/v1/estudiantes/mis-tareas/{tareaId}` | Detalle de una tarea propia |
 | `POST` | `/api/v1/estudiantes/mis-tareas/{tareaId}/entrega` | Entregar o reemplazar el archivo de una tarea antes de su fecha límite (US-3.10) |
@@ -282,7 +283,7 @@ Las rutas `/api/v1/aulas` y `/api/v1/horarios/secciones` requieren el rol `ADMIN
 }
 ```
 
-`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, y el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}`.
+`POST /api/v1/horarios/secciones/{id}/sesiones/validar` recibe el mismo cuerpo y devuelve `valida` más los conflictos detectados sin guardar la sesión. Crear o editar una sesión rechaza los cruces de sección, docente o aula (`409`); una asignación que excede la capacidad del aula responde `422`. Al iniciar la aplicación, las ocurrencias pendientes de los períodos activos con horario se generan automáticamente; `POST /api/v1/sesiones-clase/generar?periodoId={id}` permite al administrador repetir la generación de un período. `GET /api/v1/horarios/secciones?seccionId={id}&anio={anio}` devuelve la grilla. El docente consulta su propia grilla mediante `GET /api/v1/docentes/mi-horario`, el alumno consulta la suya mediante `GET /api/v1/estudiantes/mi-horario?anio={anio}` y el apoderado consulta la de un estudiante vinculado mediante `GET /api/v1/apoderados/mi-horario?estudianteId={id}&anio={anio}`.
 
 ### Autenticación
 
