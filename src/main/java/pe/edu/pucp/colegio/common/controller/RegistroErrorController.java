@@ -16,7 +16,6 @@ import pe.edu.pucp.colegio.common.audit.NivelLog;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorService;
 import pe.edu.pucp.colegio.common.dto.RegistroErrorResponseDTO;
 
-/** Consulta de registros de error para soporte técnico (US-5.5). Solo ADMINISTRADOR. */
 /** Expone la consulta administrativa de registros de errores del sistema. */
 @RestController
 @RequestMapping("/api/v1/logs/errores")

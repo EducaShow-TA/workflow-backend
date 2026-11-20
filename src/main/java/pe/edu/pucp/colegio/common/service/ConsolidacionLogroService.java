@@ -7,6 +7,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -20,12 +21,37 @@ import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
-import pe.edu.pucp.colegio.common.dto.*;
+import pe.edu.pucp.colegio.common.dto.CalificacionParcialRequest;
+import pe.edu.pucp.colegio.common.dto.CalificacionParcialResponse;
+import pe.edu.pucp.colegio.common.dto.CierreActasResponse;
+import pe.edu.pucp.colegio.common.dto.EvaluacionParcialActualizacionRequest;
+import pe.edu.pucp.colegio.common.dto.EvaluacionParcialRequest;
+import pe.edu.pucp.colegio.common.dto.EvaluacionParcialResponse;
+import pe.edu.pucp.colegio.common.dto.RecalculoLogrosRequest;
+import pe.edu.pucp.colegio.common.dto.RecalculoLogrosResponse;
+import pe.edu.pucp.colegio.common.dto.ReglaConsolidacionRequest;
+import pe.edu.pucp.colegio.common.dto.ReglaConsolidacionResponse;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
-import pe.edu.pucp.colegio.common.model.*;
-import pe.edu.pucp.colegio.common.repository.*;
+import pe.edu.pucp.colegio.common.model.Calificacion;
+import pe.edu.pucp.colegio.common.model.CalificacionParcial;
+import pe.edu.pucp.colegio.common.model.Competencia;
+import pe.edu.pucp.colegio.common.model.Docente;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
+import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.model.ReglaConsolidacion;
+import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
+import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
+import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
+import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
+import pe.edu.pucp.colegio.common.repository.ReglaConsolidacionRepository;
+import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
+/** Consolida evaluaciones parciales y administra el cierre de actas del período. */
 @Service
 public class ConsolidacionLogroService {
 
@@ -574,7 +600,7 @@ public class ConsolidacionLogroService {
     if (cerrar) {
       List<CalificacionParcial> completar = new ArrayList<>();
       Map<CalificacionParcial, AuditoriaCalificacionService.ParcialAnterior> anteriores =
-          new java.util.IdentityHashMap<>();
+          new IdentityHashMap<>();
       for (EvaluacionParcial evaluacion : evaluacionesActivas) {
         for (Matricula matricula : roster) {
           String key = clave(evaluacion.getId(), matricula.getId());
@@ -626,7 +652,7 @@ public class ConsolidacionLogroService {
     int actualizados = 0;
     List<Calificacion> finalesAGuardar = new ArrayList<>();
     Map<Calificacion, AuditoriaCalificacionService.FinalAnterior> anterioresFinales =
-        new java.util.IdentityHashMap<>();
+        new IdentityHashMap<>();
     for (Matricula matricula : roster) {
       List<CalificacionParcial> notas = porMatricula.getOrDefault(matricula.getId(), List.of());
       ConsolidacionCalculada resultado = calcularResultado(notas, regla);

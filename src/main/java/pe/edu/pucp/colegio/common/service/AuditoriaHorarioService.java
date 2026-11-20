@@ -46,8 +46,8 @@ public class AuditoriaHorarioService {
       SesionHorario anterior,
       SesionHorario nuevo,
       String vigenciaTipo,
-      java.time.LocalDate desde,
-      java.time.LocalDate hasta) {
+      LocalDate desde,
+      LocalDate hasta) {
     if ("ACTUALIZACIÓN".equals(accion)
         && "PERMANENTE".equals(vigenciaTipo)
         && anterior != null

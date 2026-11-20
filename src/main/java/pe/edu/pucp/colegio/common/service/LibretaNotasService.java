@@ -37,6 +37,7 @@ import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
+/** Construye la libreta de notas y valida el acceso del usuario solicitante. */
 @Service
 public class LibretaNotasService {
 

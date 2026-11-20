@@ -16,6 +16,7 @@ import pe.edu.pucp.colegio.common.dto.CuadroMeritoResponse;
 import pe.edu.pucp.colegio.common.service.CuadroMeritoDocumentoService;
 import pe.edu.pucp.colegio.common.service.CuadroMeritoService;
 
+/** Expone los reportes del cuadro de mérito en formatos de consulta y descarga. */
 @RestController
 @RequestMapping("/api/v1/reportes/cuadro-merito")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

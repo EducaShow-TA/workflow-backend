@@ -6,6 +6,8 @@ Backend REST monolítico modular para el sistema de gestión integral de un cole
 
 El equipo integra cambios en `Development` mediante Pull Requests desde ramas personales permanentes; al cierre del sprint, integra `Development` en `main`. Usa Maven Wrapper (`mvnw.cmd` en Windows o `./mvnw` en Linux/macOS) para ejecutar `spotless:apply`, `spotless:check` y `verify` sin instalar Maven globalmente. El flujo detallado está en [`docs/flujo-de-trabajo.md`](docs/flujo-de-trabajo.md).
 
+GitHub Actions publica los checks requeridos `build` (formato, pruebas y JaCoCo), `commits` (PR hacia `Development`) y `origen-development` (PR hacia `main`). El build produce el artifact `reporte-cobertura` y un resumen JaCoCo en el run. Los rulesets para proteger ambas ramas están versionados en [`.github/rulesets/`](.github/rulesets/); un administrador debe importarlos en *Settings → Rules → Rulesets* para que GitHub los exija al mergear.
+
 ## Tecnologías
 
 - Java 25 (`pom.xml`), Spring Boot 3.5.6.
@@ -96,6 +98,12 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/asistencias-estudiantes/{estudianteId}/historial` | Consultar historial (alumno propio, apoderado vinculado, docente o administrador) |
 | `PATCH` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion` | Justificar una inasistencia adjuntando motivo y documento (alumno o apoderado vinculado) |
 | `GET` | `/api/v1/asistencias-estudiantes/{asistenciaId}/justificacion/documento` | Descargar el documento de sustento (con acceso al historial) |
+| `GET` | `/api/v1/reportes/asistencia-estudiantes` | Consultar reporte de asistencia con filtros (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/reportes/asistencia-estudiantes/csv` | Descargar reporte de asistencia en CSV |
+| `GET` | `/api/v1/reportes/asistencia-estudiantes/secciones` | Listar secciones disponibles para filtrar el reporte |
+| `POST/GET` | `/api/v1/sesiones-clase/{sesionId}/asistencias/carga-masiva` y `/plantilla` | Importar CSV o descargar plantilla de asistencia de alumnos |
+| `POST` | `/api/v1/asistencias-docentes/carga-masiva` | Importar marcajes de docentes desde CSV (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/asistencias-docentes/carga-masiva/plantilla` | Descargar plantilla CSV de marcajes docentes (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/sesiones-clase` | Crear una sesión (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/sesiones-clase?fecha=&seccionId=` | Consultar sesiones (DOCENTE o ADMINISTRADOR) |
 | `GET` | `/api/v1/sesiones-clase/{sesionId}` | Consultar una sesión |
@@ -110,6 +118,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/docentes/mis-asistencias` | Consultar marcajes propios (solo DOCENTE) |
 | `POST` | `/api/v1/docentes/mis-asistencias/entrada` | Marcar entrada propia (solo DOCENTE) |
 | `POST` | `/api/v1/docentes/mis-asistencias/salida` | Marcar salida propia (solo DOCENTE) |
+| `GET/PATCH` | `/api/v1/configuracion/marcaje-docente` | Consultar o cambiar la ventana global de marcaje (solo ADMINISTRADOR) |
 | `GET` | `/api/v1/docentes/mis-clases` | Secciones y áreas del docente con sus competencias activas (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases/{periodoId}/alumnos` | Alumnos confirmados de una de sus clases, para calificar (solo DOCENTE) |
 | `GET` | `/api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}` | Contar notas C del bimestre actual con el umbral persistido (solo DOCENTE) |
@@ -135,6 +144,10 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `POST` | `/api/v1/horarios/secciones/{id}/sesiones` | Asignar bloque, día, área, docente y aula (solo ADMINISTRADOR) |
 | `POST` | `/api/v1/horarios/secciones/{id}/sesiones/validar` | Validar una asignación sin guardarla |
 | `PUT/DELETE` | `/api/v1/horarios/secciones/{id}/sesiones/{sesionId}` | Editar o retirar una asignación (solo ADMINISTRADOR) |
+| `GET` | `/api/v1/horarios/auditoria` | Consultar el historial de cambios de horarios (solo ADMINISTRADOR) |
+| `POST/GET/DELETE` | `/api/v1/calendario-escolar/dias-no-lectivos` y `/{id}` | Administrar y consultar días no lectivos |
+| `GET` | `/api/v1/apoderados/alertas-riesgo-academico` | Consultar alertas de riesgo académico de estudiantes vinculados |
+| `GET/PUT` | `/api/v1/estudiantes/{estudianteId}/libreta/comentario-periodo` | Consultar o actualizar comentario del período en la libreta |
 | `POST` | `/api/v1/periodos` | Crear un periodo académico |
 | `GET` | `/api/v1/periodos` | Listar periodos con filtros de año, grado o sección |
 | `POST/PUT` | `/api/v1/periodos/anhio` | Abrir o actualizar periodos académicos de un año |
@@ -869,7 +882,7 @@ curl http://localhost:8080/api/v1/auth/me \
 
 El proyecto cuenta con pruebas unitarias y de integración para autenticación y recuperación, cuentas y carga CSV, catálogo, estudiantes y matrícula, finanzas, asistencia de estudiantes y docentes, aulas y horarios, consolidación de notas, libretas, autorización y registros de error. Las pruebas de integración usan Spring Boot, MockMvc y H2; no sustituyen una verificación final contra MySQL.
 
-`verify` ejecuta también `spotless:check` y JaCoCo. JaCoCo genera el reporte en `target/site/jacoco/index.html` y falla el build si la cobertura de líneas de `pe.edu.pucp.colegio.security.service.impl` es menor al 70 %.
+`verify` ejecuta también `spotless:check` y JaCoCo 0.8.15. JaCoCo genera el reporte en `target/site/jacoco/index.html` y falla el build si la cobertura de líneas de `pe.edu.pucp.colegio.security.service.impl` o `pe.edu.pucp.colegio.common.service` es menor al 70 %. En CI se valida que ambos paquetes tengan clases en `jacoco.csv`, se publica un resumen de instrucciones y ramas y se sube el reporte como `reporte-cobertura`.
 
 ```bash
 ./mvnw test       # ejecuta las pruebas

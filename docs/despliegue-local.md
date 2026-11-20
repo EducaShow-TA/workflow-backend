@@ -105,7 +105,7 @@ Maven: descarga el binario de <https://maven.apache.org/download.cgi>, descompr�
 ```bash
 git --version
 java -version      # debe decir 25
-mvn -v             # "Java version: 25..."
+./mvnw --version    # "Java version: 25..."; Windows: .\mvnw.cmd --version
 node -v            # v22.x
 npm -v             # 11.x o superior
 docker --version
@@ -184,14 +184,15 @@ terminal, IntelliJ o NetBeans sin configurar variables en el IDE. `.env` **no se
 nunca lo agregues a un commit ni pongas tus secretos en `nbactions.xml` u otros archivos del IDE.
 
 Las variables exportadas en la terminal o definidas en el IDE tienen prioridad sobre `.env`. Sirve para cambiar un
-valor puntual sin editar el archivo, por ejemplo `PORT=8081 mvn spring-boot:run`.
+valor puntual sin editar el archivo, por ejemplo `PORT=8081 ./mvnw spring-boot:run` (PowerShell:
+`$env:PORT=8081; .\mvnw.cmd spring-boot:run`).
 
 Verificar y arrancar:
 
 ```bash
-mvn test              # ejecuta las pruebas; usan H2 y no requieren MySQL
-mvn spotless:check    # comprueba el formato Java
-mvn spring-boot:run   # arranca en http://localhost:8080
+./mvnw test              # ejecuta las pruebas; usan H2 y no requieren MySQL
+./mvnw spotless:check    # comprueba el formato Java
+./mvnw spring-boot:run   # arranca en http://localhost:8080
 ```
 
 Debe aparecer `Successfully applied N migration(s)` (solo la primera vez) y `Started ColegioBackendApplication`.
@@ -284,14 +285,14 @@ Antes de compartir la URL:
 
 | Síntoma | Causa y solución |
 |---|---|
-| Spotless falla con `NoSuchFieldError ... endPositions` | Estás usando un JDK distinto de 25. Revisa `mvn -v` y ajusta `JAVA_HOME`. |
+| Spotless falla con `NoSuchFieldError ... endPositions` | Estás usando un JDK distinto de 25. Revisa `./mvnw --version` y ajusta `JAVA_HOME`. |
 | `failed to connect to the docker API at unix:///var/run/docker.sock` | El servicio de Docker está apagado. Enciéndelo con `sudo systemctl start docker` (o `sudo systemctl enable --now docker` para que arranque con el equipo) y luego `docker start colegio-mysql`. |
 | `Communications link failure` al arrancar el backend | MySQL no está encendido o aún no termina de iniciar: `docker start colegio-mysql` y espera a `ready for connections`. |
 | Flyway: `Migration checksum mismatch for migration version N` | Tu base aplicó una versión anterior de esa migración y el archivo cambió después. En local, recrea la base (`docker rm -f colegio-mysql` y vuelve a crear el contenedor). En el repositorio, una migración ya integrada no se edita, ni siquiera para cambiar espacios: los cambios van en una `V{n}` nueva. |
 | `Could not resolve placeholder 'JWT_SECRET'` | Falta `JWT_SECRET`: créalo en `.env` (sección 3) y comprueba que ejecutas el backend desde la carpeta del repositorio, donde está `.env`. |
 | Docker: `port is already allocated` (3306) | Ya tienes otro MySQL/MariaDB en ese puerto. Apágalo o usa `-p 3307:3306` y cambia el puerto en `DB_URL`. |
 | La cuenta queda bloqueada al iniciar sesión | Tras 3 intentos fallidos la cuenta se bloquea 15 minutos (US-5.6). Espera o recrea la base. |
-| Al iniciar sesión el botón se queda esperando y no pasa nada | El backend está apagado: el `devProxy` no responde mientras `:8080` no esté escuchando. Arráncalo (`mvn spring-boot:run`). |
+| Al iniciar sesión el botón se queda esperando y no pasa nada | El backend está apagado: el `devProxy` no responde mientras `:8080` no esté escuchando. Arráncalo (`./mvnw spring-boot:run`). |
 | `npm ci`: `Missing: crossws@... from lock file` o `EBADENGINE ... Required: {"npm":">=11"}` | Tienes npm 10 (el que trae Node 22). Actualízalo con `npm install -g npm@11` y repite `npm ci`. No ejecutes `npm install` con npm 10: reescribe el `package-lock.json`. |
 | `npm warn install-scripts ... blocked` | npm 12 bloquea scripts de instalación de dependencias (`esbuild`, `unrs-resolver`). El proyecto funciona igual; se puede ignorar. |
 | Flyway: `MySQL 8.4 is newer than this version of Flyway` | Solo es una advertencia: la versión de Flyway de Spring Boot 3.5 no prueba oficialmente MySQL 8.4. Las migraciones se aplican bien. |

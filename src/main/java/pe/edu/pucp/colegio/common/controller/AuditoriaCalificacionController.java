@@ -14,6 +14,7 @@ import pe.edu.pucp.colegio.common.audit.TipoCalificacionAuditoria;
 import pe.edu.pucp.colegio.common.dto.AuditoriaCalificacionResponse;
 import pe.edu.pucp.colegio.common.service.AuditoriaCalificacionService;
 
+/** Permite consultar el historial de cambios de calificaciones. */
 @RestController
 @RequestMapping("/api/v1/logs/calificaciones")
 @PreAuthorize("hasRole('ADMINISTRADOR')")

@@ -17,11 +17,29 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
-import pe.edu.pucp.colegio.common.dto.*;
+import pe.edu.pucp.colegio.common.dto.CalificacionRequest;
+import pe.edu.pucp.colegio.common.dto.CalificacionResponse;
+import pe.edu.pucp.colegio.common.dto.HistorialCalificacionResponse;
+import pe.edu.pucp.colegio.common.dto.TareaRequest;
+import pe.edu.pucp.colegio.common.dto.TareaResponse;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
-import pe.edu.pucp.colegio.common.model.*;
-import pe.edu.pucp.colegio.common.repository.*;
+import pe.edu.pucp.colegio.common.model.Calificacion;
+import pe.edu.pucp.colegio.common.model.Competencia;
+import pe.edu.pucp.colegio.common.model.EntregaTarea;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.Matricula;
+import pe.edu.pucp.colegio.common.model.OrigenEntregaTarea;
+import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.model.Tarea;
+import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
+import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
+import pe.edu.pucp.colegio.common.repository.EntregaTareaRepository;
+import pe.edu.pucp.colegio.common.repository.EvaluacionParcialRepository;
+import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
+import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
+import pe.edu.pucp.colegio.common.repository.TareaRepository;
 
+/** Gestiona tareas, evaluaciones, calificaciones y el seguimiento académico por período. */
 @Service
 public class SeguimientoAcademicoService {
   private final TareaRepository tareas;

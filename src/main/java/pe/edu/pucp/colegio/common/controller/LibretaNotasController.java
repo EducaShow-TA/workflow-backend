@@ -22,6 +22,7 @@ import pe.edu.pucp.colegio.common.service.ComentarioLibretaService;
 import pe.edu.pucp.colegio.common.service.LibretaNotasService;
 import pe.edu.pucp.colegio.common.service.LibretaPdfService;
 
+/** Expone la libreta, el PDF y el comentario cualitativo del período. */
 @RestController
 @RequestMapping("/api/v1/estudiantes/{estudianteId}/libreta")
 public class LibretaNotasController {

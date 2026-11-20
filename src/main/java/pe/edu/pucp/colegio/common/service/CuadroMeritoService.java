@@ -22,6 +22,7 @@ import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 
+/** Calcula los puestos de mérito a partir de las libretas consolidadas. */
 @Service
 public class CuadroMeritoService {
 

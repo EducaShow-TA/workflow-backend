@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -88,7 +89,7 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Intege
       Integer sesionHorarioId, LocalDate fecha);
 
   boolean existsBySeccionIdAndAreaCodigoAndFechaAndHoraInicioAndActiveTrue(
-      Integer seccionId, String areaCodigo, LocalDate fecha, java.time.LocalTime horaInicio);
+      Integer seccionId, String areaCodigo, LocalDate fecha, LocalTime horaInicio);
 
   Optional<SesionClase>
       findFirstByDocenteIdAndFechaAndActiveTrueAndCanceladaFalseOrderByHoraInicioAsc(

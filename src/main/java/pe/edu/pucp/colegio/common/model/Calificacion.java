@@ -1,6 +1,13 @@
 package pe.edu.pucp.colegio.common.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -29,7 +36,7 @@ public class Calificacion extends EntidadBase {
   @Column private Integer bimestre;
 
   @Column(name = "puntaje_consolidado", precision = 6, scale = 4)
-  private java.math.BigDecimal puntajeConsolidado;
+  private BigDecimal puntajeConsolidado;
 
   @Column(nullable = false)
   private Boolean consolidada = false;
@@ -95,11 +102,11 @@ public class Calificacion extends EntidadBase {
     this.bimestre = bimestre;
   }
 
-  public java.math.BigDecimal getPuntajeConsolidado() {
+  public BigDecimal getPuntajeConsolidado() {
     return puntajeConsolidado;
   }
 
-  public void setPuntajeConsolidado(java.math.BigDecimal puntajeConsolidado) {
+  public void setPuntajeConsolidado(BigDecimal puntajeConsolidado) {
     this.puntajeConsolidado = puntajeConsolidado;
   }
 

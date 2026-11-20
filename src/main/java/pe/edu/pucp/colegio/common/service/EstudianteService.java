@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.common.service;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -93,12 +94,11 @@ public class EstudianteService {
             seccionId,
             PageRequest.of(page, size, Sort.by("id").ascending()));
     var ids = pagina.getContent().stream().map(Estudiante::getId).toList();
-    var porEstudiante = new java.util.HashMap<Integer, java.util.List<MatriculaResponse>>();
+    var porEstudiante = new HashMap<Integer, List<MatriculaResponse>>();
     if (!ids.isEmpty()) {
       for (Matricula matricula : matriculas.findAllByEstudianteIdIn(ids)) {
         porEstudiante
-            .computeIfAbsent(
-                matricula.getEstudiante().getId(), ignored -> new java.util.ArrayList<>())
+            .computeIfAbsent(matricula.getEstudiante().getId(), ignored -> new ArrayList<>())
             .add(
                 new MatriculaResponse(
                     matricula.getId(),
@@ -119,7 +119,7 @@ public class EstudianteService {
               persona.getApellidoPaterno(),
               persona.getApellidoMaterno(),
               persona.getCorreo(),
-              porEstudiante.getOrDefault(estudiante.getId(), java.util.List.of()));
+              porEstudiante.getOrDefault(estudiante.getId(), List.of()));
         });
   }
 

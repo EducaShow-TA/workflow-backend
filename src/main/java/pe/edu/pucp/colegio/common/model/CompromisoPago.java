@@ -1,7 +1,14 @@
 package pe.edu.pucp.colegio.common.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 
@@ -110,14 +117,13 @@ public class CompromisoPago extends EntidadBase {
   }
 
   public BigDecimal getMontoCuota(int numeroCuota) {
-    BigDecimal base =
-        montoTotal.divide(BigDecimal.valueOf(numeroCuotas), 2, java.math.RoundingMode.DOWN);
+    BigDecimal base = montoTotal.divide(BigDecimal.valueOf(numeroCuotas), 2, RoundingMode.DOWN);
     return numeroCuota == numeroCuotas
         ? montoTotal.subtract(base.multiply(BigDecimal.valueOf(numeroCuotas - 1L)))
         : base;
   }
 
   public BigDecimal getMontoCuota() {
-    return montoTotal.divide(BigDecimal.valueOf(numeroCuotas), 2, java.math.RoundingMode.HALF_UP);
+    return montoTotal.divide(BigDecimal.valueOf(numeroCuotas), 2, RoundingMode.HALF_UP);
   }
 }
