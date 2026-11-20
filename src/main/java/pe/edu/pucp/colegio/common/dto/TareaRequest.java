@@ -10,4 +10,5 @@ public record TareaRequest(
     @NotBlank @Size(max = 180) String titulo,
     @NotBlank @Size(max = 5000) String descripcion,
     @NotNull LocalDateTime fechaLimite,
-    @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal ponderacion) {}
+    @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal ponderacion,
+    Integer evaluacionParcialId) {}

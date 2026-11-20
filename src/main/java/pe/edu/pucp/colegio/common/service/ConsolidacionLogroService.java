@@ -51,6 +51,7 @@ public class ConsolidacionLogroService {
   private final SesionHorarioRepository asignacionesHorario;
   private final EvidenciaStorageService storage;
   private final CatalogoLibretaSnapshotService catalogoLibretaSnapshots;
+  private final TareaRepository tareas;
   private final Clock clock;
 
   public ConsolidacionLogroService(
@@ -68,6 +69,7 @@ public class ConsolidacionLogroService {
       SesionHorarioRepository asignacionesHorario,
       EvidenciaStorageService storage,
       CatalogoLibretaSnapshotService catalogoLibretaSnapshots,
+      TareaRepository tareas,
       Clock clock) {
     this.reglas = reglas;
     this.evaluaciones = evaluaciones;
@@ -83,6 +85,7 @@ public class ConsolidacionLogroService {
     this.asignacionesHorario = asignacionesHorario;
     this.storage = storage;
     this.catalogoLibretaSnapshots = catalogoLibretaSnapshots;
+    this.tareas = tareas;
     this.clock = clock;
   }
 
@@ -172,6 +175,14 @@ public class ConsolidacionLogroService {
     evaluacion.setPonderacion(request.ponderacion());
     evaluacion.setBimestre(request.bimestre());
     evaluacion = evaluaciones.save(evaluacion);
+    BigDecimal ponderacion = evaluacion.getPonderacion();
+    tareas
+        .findFirstByEvaluacionParcialIdAndActiveTrue(evaluacion.getId())
+        .ifPresent(
+            tarea -> {
+              tarea.setPonderacion(ponderacion);
+              tareas.save(tarea);
+            });
     recalcularCompetencia(
         periodo,
         evaluacion.getCompetencia().getCodigo(),
@@ -189,6 +200,13 @@ public class ConsolidacionLogroService {
     evaluacion = evaluacionActiva(evaluacionId);
     evaluacion.setActive(false);
     evaluaciones.save(evaluacion);
+    tareas
+        .findFirstByEvaluacionParcialIdAndActiveTrue(evaluacionId)
+        .ifPresent(
+            tarea -> {
+              tarea.setEvaluacionParcial(null);
+              tareas.save(tarea);
+            });
     List<CalificacionParcial> notas =
         notasParciales.findAllByEvaluacionIdAndActiveTrueOrderByMatriculaId(evaluacionId);
     for (CalificacionParcial nota : notas) {
@@ -334,6 +352,90 @@ public class ConsolidacionLogroService {
         username,
         administrador ? "ADMINISTRADOR" : "DOCENTE",
         "RECALCULAR_NOTA_PARCIAL");
+    return respuestaNotaParcial(matricula, nota);
+  }
+
+  @Transactional
+  public CalificacionParcialResponse calificarEntregaDeTarea(
+      Integer evaluacionId,
+      Integer matriculaId,
+      CalificacionTareaRequest request,
+      EvidenciaEntrega evidencia,
+      String username,
+      boolean administrador) {
+    EvaluacionParcial evaluacion = evaluacionActiva(evaluacionId);
+    Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
+    evaluacion = evaluacionActiva(evaluacionId);
+    exigirAccesoDocente(username, administrador, periodo, evaluacion.getCompetencia().getCodigo());
+    Matricula matricula =
+        matriculas
+            .findById(matriculaId)
+            .filter(Matricula::getActive)
+            .filter(m -> m.getEstado() == EstadoMatricula.CONFIRMADA)
+            .filter(m -> m.getPeriodo().getId().equals(periodo.getId()))
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "La matrícula no está confirmada en el período indicado"));
+
+    boolean justificada = Boolean.TRUE.equals(request.justificada());
+    if (justificada == (request.nota() != null)) {
+      throw new BusinessException(
+          "Una evaluación justificada no debe tener nota y una evaluación sin justificar requiere"
+              + " nota");
+    }
+    String comentario = limpiar(request.comentario());
+
+    CalificacionParcial nota =
+        notasParciales
+            .findByEvaluacionIdAndMatriculaIdAndActiveTrue(evaluacionId, matriculaId)
+            .orElseGet(CalificacionParcial::new);
+    var notaAnterior = auditoriaCalificaciones.capturarParcial(nota);
+    boolean cambiaNota =
+        notaAnterior == null
+            || !Objects.equals(notaAnterior.nota(), request.nota())
+            || !Objects.equals(notaAnterior.justificada(), justificada);
+    if (!cambiaNota && Objects.equals(nota.getComentario(), comentario)) {
+      throw new BusinessException("No hay cambios que guardar");
+    }
+    boolean rectificacion = nota.getId() != null && notaAnterior != null && cambiaNota;
+    String motivo = rectificacion ? MotivoRectificacion.exigir(request.motivo()) : null;
+
+    nota.setEvaluacion(evaluacion);
+    nota.setMatricula(matricula);
+    nota.setNota(request.nota());
+    nota.setJustificada(justificada);
+    nota.setComentario(comentario);
+    if (evidencia != null) {
+      nota.setEvidenciaUrl(null);
+      nota.setEvidenciaArchivo(evidencia.clave());
+      nota.setEvidenciaNombre(evidencia.nombre());
+      nota.setEvidenciaTipo(evidencia.tipo());
+      nota.setEvidenciaTamanio(evidencia.tamanio());
+    }
+    if (cambiaNota || nota.getFechaRegistro() == null) {
+      nota.setFechaRegistro(LocalDateTime.now(clock));
+    }
+    nota = notasParciales.save(nota);
+    String rol = administrador ? "ADMINISTRADOR" : "DOCENTE";
+    auditoriaCalificaciones.registrarParcial(
+        username,
+        rol,
+        rectificacion
+            ? AccionesCalificacion.RECTIFICAR
+            : AccionesCalificacion.REGISTRAR_O_ACTUALIZAR,
+        notaAnterior,
+        nota,
+        motivo);
+    if (cambiaNota) {
+      recalcularCompetencia(
+          periodo,
+          evaluacion.getCompetencia().getCodigo(),
+          false,
+          username,
+          rol,
+          "RECALCULAR_NOTA_PARCIAL");
+    }
     return respuestaNotaParcial(matricula, nota);
   }
 
@@ -581,6 +683,8 @@ public class ConsolidacionLogroService {
   }
 
   private EvaluacionParcialResponse respuestaEvaluacion(EvaluacionParcial evaluacion) {
+    Tarea tarea =
+        tareas.findFirstByEvaluacionParcialIdAndActiveTrue(evaluacion.getId()).orElse(null);
     return new EvaluacionParcialResponse(
         evaluacion.getId(),
         evaluacion.getPeriodo().getId(),
@@ -588,7 +692,9 @@ public class ConsolidacionLogroService {
         evaluacion.getTitulo(),
         evaluacion.getDescripcion(),
         evaluacion.getPonderacion(),
-        evaluacion.getBimestre());
+        evaluacion.getBimestre(),
+        tarea == null ? null : tarea.getId(),
+        tarea == null ? null : tarea.getTitulo());
   }
 
   private CalificacionParcialResponse respuestaNotaParcial(
@@ -612,7 +718,8 @@ public class ConsolidacionLogroService {
                 ? nota.getEvidenciaUrl()
                 : "/api/v1/evaluaciones-parciales/calificaciones/" + nota.getId() + "/archivo",
         nota == null ? null : nota.getEvidenciaTamanio(),
-        nota == null ? null : nota.getFechaRegistro());
+        nota == null ? null : nota.getFechaRegistro(),
+        nota == null ? null : nota.getComentario());
   }
 
   private Periodo periodo(Integer id) {
@@ -710,6 +817,8 @@ public class ConsolidacionLogroService {
   }
 
   public record ConsolidacionCalculada(String nota, BigDecimal puntajeConsolidado) {}
+
+  public record EvidenciaEntrega(String clave, String nombre, String tipo, Long tamanio) {}
 
   private String clave(Integer evaluacionId, Integer matriculaId) {
     return evaluacionId + ":" + matriculaId;

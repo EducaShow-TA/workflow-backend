@@ -13,4 +13,5 @@ public record CalificacionParcialResponse(
     String evidenciaNombre,
     String evidenciaUrl,
     Long evidenciaTamanio,
-    LocalDateTime fechaRegistro) {}
+    LocalDateTime fechaRegistro,
+    String comentario) {}

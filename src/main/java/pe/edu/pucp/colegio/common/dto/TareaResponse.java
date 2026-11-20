@@ -14,6 +14,9 @@ public record TareaResponse(
     String descripcion,
     LocalDateTime fechaLimite,
     BigDecimal ponderacion,
+    Integer evaluacionParcialId,
+    String evaluacionTitulo,
+    Integer bimestre,
     List<EntregaResponse> entregas) {
   public record EntregaResponse(
       Integer matriculaId,
@@ -24,5 +27,10 @@ public record TareaResponse(
       OrigenEntregaTarea origen,
       String archivoNombre,
       Long archivoTamanio,
-      LocalDateTime archivoFecha) {}
+      LocalDateTime archivoFecha,
+      Integer calificacionId,
+      String nota,
+      boolean justificada,
+      String comentario,
+      LocalDateTime fechaCalificacion) {}
 }

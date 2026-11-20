@@ -80,6 +80,19 @@ public class SeguimientoAcademicoController {
     return service.marcarEntrega(tareaId, matriculaId, request.cumplida());
   }
 
+  @PutMapping("/api/v1/tareas/{tareaId}/entregas/{matriculaId}/calificacion")
+  public TareaResponse calificarEntrega(
+      @PathVariable Integer tareaId,
+      @PathVariable Integer matriculaId,
+      @Valid @RequestBody CalificacionTareaRequest request,
+      Authentication authentication) {
+    Tarea tarea = service.obtenerTarea(tareaId);
+    validarAccesoCompetenciaEnPeriodo(
+        tarea.getPeriodo().getId(), tarea.getCompetencia().getCodigo(), authentication);
+    return service.calificarEntrega(
+        tareaId, matriculaId, request, authentication.getName(), esAdministrador(authentication));
+  }
+
   @GetMapping("/api/v1/tareas/{tareaId}/entregas/{matriculaId}/archivo")
   public ResponseEntity<Resource> descargarEntrega(
       @PathVariable Integer tareaId,
