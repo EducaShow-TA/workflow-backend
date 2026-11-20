@@ -7,9 +7,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionesCalificacion;
 import pe.edu.pucp.colegio.common.dto.*;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
@@ -98,9 +100,32 @@ public class SeguimientoAcademicoService {
             .orElseThrow(
                 () -> new BusinessException("La matrícula no pertenece al período de la tarea"));
     entrega.setCumplida(cumplida);
-    entrega.setFechaCumplimiento(cumplida ? LocalDateTime.now() : null);
+    entrega.setFechaCumplimiento(cumplida ? LocalDateTime.now(clock) : null);
+    entrega.setOrigen(cumplida ? OrigenEntregaTarea.DOCENTE : null);
     entregas.save(entrega);
     return tareaResponse(tarea);
+  }
+
+  @Transactional(readOnly = true)
+  public Tarea obtenerTarea(Integer tareaId) {
+    return tareas
+        .buscarActiva(tareaId)
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tarea no encontrada"));
+  }
+
+  @Transactional(readOnly = true)
+  public TareasEstudianteService.ArchivoEntrega archivoEntrega(
+      Integer tareaId, Integer matriculaId) {
+    EntregaTarea entrega =
+        entregas
+            .findByTareaIdAndMatriculaIdAndActiveTrue(tareaId, matriculaId)
+            .filter(item -> item.getArchivoClave() != null)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "La entrega no tiene un archivo adjunto"));
+    return TareasEstudianteService.archivoDe(entrega, storage);
   }
 
   @Transactional
@@ -296,7 +321,11 @@ public class SeguimientoAcademicoService {
                         e.getMatricula().getEstudiante().getId(),
                         e.getMatricula().getEstudiante().getPersona().getNombreCompleto(),
                         Boolean.TRUE.equals(e.getCumplida()),
-                        e.getFechaCumplimiento()))
+                        e.getFechaCumplimiento(),
+                        e.getOrigen(),
+                        e.getArchivoNombre(),
+                        e.getArchivoTamanio(),
+                        e.getArchivoFecha()))
             .toList();
     return new TareaResponse(
         tarea.getId(),

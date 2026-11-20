@@ -13,4 +13,6 @@ public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Inte
 
   Optional<EntregaTarea> findByTareaIdAndMatriculaIdAndActiveTrue(
       Integer tareaId, Integer matriculaId);
+
+  List<EntregaTarea> findAllByMatriculaIdAndActiveTrue(Integer matriculaId);
 }

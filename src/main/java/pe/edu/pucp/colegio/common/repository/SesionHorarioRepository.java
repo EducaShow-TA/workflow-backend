@@ -79,6 +79,14 @@ public interface SesionHorarioRepository extends JpaRepository<SesionHorario, In
       @Param("desde") java.time.LocalDate desde,
       @Param("hasta") java.time.LocalDate hasta);
 
+  @Query(
+      "select distinct s from SesionHorario s join fetch s.area a left join fetch a.competencias "
+          + "join fetch s.docente d join fetch d.persona "
+          + "where s.horario.seccion.id = :seccionId and s.horario.anio = :anio "
+          + "and s.horario.active = true")
+  List<SesionHorario> listarAsignacionesSeccion(
+      @Param("seccionId") Integer seccionId, @Param("anio") Integer anio);
+
   Optional<SesionHorario> findByIdAndHorarioId(Integer id, Integer horarioId);
 
   boolean existsByHorarioIdAndDocenteId(Integer horarioId, Integer docenteId);
