@@ -16,8 +16,7 @@ public class ConfiguracionMarcajeDocenteService {
   private static final int ID_CONFIGURACION = 1;
   private final ConfiguracionMarcajeDocenteRepository configuraciones;
 
-  public ConfiguracionMarcajeDocenteService(
-      ConfiguracionMarcajeDocenteRepository configuraciones) {
+  public ConfiguracionMarcajeDocenteService(ConfiguracionMarcajeDocenteRepository configuraciones) {
     this.configuraciones = configuraciones;
   }
 
@@ -27,7 +26,8 @@ public class ConfiguracionMarcajeDocenteService {
   }
 
   @Transactional
-  public ConfiguracionMarcajeDocenteResponse actualizar(ConfiguracionMarcajeDocenteRequest request) {
+  public ConfiguracionMarcajeDocenteResponse actualizar(
+      ConfiguracionMarcajeDocenteRequest request) {
     if (request.toleranciaMinutos() > request.ventanaDespuesMinutos()) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST,

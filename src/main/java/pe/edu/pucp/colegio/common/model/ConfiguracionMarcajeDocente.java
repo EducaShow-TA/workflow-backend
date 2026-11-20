@@ -24,7 +24,10 @@ public class ConfiguracionMarcajeDocente {
   protected ConfiguracionMarcajeDocente() {}
 
   public ConfiguracionMarcajeDocente(
-      Integer id, Integer toleranciaMinutos, Integer ventanaAntesMinutos, Integer ventanaDespuesMinutos) {
+      Integer id,
+      Integer toleranciaMinutos,
+      Integer ventanaAntesMinutos,
+      Integer ventanaDespuesMinutos) {
     this.id = id;
     this.toleranciaMinutos = toleranciaMinutos;
     this.ventanaAntesMinutos = ventanaAntesMinutos;

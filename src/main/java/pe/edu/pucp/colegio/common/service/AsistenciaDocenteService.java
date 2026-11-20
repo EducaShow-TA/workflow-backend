@@ -14,10 +14,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteAjusteRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteCreateRequest;
 import pe.edu.pucp.colegio.common.dto.AsistenciaDocenteResponse;
+import pe.edu.pucp.colegio.common.dto.ConfiguracionMarcajeDocenteResponse;
 import pe.edu.pucp.colegio.common.model.AsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
@@ -257,9 +257,7 @@ public class AsistenciaDocenteService {
   }
 
   private void validarVentanaMarcaje(
-      LocalTime inicioJornada,
-      LocalTime hora,
-      ConfiguracionMarcajeDocenteResponse configuracion) {
+      LocalTime inicioJornada, LocalTime hora, ConfiguracionMarcajeDocenteResponse configuracion) {
     if (inicioJornada == null) {
       return;
     }

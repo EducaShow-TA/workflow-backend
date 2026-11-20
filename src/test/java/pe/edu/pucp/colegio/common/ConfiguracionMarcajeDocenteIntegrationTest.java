@@ -45,7 +45,8 @@ class ConfiguracionMarcajeDocenteIntegrationTest {
     mvc.perform(
             patch(RUTA)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(12, 20, 25))))
+                .content(
+                    json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(12, 20, 25))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.toleranciaMinutos").value(12))
         .andExpect(jsonPath("$.ventanaAntesMinutos").value(20))
@@ -62,7 +63,8 @@ class ConfiguracionMarcajeDocenteIntegrationTest {
     mvc.perform(
             patch(RUTA)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(31, 30, 30))))
+                .content(
+                    json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(31, 30, 30))))
         .andExpect(status().isBadRequest());
   }
 
@@ -71,19 +73,22 @@ class ConfiguracionMarcajeDocenteIntegrationTest {
     mvc.perform(
             patch(RUTA)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(241, 30, 30))))
+                .content(
+                    json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(241, 30, 30))))
         .andExpect(status().isBadRequest());
 
     mvc.perform(
             patch(RUTA)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(15, -1, 30))))
+                .content(
+                    json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(15, -1, 30))))
         .andExpect(status().isBadRequest());
 
     mvc.perform(
             patch(RUTA)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(15, 30, 241))))
+                .content(
+                    json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(15, 30, 241))))
         .andExpect(status().isBadRequest());
   }
 
@@ -99,7 +104,8 @@ class ConfiguracionMarcajeDocenteIntegrationTest {
             patch(RUTA)
                 .with(user("docente-config").roles("DOCENTE"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(10, 20, 30))))
+                .content(
+                    json.writeValueAsString(new ConfiguracionMarcajeDocenteRequest(10, 20, 30))))
         .andExpect(status().isForbidden());
   }
 }

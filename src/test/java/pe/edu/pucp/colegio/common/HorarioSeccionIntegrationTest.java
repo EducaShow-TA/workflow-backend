@@ -11,9 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
-import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,8 +32,8 @@ import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Grado;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
-import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.PlantillaHorario;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.AreaRepository;
@@ -601,8 +601,7 @@ class HorarioSeccionIntegrationTest {
 
   private String matricularAlumno(Escenario e, EstadoMatricula estado) {
     Seccion seccion = secciones.findById(e.seccionId()).orElseThrow();
-    Persona persona =
-        personas.save(new Persona("9" + e.sufijo(), "Alumno", "Prueba", e.sufijo()));
+    Persona persona = personas.save(new Persona("9" + e.sufijo(), "Alumno", "Prueba", e.sufijo()));
     CuentaUsuario cuenta =
         cuentas.save(new CuentaUsuario("alumno-" + e.sufijo(), "hash", Rol.ALUMNO, persona));
     Estudiante estudiante = new Estudiante();

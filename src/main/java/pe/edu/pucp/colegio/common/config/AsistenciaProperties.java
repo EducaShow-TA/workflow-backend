@@ -29,5 +29,4 @@ public class AsistenciaProperties {
   public void setVentanaMarcadoDespuesMinutos(int ventanaMarcadoDespuesMinutos) {
     this.ventanaMarcadoDespuesMinutos = ventanaMarcadoDespuesMinutos;
   }
-
 }
