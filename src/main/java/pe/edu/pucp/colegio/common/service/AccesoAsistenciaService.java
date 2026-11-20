@@ -75,6 +75,23 @@ public class AccesoAsistenciaService {
   }
 
   @Transactional(readOnly = true)
+  public Estudiante exigirAccesoJustificacion(
+      Integer estudianteId, SesionClase sesion, String username) {
+    Estudiante estudiante = buscarEstudiante(estudianteId);
+    CuentaUsuario cuenta = buscarCuenta(username);
+    if (cuenta.getRol() == Rol.DOCENTE && puedeConsultarSesion(cuenta, sesion)) {
+      return estudiante;
+    }
+    if (cuenta.getRol() == Rol.ALUMNO && mismaPersona(cuenta, estudiante)) {
+      return estudiante;
+    }
+    if (cuenta.getRol() == Rol.APODERADO && esApoderadoDe(cuenta, estudiante)) {
+      return estudiante;
+    }
+    throw prohibido();
+  }
+
+  @Transactional(readOnly = true)
   public boolean esDocente(String username) {
     return buscarCuenta(username).getRol() == Rol.DOCENTE;
   }

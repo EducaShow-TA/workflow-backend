@@ -7,6 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ class AsistenciaJustificacionServiceTest {
   @Mock AsistenciaEstudianteRepository asistencias;
   @Mock AccesoAsistenciaService acceso;
   @Mock EvidenciaStorageService storage;
+  @Mock Clock clock;
   @InjectMocks AsistenciaJustificacionService service;
 
   private AsistenciaEstudiante asistencia;
@@ -43,6 +47,11 @@ class AsistenciaJustificacionServiceTest {
         .when(asistencias.findByIdAndActiveTrue(2))
         .thenReturn(Optional.of(asistencia));
     Mockito.lenient().when(acceso.exigirAccesoJustificacion(8, "apoderado")).thenReturn(estudiante);
+    Mockito.lenient()
+        .when(acceso.exigirAccesoJustificacion(8, null, "apoderado"))
+        .thenReturn(estudiante);
+    Mockito.lenient().when(clock.instant()).thenReturn(Instant.parse("2026-11-19T12:00:00Z"));
+    Mockito.lenient().when(clock.getZone()).thenReturn(ZoneId.of("America/Lima"));
   }
 
   @Test
@@ -59,6 +68,8 @@ class AsistenciaJustificacionServiceTest {
     assertEquals("constancia.pdf", response.documentoNombre());
     assertEquals(512L, response.documentoTamanio());
     assertEquals("8fca.pdf", asistencia.getArchivoJustificacion());
+    assertEquals("apoderado", asistencia.getCorregidaPor());
+    assertEquals(java.time.LocalDateTime.of(2026, 11, 19, 7, 0), asistencia.getCorregidaEn());
   }
 
   @Test
@@ -98,7 +109,7 @@ class AsistenciaJustificacionServiceTest {
 
   @Test
   void rechazaApoderadosQueNoEstanVinculadosAlAlumno() {
-    when(acceso.exigirAccesoJustificacion(8, "otro-apoderado"))
+    when(acceso.exigirAccesoJustificacion(8, null, "otro-apoderado"))
         .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Sin vínculo"));
 
     ResponseStatusException error =
