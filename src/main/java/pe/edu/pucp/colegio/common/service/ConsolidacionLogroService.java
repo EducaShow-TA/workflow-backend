@@ -23,6 +23,7 @@ import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
 import pe.edu.pucp.colegio.common.dto.CalificacionParcialRequest;
 import pe.edu.pucp.colegio.common.dto.CalificacionParcialResponse;
+import pe.edu.pucp.colegio.common.dto.CalificacionTareaRequest;
 import pe.edu.pucp.colegio.common.dto.CierreActasResponse;
 import pe.edu.pucp.colegio.common.dto.EvaluacionParcialActualizacionRequest;
 import pe.edu.pucp.colegio.common.dto.EvaluacionParcialRequest;
@@ -41,6 +42,7 @@ import pe.edu.pucp.colegio.common.model.EvaluacionParcial;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.ReglaConsolidacion;
+import pe.edu.pucp.colegio.common.model.Tarea;
 import pe.edu.pucp.colegio.common.repository.CalificacionParcialRepository;
 import pe.edu.pucp.colegio.common.repository.CalificacionRepository;
 import pe.edu.pucp.colegio.common.repository.CompetenciaRepository;
@@ -49,6 +51,7 @@ import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 import pe.edu.pucp.colegio.common.repository.ReglaConsolidacionRepository;
 import pe.edu.pucp.colegio.common.repository.SesionHorarioRepository;
+import pe.edu.pucp.colegio.common.repository.TareaRepository;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 /** Consolida evaluaciones parciales y administra el cierre de actas del período. */
