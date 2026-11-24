@@ -54,6 +54,7 @@ public class LibretaNotasService {
   private final CalificacionParcialRepository notasParciales;
   private final ConsolidacionLogroService consolidacion;
   private final SesionHorarioRepository asignacionesHorario;
+  private final CalendarioBimestralService calendario;
 
   public LibretaNotasService(
       CuentaUsuarioRepository cuentas,
@@ -68,7 +69,8 @@ public class LibretaNotasService {
       CalificacionRepository calificaciones,
       CalificacionParcialRepository notasParciales,
       ConsolidacionLogroService consolidacion,
-      SesionHorarioRepository asignacionesHorario) {
+      SesionHorarioRepository asignacionesHorario,
+      CalendarioBimestralService calendario) {
     this.cuentas = cuentas;
     this.estudiantes = estudiantes;
     this.apoderados = apoderados;
@@ -81,6 +83,7 @@ public class LibretaNotasService {
     this.calificaciones = calificaciones;
     this.notasParciales = notasParciales;
     this.consolidacion = consolidacion;
+    this.calendario = calendario;
     this.asignacionesHorario = asignacionesHorario;
   }
 
@@ -172,6 +175,7 @@ public class LibretaNotasService {
                 evaluacionIds, matriculaSolicitada.getId());
     Map<Integer, CalificacionParcial> notasPorEvaluacion = new HashMap<>();
     notas.forEach(nota -> notasPorEvaluacion.put(nota.getEvaluacion().getId(), nota));
+    var bimestreDe = calendario.calculadora(periodoSolicitado);
     Map<String, Calificacion> notasManualesPorCompetenciaYBimestre = new HashMap<>();
     calificaciones
         .findAllByPeriodoIdAndMatriculaIdAndActiveTrue(periodoId, matriculaSolicitada.getId())
@@ -181,8 +185,7 @@ public class LibretaNotasService {
             nota -> {
               Integer bimestreNota =
                   nota.getBimestre() == null
-                      ? BimestreAcademico.actual(
-                          periodoSolicitado, nota.getFechaRegistro().toLocalDate())
+                      ? bimestreDe.applyAsInt(nota.getFechaRegistro().toLocalDate())
                       : nota.getBimestre();
               notasManualesPorCompetenciaYBimestre.put(
                   claveManual(nota.getCompetencia().getCodigo(), bimestreNota), nota);

@@ -57,6 +57,7 @@ public class SeguimientoAcademicoService {
   private final AuditoriaCalificacionService auditoriaCalificaciones;
   private final CalificacionParcialRepository notasParciales;
   private final ConsolidacionLogroService consolidacion;
+  private final CalendarioBimestralService calendario;
   private final Clock clock;
 
   public SeguimientoAcademicoService(
@@ -71,6 +72,7 @@ public class SeguimientoAcademicoService {
       AuditoriaCalificacionService auditoriaCalificaciones,
       CalificacionParcialRepository notasParciales,
       ConsolidacionLogroService consolidacion,
+      CalendarioBimestralService calendario,
       Clock clock) {
     this.tareas = tareas;
     this.entregas = entregas;
@@ -83,6 +85,7 @@ public class SeguimientoAcademicoService {
     this.auditoriaCalificaciones = auditoriaCalificaciones;
     this.notasParciales = notasParciales;
     this.consolidacion = consolidacion;
+    this.calendario = calendario;
     this.clock = clock;
   }
 
@@ -209,13 +212,14 @@ public class SeguimientoAcademicoService {
     Competencia competencia = competencia(request.competenciaCodigo());
     Integer bimestre =
         request.bimestre() == null
-            ? BimestreAcademico.actual(periodo, LocalDate.now(clock))
+            ? calendario.actual(periodo, LocalDate.now(clock))
             : request.bimestre();
     if (evaluaciones.existsByPeriodoIdAndCompetenciaCodigoAndBimestreAndActiveTrue(
         periodo.getId(), competencia.getCodigo(), bimestre)) {
       throw new BusinessException(
           "Esta competencia ya tiene evaluaciones parciales en el bimestre; registre la nota en la evaluación correspondiente");
     }
+    calendario.exigirRegistroPermitido(periodo, bimestre, "ADMINISTRADOR".equals(rol));
     Matricula matricula =
         matriculas
             .findById(request.matriculaId())
