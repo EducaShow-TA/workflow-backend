@@ -169,6 +169,7 @@ Esta sección documenta las rutas REST implementadas. Para probarlas en Postman,
 | `GET` | `/api/v1/boletas-pension/estudiantes` | Listar estudiantes con boletas |
 | `GET` | `/api/v1/boletas-pension/{id}` | Consultar una boleta |
 | `POST` | `/api/v1/boletas-pension/manual` | Generar manualmente una boleta del cronograma |
+| `POST` | `/api/v1/boletas-pension/historiales` | Completar y consultar el historial de boletas de un alumno |
 | `POST` | `/api/v1/boletas-pension/{id}/pagos` | Registrar pago verificado y emitir comprobante |
 | `GET` | `/api/v1/boletas-pension/{id}/comprobantes` | Consultar comprobantes de una boleta |
 | `GET` | `/api/v1/reportes/boletas-pension` | Reporte consolidado de pendientes y mora |
@@ -657,6 +658,14 @@ Para generar una boleta manual dentro del cronograma, enviar `POST /api/v1/bolet
 ```
 
 El sistema rechaza el mes fuera del compromiso o una boleta ya existente con `409`. La generación automática y manual guarda mecanismo, fecha/hora y auditoría.
+
+Para completar y consultar el historial de un alumno, enviar `POST /api/v1/boletas-pension/historiales`:
+
+```json
+{ "estudianteId": 31 }
+```
+
+Emite las boletas que falten hasta el mes actual en sus compromisos activos, marca como `EN_MORA` las vencidas y devuelve todas sus boletas agrupadas por matrícula, con totales. Solo crea meses del cronograma: no emite meses futuros ni genera boletas para una matrícula sin compromiso activo. Las boletas de matrículas retiradas se muestran, pero no cambian ni suman a la deuda. Repetir la petición no duplica boletas. Responde `404` si el estudiante no existe.
 
 `POST /api/v1/boletas-pension/{id}/pagos` registra un pago verificado por administración. El monto debe coincidir con el total de la boleta y no se admite un segundo pago:
 
