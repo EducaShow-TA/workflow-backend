@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -16,8 +15,6 @@ import pe.edu.pucp.colegio.common.dto.FilaReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.ReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.SeccionReporteAsistenciaResponse;
 import pe.edu.pucp.colegio.common.dto.TotalesAsistenciaResponse;
-import pe.edu.pucp.colegio.common.model.Grado;
-import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.AsistenciaEstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.ConsolidadoAsistenciaFila;
@@ -104,7 +101,12 @@ public class ReporteAsistenciaService {
         .map(
             s ->
                 new SeccionReporteAsistenciaResponse(
-                    s.getId(), s.getCodigo(), s.getGrado().getId(), etiquetaGrado(s.getGrado())))
+                    s.getId(),
+                    s.getCodigo(),
+                    s.getGrado().getId(),
+                    s.getGrado().getNumero(),
+                    NombreSeccion.grado(
+                        s.getGrado().getNumero(), s.getGrado().getNivelEducativo())))
         .toList();
   }
 
@@ -155,7 +157,8 @@ public class ReporteAsistenciaService {
         f.getEstudianteId(),
         f.getNombre() + " " + f.getApellidoPaterno() + " " + f.getApellidoMaterno(),
         f.getGradoId(),
-        etiquetaGrado(f.getGradoNumero(), f.getNivelEducativo()),
+        f.getGradoNumero(),
+        NombreSeccion.grado(f.getGradoNumero(), f.getNivelEducativo()),
         f.getSeccionId(),
         f.getSeccionCodigo(),
         f.getPresentes(),
@@ -183,15 +186,6 @@ public class ReporteAsistenciaService {
         inasistencias,
         justificadas,
         presentes + tardanzas + inasistencias + justificadas);
-  }
-
-  private static String etiquetaGrado(Grado grado) {
-    return etiquetaGrado(grado.getNumero(), grado.getNivelEducativo());
-  }
-
-  private static String etiquetaGrado(Integer numero, NivelEducativo nivel) {
-    String nombre = nivel.name().charAt(0) + nivel.name().substring(1).toLowerCase(Locale.ROOT);
-    return numero + ".° " + nombre;
   }
 
   private ResponseStatusException prohibido() {

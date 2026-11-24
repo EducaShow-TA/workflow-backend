@@ -17,10 +17,14 @@ public record PanelAdministradorResponse(
     List<Actividad> actividad) {
 
   public record VentanaMatricula(
-      LocalDate fechaInicio, LocalDate fechaLimite, EstadoPeriodoMatricula estado) {}
+      LocalDate fechaInicio,
+      LocalDate fechaLimite,
+      EstadoPeriodoMatricula estado,
+      int anhioEscolar) {}
 
   public record Pendientes(
       long matriculasPorConfirmar,
+      List<Integer> anhiosPorConfirmar,
       long familiasEnMora,
       BigDecimal montoEnMora,
       long docentesSinMarcar,
@@ -29,6 +33,7 @@ public record PanelAdministradorResponse(
 
   public record Indicadores(
       long estudiantesMatriculados,
+      long estudiantesConfirmados,
       long vacantesTotales,
       BigDecimal pensionMesEmitida,
       BigDecimal pensionMesCobrada,
@@ -42,7 +47,12 @@ public record PanelAdministradorResponse(
   public record CobranzaMes(int mes, BigDecimal pagado, BigDecimal vencido, BigDecimal porVencer) {}
 
   public record OcupacionGrado(
-      String nivelEducativo, int grado, int secciones, long matriculados, long vacantes) {}
+      String nivelEducativo,
+      int grado,
+      int secciones,
+      long matriculados,
+      long vacantes,
+      long pendientes) {}
 
   public record Actividad(String tipo, String titulo, String detalle, LocalDateTime fecha) {}
 }

@@ -12,5 +12,7 @@ public interface ComprobantePagoRepository extends JpaRepository<ComprobantePago
 
   List<ComprobantePago> findAllByBoletaIdAndActiveTrueOrderByFechaEmisionDesc(Integer boletaId);
 
+  List<ComprobantePago> findAllByBoletaIdInAndActiveTrue(List<Integer> boletaIds);
+
   Optional<ComprobantePago> findByNumeroComprobante(String numeroComprobante);
 }

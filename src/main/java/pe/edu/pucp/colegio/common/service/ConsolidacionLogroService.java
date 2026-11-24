@@ -81,6 +81,7 @@ public class ConsolidacionLogroService {
   private final EvidenciaStorageService storage;
   private final CatalogoLibretaSnapshotService catalogoLibretaSnapshots;
   private final TareaRepository tareas;
+  private final CalendarioBimestralService calendario;
   private final Clock clock;
 
   public ConsolidacionLogroService(
@@ -99,6 +100,7 @@ public class ConsolidacionLogroService {
       EvidenciaStorageService storage,
       CatalogoLibretaSnapshotService catalogoLibretaSnapshots,
       TareaRepository tareas,
+      CalendarioBimestralService calendario,
       Clock clock) {
     this.reglas = reglas;
     this.evaluaciones = evaluaciones;
@@ -115,6 +117,7 @@ public class ConsolidacionLogroService {
     this.storage = storage;
     this.catalogoLibretaSnapshots = catalogoLibretaSnapshots;
     this.tareas = tareas;
+    this.calendario = calendario;
     this.clock = clock;
   }
 
@@ -172,6 +175,7 @@ public class ConsolidacionLogroService {
   public EvaluacionParcialResponse crearEvaluacion(
       EvaluacionParcialRequest request, String username) {
     Periodo periodo = periodoAbierto(request.periodoId());
+    calendario.exigirBimestreSinCerrar(periodo, request.bimestre());
     Competencia competencia = buscarCompetencia(request.competenciaCodigo());
     validarCompetenciaActiva(competencia);
     EvaluacionParcial evaluacion = new EvaluacionParcial();
@@ -198,6 +202,8 @@ public class ConsolidacionLogroService {
     EvaluacionParcial evaluacion = evaluacionActiva(evaluacionId);
     Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
     evaluacion = evaluacionActiva(evaluacionId);
+    calendario.exigirBimestreSinCerrar(periodo, evaluacion.getBimestre());
+    calendario.exigirBimestreSinCerrar(periodo, request.bimestre());
     evaluacion.setPeriodo(periodo);
     evaluacion.setTitulo(request.titulo().trim());
     evaluacion.setDescripcion(limpiar(request.descripcion()));
@@ -227,6 +233,7 @@ public class ConsolidacionLogroService {
     EvaluacionParcial evaluacion = evaluacionActiva(evaluacionId);
     Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
     evaluacion = evaluacionActiva(evaluacionId);
+    calendario.exigirBimestreSinCerrar(periodo, evaluacion.getBimestre());
     evaluacion.setActive(false);
     evaluaciones.save(evaluacion);
     tareas
@@ -308,6 +315,7 @@ public class ConsolidacionLogroService {
     Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
     evaluacion = evaluacionActiva(evaluacionId);
     exigirAccesoDocente(username, administrador, periodo, evaluacion.getCompetencia().getCodigo());
+    calendario.exigirRegistroPermitido(periodo, evaluacion.getBimestre(), administrador);
     Matricula matricula =
         matriculas
             .findById(matriculaId)
@@ -396,6 +404,7 @@ public class ConsolidacionLogroService {
     Periodo periodo = periodoAbierto(evaluacion.getPeriodo().getId());
     evaluacion = evaluacionActiva(evaluacionId);
     exigirAccesoDocente(username, administrador, periodo, evaluacion.getCompetencia().getCodigo());
+    calendario.exigirRegistroPermitido(periodo, evaluacion.getBimestre(), administrador);
     Matricula matricula =
         matriculas
             .findById(matriculaId)
@@ -550,6 +559,66 @@ public class ConsolidacionLogroService {
             AccionAuditoria.CERRAR_ACTAS,
             "Cierre de actas del período " + periodoId + " por " + username));
     return new CierreActasResponse(periodoId, true, fechaCierre, username);
+  }
+
+  /**
+   * Al cerrar un bimestre, las notas parciales que faltan quedan en C, como en el cierre de actas.
+   */
+  @Transactional
+  public int completarFaltantesDelBimestre(Periodo periodo, int bimestre, String username) {
+    List<EvaluacionParcial> delBimestre =
+        evaluaciones.findAllByPeriodoIdAndBimestreAndActiveTrueOrderById(periodo.getId(), bimestre);
+    if (delBimestre.isEmpty()) {
+      return 0;
+    }
+    List<Matricula> roster =
+        matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
+            periodo.getId(), List.of(EstadoMatricula.CONFIRMADA));
+    Map<String, CalificacionParcial> registradas = new HashMap<>();
+    notasParciales
+        .findAllByEvaluacionIdInAndActiveTrue(
+            delBimestre.stream().map(EvaluacionParcial::getId).toList())
+        .forEach(
+            nota ->
+                registradas.put(
+                    clave(nota.getEvaluacion().getId(), nota.getMatricula().getId()), nota));
+    List<CalificacionParcial> completar = new ArrayList<>();
+    Map<CalificacionParcial, AuditoriaCalificacionService.ParcialAnterior> anteriores =
+        new IdentityHashMap<>();
+    for (EvaluacionParcial evaluacion : delBimestre) {
+      for (Matricula matricula : roster) {
+        CalificacionParcial nota = registradas.get(clave(evaluacion.getId(), matricula.getId()));
+        if (nota == null) {
+          nota = new CalificacionParcial();
+          nota.setEvaluacion(evaluacion);
+          nota.setMatricula(matricula);
+          nota.setJustificada(false);
+          nota.setFechaRegistro(LocalDateTime.now(clock));
+        } else if (Boolean.TRUE.equals(nota.getJustificada()) || nota.getNota() != null) {
+          continue;
+        }
+        anteriores.put(nota, auditoriaCalificaciones.capturarParcial(nota));
+        nota.setNota("C");
+        completar.add(nota);
+      }
+    }
+    List<CalificacionParcial> guardadas = notasParciales.saveAll(completar);
+    for (CalificacionParcial nota : guardadas) {
+      auditoriaCalificaciones.registrarParcial(
+          username,
+          "ADMINISTRADOR",
+          "COMPLETAR_FALTANTE_CIERRE_BIMESTRE",
+          anteriores.get(nota),
+          nota);
+    }
+    delBimestre.stream()
+        .map(evaluacion -> evaluacion.getCompetencia().getCodigo())
+        .distinct()
+        .forEach(
+            codigo ->
+                recalcularCompetencia(
+                    periodo, codigo, false, username, "ADMINISTRADOR", "CIERRE_BIMESTRE"));
+    return guardadas.size();
   }
 
   @Transactional(readOnly = true)

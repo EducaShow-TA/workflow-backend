@@ -13,7 +13,9 @@ public enum GrupoAccionCalificacion {
           "RECALCULO_MANUAL",
           "CIERRE_ACTAS",
           "DESACTIVAR_EVALUACION",
-          "COMPLETAR_FALTANTE_CIERRE_ACTAS"));
+          "COMPLETAR_FALTANTE_CIERRE_ACTAS",
+          "CIERRE_BIMESTRE",
+          "COMPLETAR_FALTANTE_CIERRE_BIMESTRE"));
 
   private final List<String> acciones;
 

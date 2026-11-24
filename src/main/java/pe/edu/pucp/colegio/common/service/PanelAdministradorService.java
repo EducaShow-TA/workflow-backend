@@ -56,12 +56,17 @@ public class PanelAdministradorService {
   private final Clock clock;
   private final VacantesService vacantes;
   private final BoletaPensionRepository boletas;
+  private final PeriodoMatriculaService periodosMatricula;
 
   public PanelAdministradorService(
-      Clock clock, VacantesService vacantes, BoletaPensionRepository boletas) {
+      Clock clock,
+      VacantesService vacantes,
+      BoletaPensionRepository boletas,
+      PeriodoMatriculaService periodosMatricula) {
     this.clock = clock;
     this.vacantes = vacantes;
     this.boletas = boletas;
+    this.periodosMatricula = periodosMatricula;
   }
 
   @Transactional(readOnly = true)
@@ -89,6 +94,7 @@ public class PanelAdministradorService {
             contar(
                 "select count(m) from Matricula m where m.active = true and m.estado = :estado",
                 Map.of("estado", EstadoMatricula.EN_REGISTRO)),
+            anhiosPorConfirmar(),
             boletas.contarFamiliasMorosas(mora),
             boletas.sumarPendiente(mora),
             Math.max(0, conClaseHoy - presentesHoy),
@@ -100,6 +106,7 @@ public class PanelAdministradorService {
                 Map.of("desde", hace24h, "nivel", NivelLog.CRITICO))),
         new Indicadores(
             ocupacion.stream().mapToLong(OcupacionGrado::matriculados).sum(),
+            ocupacion.stream().mapToLong(grado -> grado.matriculados() - grado.pendientes()).sum(),
             ocupacion.stream().mapToLong(OcupacionGrado::vacantes).sum(),
             pensionDelMes(hoy, false),
             pensionDelMes(hoy, true),
@@ -130,8 +137,22 @@ public class PanelAdministradorService {
                     p.getFechaLimite(),
                     hoy.isBefore(p.getFechaInicio())
                         ? EstadoPeriodoMatricula.PENDIENTE
-                        : EstadoPeriodoMatricula.VIGENTE))
+                        : EstadoPeriodoMatricula.VIGENTE,
+                    periodosMatricula.anhioEscolar(p.getFechaInicio())))
         .orElse(null);
+  }
+
+  private List<Integer> anhiosPorConfirmar() {
+    return em
+        .createQuery(
+            "select distinct extract(year from m.periodo.fechaInicio) from Matricula m"
+                + " where m.active = true and m.estado = :estado",
+            Integer.class)
+        .setParameter("estado", EstadoMatricula.EN_REGISTRO)
+        .getResultList()
+        .stream()
+        .sorted()
+        .toList();
   }
 
   private List<OcupacionGrado> ocupacion(int anio) {
@@ -145,14 +166,20 @@ public class PanelAdministradorService {
       porGrado.merge(
           clave,
           new OcupacionGrado(
-              v.nivelEducativo(), v.numeroGrado(), 1, v.matriculasActivas(), v.vacantesTotales()),
+              v.nivelEducativo(),
+              v.numeroGrado(),
+              1,
+              v.matriculasActivas(),
+              v.vacantesTotales(),
+              v.matriculasPendientes()),
           (a, b) ->
               new OcupacionGrado(
                   a.nivelEducativo(),
                   a.grado(),
                   a.secciones() + b.secciones(),
                   a.matriculados() + b.matriculados(),
-                  a.vacantes() + b.vacantes()));
+                  a.vacantes() + b.vacantes(),
+                  a.pendientes() + b.pendientes()));
     }
     return porGrado.values().stream()
         .sorted(

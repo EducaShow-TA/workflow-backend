@@ -60,7 +60,10 @@ public class AuditoriaHorarioService {
     AuditoriaHorario item = new AuditoriaHorario();
     item.setHorarioId(horario.getId());
     item.setSeccion(
-        horario.getSeccion().getGrado().getNumero() + "° " + horario.getSeccion().getCodigo());
+        NombreSeccion.completa(
+            horario.getSeccion().getGrado().getNumero(),
+            horario.getSeccion().getCodigo(),
+            horario.getSeccion().getGrado().getNivelEducativo()));
     item.setAccion(accion);
     item.setFechaHora(LocalDateTime.now(clock));
     item.setUsuarioCuentaId(cuenta == null ? null : cuenta.getId());

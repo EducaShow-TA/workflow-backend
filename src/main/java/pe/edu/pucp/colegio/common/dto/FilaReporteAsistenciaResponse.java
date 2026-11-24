@@ -7,6 +7,7 @@ public record FilaReporteAsistenciaResponse(
     Integer estudianteId,
     String nombreCompleto,
     Integer gradoId,
+    Integer gradoNumero,
     String grado,
     Integer seccionId,
     String seccion,

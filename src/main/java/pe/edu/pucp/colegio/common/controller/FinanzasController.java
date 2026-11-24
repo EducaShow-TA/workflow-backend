@@ -23,11 +23,14 @@ import pe.edu.pucp.colegio.common.dto.ComprobantePagoResponse;
 import pe.edu.pucp.colegio.common.dto.CompromisoPagoResponse;
 import pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse;
 import pe.edu.pucp.colegio.common.dto.GenerarBoletaManualRequest;
+import pe.edu.pucp.colegio.common.dto.HistorialBoletasRequest;
+import pe.edu.pucp.colegio.common.dto.HistorialBoletasResponse;
 import pe.edu.pucp.colegio.common.dto.PaginaBoletasResponse;
 import pe.edu.pucp.colegio.common.dto.RegistrarPagoRequest;
 import pe.edu.pucp.colegio.common.dto.ReporteBoletasPaginadoResponse;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.service.FinanzasService;
+import pe.edu.pucp.colegio.common.service.HistorialBoletasService;
 
 /** Operaciones administrativas de compromisos, pensiones, pagos y cobranza. */
 @RestController
@@ -36,13 +39,16 @@ import pe.edu.pucp.colegio.common.service.FinanzasService;
 public class FinanzasController {
 
   private final FinanzasService finanzas;
+  private final HistorialBoletasService historiales;
   private final BigDecimal montoPensionPredeterminado;
 
   public FinanzasController(
       FinanzasService finanzas,
+      HistorialBoletasService historiales,
       @Value("${app.finanzas.monto-pension-predeterminado:500.00}")
           BigDecimal montoPensionPredeterminado) {
     this.finanzas = finanzas;
+    this.historiales = historiales;
     this.montoPensionPredeterminado = montoPensionPredeterminado;
   }
 
@@ -81,6 +87,13 @@ public class FinanzasController {
       @Valid @RequestBody GenerarBoletaManualRequest request) {
     return ResponseEntity.status(201)
         .body(finanzas.generarManual(request.matriculaId(), request.mesCobro()));
+  }
+
+  /** Responde 200 y no 201: puede no crear ninguna boleta y siempre devuelve el historial. */
+  @PostMapping("/boletas-pension/historiales")
+  public HistorialBoletasResponse generarHistorial(
+      @Valid @RequestBody HistorialBoletasRequest request) {
+    return historiales.generar(request.estudianteId());
   }
 
   @PostMapping("/boletas-pension/{id}/pagos")

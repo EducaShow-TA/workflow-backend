@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class AsistenciaConfiguration {
 
   @Bean
-  Clock applicationClock() {
-    return Clock.system(ZoneId.of("America/Lima"));
+  RelojSistema applicationClock() {
+    return new RelojSistema(Clock.system(ZoneId.of("America/Lima")));
   }
 }

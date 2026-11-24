@@ -14,6 +14,7 @@ public record VacantesPeriodoResponse(
     LocalDate fechaFin,
     int vacantesTotales,
     long matriculasActivas,
+    long matriculasPendientes,
     int vacantesDisponibles,
     boolean hayVacantes,
     EstadoPeriodo estado,

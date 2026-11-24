@@ -16,6 +16,9 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
   @EntityGraph(attributePaths = {"matricula", "matricula.estudiante", "apoderado"})
   List<CompromisoPago> findAllByActiveTrue();
 
+  @EntityGraph(attributePaths = "matricula")
+  List<CompromisoPago> findAllByMatriculaEstudianteId(Integer estudianteId);
+
   @Query("select c.id from CompromisoPago c where c.active = true")
   List<Integer> findAllActiveIds();
 

@@ -68,6 +68,7 @@ class VacantesPeriodoIntegrationTest {
         .andExpect(jsonPath("$.fechaFin").value("2026-07-31"))
         .andExpect(jsonPath("$.vacantesTotales").value(30))
         .andExpect(jsonPath("$.matriculasActivas").value(2))
+        .andExpect(jsonPath("$.matriculasPendientes").value(1))
         .andExpect(jsonPath("$.vacantesDisponibles").value(28))
         .andExpect(jsonPath("$.hayVacantes").value(true));
   }

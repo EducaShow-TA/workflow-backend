@@ -23,6 +23,7 @@ public class RiesgoApoderadoService {
   private final AreaRepository areas;
   private final ConfiguracionRiesgoAcademicoRepository configuracion;
   private final ConteoRiesgoAcademicoService conteo;
+  private final CalendarioBimestralService calendario;
   private final Clock clock;
 
   public RiesgoApoderadoService(
@@ -31,12 +32,14 @@ public class RiesgoApoderadoService {
       AreaRepository areas,
       ConfiguracionRiesgoAcademicoRepository configuracion,
       ConteoRiesgoAcademicoService conteo,
+      CalendarioBimestralService calendario,
       Clock clock) {
     this.hijos = hijos;
     this.matriculas = matriculas;
     this.areas = areas;
     this.configuracion = configuracion;
     this.conteo = conteo;
+    this.calendario = calendario;
     this.clock = clock;
   }
 
@@ -67,7 +70,7 @@ public class RiesgoApoderadoService {
           || !Boolean.TRUE.equals(periodo.getActive())
           || hoy.isBefore(periodo.getFechaInicio())
           || hoy.isAfter(periodo.getFechaFin())) continue;
-      int bimestre = BimestreAcademico.actual(periodo, hoy);
+      int bimestre = calendario.actual(periodo, hoy);
       var notas =
           porPeriodo
               .computeIfAbsent(periodo.getId(), id -> conteo.contar(periodo, codigos, bimestre))

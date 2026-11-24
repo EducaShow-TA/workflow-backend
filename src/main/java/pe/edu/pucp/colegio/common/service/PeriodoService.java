@@ -32,6 +32,7 @@ public class PeriodoService {
   private final GradoRepository grados;
   private final SeccionRepository secciones;
   private final VacantesService vacantes;
+  private final CalendarioBimestralService calendario;
   private final Clock clock;
 
   public PeriodoService(
@@ -39,11 +40,13 @@ public class PeriodoService {
       GradoRepository grados,
       SeccionRepository secciones,
       VacantesService vacantes,
+      CalendarioBimestralService calendario,
       Clock clock) {
     this.periodos = periodos;
     this.grados = grados;
     this.secciones = secciones;
     this.vacantes = vacantes;
+    this.calendario = calendario;
     this.clock = clock;
   }
 
@@ -123,6 +126,7 @@ public class PeriodoService {
       Periodo periodo = nuevoPeriodo(seccion, request.fechaInicio(), request.fechaFin());
       creados.add(vacantes.describir(periodo));
     }
+    calendario.guardar(anhio, request.fechaInicio(), request.fechaFin(), request.bimestres());
     return creados;
   }
 
@@ -157,7 +161,10 @@ public class PeriodoService {
           periodo.setFechaFin(request.fechaFin());
           periodo.setEstado(periodo.calcularEstado(LocalDate.now(clock)));
         });
-    return periodos.saveAll(existentes).stream().map(vacantes::describir).toList();
+    List<VacantesPeriodoResponse> actualizados =
+        periodos.saveAll(existentes).stream().map(vacantes::describir).toList();
+    calendario.guardar(anhio, request.fechaInicio(), request.fechaFin(), request.bimestres());
+    return actualizados;
   }
 
   /**
@@ -190,11 +197,12 @@ public class PeriodoService {
     if (!cruces.isEmpty()) {
       Periodo cruce = cruces.get(0);
       throw new ConflictException(
-          "Las fechas se cruzan con el periodo de la sección "
-              + seccion.getCodigo()
-              + " de "
-              + seccion.getGrado().getNumero()
-              + "° grado, que va del "
+          "Las fechas se cruzan con el periodo de "
+              + NombreSeccion.completa(
+                  seccion.getGrado().getNumero(),
+                  seccion.getCodigo(),
+                  seccion.getGrado().getNivelEducativo())
+              + ", que va del "
               + cruce.getFechaInicio().format(FORMATO_FECHA)
               + " al "
               + cruce.getFechaFin().format(FORMATO_FECHA));

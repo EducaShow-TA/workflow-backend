@@ -47,11 +47,8 @@ public class CuadroMeritoDocumentoService {
               "Año escolar "
                   + cuadro.anhioEscolar()
                   + " · "
-                  + cuadro.gradoNumero()
-                  + "° "
-                  + cuadro.nivelEducativo().toLowerCase()
-                  + " · Sección "
-                  + cuadro.seccion()));
+                  + NombreSeccion.completa(
+                      cuadro.gradoNumero(), cuadro.seccion(), cuadro.nivelEducativo())));
       documento.add(
           new Paragraph(
               "Período: "
@@ -102,11 +99,8 @@ public class CuadroMeritoDocumentoService {
               "Año escolar "
                   + cuadro.anhioEscolar()
                   + " · "
-                  + cuadro.gradoNumero()
-                  + "° "
-                  + cuadro.nivelEducativo()
-                  + " · Sección "
-                  + cuadro.seccion());
+                  + NombreSeccion.completa(
+                      cuadro.gradoNumero(), cuadro.seccion(), cuadro.nivelEducativo()));
       Row criterio = hoja.createRow(2);
       criterio
           .createCell(0)

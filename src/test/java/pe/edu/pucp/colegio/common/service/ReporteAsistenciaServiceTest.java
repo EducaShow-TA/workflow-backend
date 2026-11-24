@@ -194,8 +194,9 @@ class ReporteAsistenciaServiceTest {
         service.generar(DESDE, HASTA, null, null, "admin").alumnos().get(0);
 
     assertThat(fila.nombreCompleto()).isEqualTo("Ana Quispe Rojas");
-    assertThat(fila.grado()).isEqualTo("3.° Secundaria");
+    assertThat(fila.grado()).isEqualTo("3.º de secundaria");
     assertThat(fila.gradoId()).isEqualTo(3);
+    assertThat(fila.gradoNumero()).isEqualTo(3);
     assertThat(fila.seccionId()).isEqualTo(7);
     assertThat(fila.seccion()).isEqualTo("A");
   }
@@ -216,8 +217,9 @@ class ReporteAsistenciaServiceTest {
     assertThat(resultado)
         .extracting(SeccionReporteAsistenciaResponse::seccionId)
         .containsExactly(13, 12, 11, 10);
-    assertThat(resultado.get(0).grado()).isEqualTo("5.° Inicial");
+    assertThat(resultado.get(0).grado()).isEqualTo("5.º de inicial");
     assertThat(resultado.get(0).gradoId()).isEqualTo(3);
+    assertThat(resultado.get(0).gradoNumero()).isEqualTo(5);
   }
 
   @Test

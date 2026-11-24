@@ -42,6 +42,7 @@ public class MisClasesService {
   private final MatriculaRepository matriculas;
   private final ConteoRiesgoAcademicoService conteoRiesgo;
   private final ConfiguracionRiesgoAcademicoRepository configuracionRiesgo;
+  private final CalendarioBimestralService calendario;
   private final Clock clock;
 
   public MisClasesService(
@@ -52,6 +53,7 @@ public class MisClasesService {
       MatriculaRepository matriculas,
       ConteoRiesgoAcademicoService conteoRiesgo,
       ConfiguracionRiesgoAcademicoRepository configuracionRiesgo,
+      CalendarioBimestralService calendario,
       Clock clock) {
     this.docenteService = docenteService;
     this.sesiones = sesiones;
@@ -60,6 +62,7 @@ public class MisClasesService {
     this.matriculas = matriculas;
     this.conteoRiesgo = conteoRiesgo;
     this.configuracionRiesgo = configuracionRiesgo;
+    this.calendario = calendario;
     this.clock = clock;
   }
 
@@ -183,7 +186,7 @@ public class MisClasesService {
             .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
             .map(competencia -> competencia.getCodigo())
             .toList();
-    int bimestre = BimestreAcademico.actual(periodo, LocalDate.now(clock));
+    int bimestre = calendario.actual(periodo, LocalDate.now(clock));
     Map<Integer, Map<String, Integer>> notasCPorMatricula =
         conteoRiesgo.contar(periodo, competencias, bimestre);
     List<AlumnoRiesgoAcademicoResponse> alumnos =
