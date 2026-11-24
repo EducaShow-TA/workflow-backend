@@ -16,14 +16,17 @@ public class ConteoRiesgoAcademicoService {
   private final CalificacionRepository calificaciones;
   private final CalificacionParcialRepository parciales;
   private final EvaluacionParcialRepository evaluaciones;
+  private final CalendarioBimestralService calendario;
 
   public ConteoRiesgoAcademicoService(
       CalificacionRepository calificaciones,
       CalificacionParcialRepository parciales,
-      EvaluacionParcialRepository evaluaciones) {
+      EvaluacionParcialRepository evaluaciones,
+      CalendarioBimestralService calendario) {
     this.calificaciones = calificaciones;
     this.parciales = parciales;
     this.evaluaciones = evaluaciones;
+    this.calendario = calendario;
   }
 
   @Transactional(readOnly = true)
@@ -31,12 +34,13 @@ public class ConteoRiesgoAcademicoService {
       Periodo periodo, List<String> competencias, int bimestre) {
     Map<Integer, Map<String, Integer>> conteos = new HashMap<>();
     if (competencias.isEmpty()) return conteos;
+    var bimestreDe = calendario.calculadora(periodo);
     for (var nota :
         calificaciones.findAllByPeriodoIdAndCompetenciaCodigoInAndActiveTrue(
             periodo.getId(), competencias)) {
       int bimestreNota =
           nota.getBimestre() == null
-              ? BimestreAcademico.actual(periodo, nota.getFechaRegistro().toLocalDate())
+              ? bimestreDe.applyAsInt(nota.getFechaRegistro().toLocalDate())
               : nota.getBimestre();
       if (!Boolean.TRUE.equals(nota.getConsolidada())
           && bimestre == bimestreNota
