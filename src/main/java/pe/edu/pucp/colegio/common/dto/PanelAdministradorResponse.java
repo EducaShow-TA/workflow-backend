@@ -17,7 +17,10 @@ public record PanelAdministradorResponse(
     List<Actividad> actividad) {
 
   public record VentanaMatricula(
-      LocalDate fechaInicio, LocalDate fechaLimite, EstadoPeriodoMatricula estado) {}
+      LocalDate fechaInicio,
+      LocalDate fechaLimite,
+      EstadoPeriodoMatricula estado,
+      int anhioEscolar) {}
 
   public record Pendientes(
       long matriculasPorConfirmar,

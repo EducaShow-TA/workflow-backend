@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +34,7 @@ import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
+import pe.edu.pucp.colegio.common.service.PeriodoMatriculaService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,6 +49,8 @@ class PeriodoMatriculaIntegrationTest {
   @Autowired ObjectMapper objectMapper;
 
   @Autowired PeriodoMatriculaRepository periodos;
+
+  @Autowired PeriodoMatriculaService periodosMatricula;
 
   @PersistenceContext EntityManager entityManager;
 
@@ -76,6 +80,20 @@ class PeriodoMatriculaIntegrationTest {
   void rechazaFechaDeInicioAnteriorAHoy() throws Exception {
     crear(LocalDate.now().minusDays(1), LocalDate.now().plusDays(2))
         .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void laVentanaAbiertaConLasClasesEnCursoEsParaElAnhioSiguiente() throws Exception {
+    int anhio = LocalDate.now().getYear() + 5;
+    crearPeriodoAcademico(LocalDate.of(anhio, 3, 2));
+
+    crear(LocalDate.of(anhio, 11, 16), LocalDate.of(anhio, 12, 31))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio + 1));
+    assertEquals(anhio, periodosMatricula.anhioEscolar(LocalDate.of(anhio, 1, 5)));
+    assertEquals(anhio, periodosMatricula.anhioEscolar(LocalDate.of(anhio, 3, 1)));
+    assertEquals(anhio + 1, periodosMatricula.anhioEscolar(LocalDate.of(anhio, 3, 2)));
+    assertEquals(anhio + 2, periodosMatricula.anhioEscolar(LocalDate.of(anhio + 2, 11, 1)));
   }
 
   @Test
@@ -179,6 +197,26 @@ class PeriodoMatriculaIntegrationTest {
     entityManager.persist(ventana);
     entityManager.flush();
     return ventana.getId();
+  }
+
+  private void crearPeriodoAcademico(LocalDate inicioClases) {
+    Grado grado = new Grado();
+    grado.setNumero(NUMERO_GRADO.getAndIncrement());
+    grado.setNivelEducativo(NivelEducativo.SECUNDARIA);
+    Seccion seccion = new Seccion();
+    seccion.setCodigo("A");
+    seccion.setVacantesTotales(30);
+    grado.agregarSeccion(seccion);
+    entityManager.persist(grado);
+    entityManager.persist(seccion);
+    Periodo periodo = new Periodo();
+    periodo.setGrado(grado);
+    periodo.setSeccion(seccion);
+    periodo.setFechaInicio(inicioClases);
+    periodo.setFechaFin(inicioClases.plusMonths(9));
+    periodo.setEstado(EstadoPeriodo.PLANIFICADO);
+    entityManager.persist(periodo);
+    entityManager.flush();
   }
 
   private void agregarMatricula(LocalDate fechaMatricula) {

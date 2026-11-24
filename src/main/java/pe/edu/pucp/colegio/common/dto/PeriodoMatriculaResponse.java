@@ -8,4 +8,5 @@ public record PeriodoMatriculaResponse(
     LocalDate fechaInicio,
     LocalDate fechaLimite,
     EstadoPeriodoMatricula estado,
-    boolean tieneMatriculas) {}
+    boolean tieneMatriculas,
+    int anhioEscolar) {}
