@@ -88,4 +88,8 @@ public interface BoletaPensionRepository
       List<EstadoBoleta> estados, LocalDate fecha);
 
   List<BoletaPension> findAllByCompromisoIdAndActiveTrueOrderByMesCobroAsc(Integer compromisoId);
+
+  @EntityGraph(attributePaths = {"compromiso", "compromiso.matricula"})
+  List<BoletaPension> findAllByCompromisoMatriculaEstudianteIdAndActiveTrueOrderByMesCobroAsc(
+      Integer estudianteId);
 }

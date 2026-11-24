@@ -375,18 +375,56 @@ public class FinanzasService {
           for (BoletaPension b :
               boletas.findAllByActiveTrueAndEstadoPagoInAndFechaVencimientoBefore(
                   List.of(EstadoBoleta.PENDIENTE), hoy)) {
-            if (b.getCompromiso().getMatricula().getEstado() != EstadoMatricula.RETIRADA) {
-              EstadoBoleta estadoAnterior = b.getEstadoPago();
-              b.marcarEnMora(hoy);
-              if (b.getEstadoPago() != estadoAnterior) {
-                auditoriaFinanciera.registrarMora(b, estadoAnterior);
-              }
-            }
+            marcarSiVencida(b, hoy);
           }
         });
   }
 
-  private void generarBoletasPendientes(CompromisoPago c, YearMonth mesActual) {
+  /** Lo que se emitió y lo que pasó a mora al completar las boletas de un estudiante. */
+  public record BoletasCompletadas(YearMonth mesCorte, int generadas, int enMora) {}
+
+  /**
+   * Emite las boletas que falten hasta el mes actual y marca la mora de un solo estudiante. A
+   * diferencia del ciclo diario, usa una única transacción: si una boleta falla no se guarda
+   * ninguna y el administrador puede reintentar.
+   */
+  @Transactional
+  public BoletasCompletadas completarBoletasDeEstudiante(Integer estudianteId) {
+    YearMonth mesActual = YearMonth.now(clock);
+    LocalDate hoy = LocalDate.now(clock);
+    int generadas = 0;
+    for (CompromisoPago c : compromisos.findAllByMatriculaEstudianteId(estudianteId)) {
+      if (Boolean.TRUE.equals(c.getActive())
+          && c.getMatricula().getEstado() != EstadoMatricula.RETIRADA) {
+        generadas += generarBoletasPendientes(c, mesActual);
+      }
+    }
+    int enMora = 0;
+    for (BoletaPension b :
+        boletas.findAllByCompromisoMatriculaEstudianteIdAndActiveTrueOrderByMesCobroAsc(
+            estudianteId)) {
+      if (marcarSiVencida(b, hoy)) {
+        enMora++;
+      }
+    }
+    return new BoletasCompletadas(mesActual, generadas, enMora);
+  }
+
+  private boolean marcarSiVencida(BoletaPension b, LocalDate hoy) {
+    if (b.getCompromiso().getMatricula().getEstado() == EstadoMatricula.RETIRADA) {
+      return false;
+    }
+    EstadoBoleta estadoAnterior = b.getEstadoPago();
+    b.marcarEnMora(hoy);
+    if (b.getEstadoPago() == estadoAnterior) {
+      return false;
+    }
+    auditoriaFinanciera.registrarMora(b, estadoAnterior);
+    return true;
+  }
+
+  private int generarBoletasPendientes(CompromisoPago c, YearMonth mesActual) {
+    int generadas = 0;
     YearMonth ultimoMes =
         mesActual.isBefore(c.getMesInicio().plusMonths(c.getNumeroCuotas() - 1L))
             ? mesActual
@@ -395,8 +433,10 @@ public class FinanzasService {
       if (!boletas.existsByEstudianteConceptoMes(
           c.getMatricula().getEstudiante().getId(), c.getConcepto(), mes.atDay(1))) {
         generarBoleta(c, mes, MecanismoGeneracion.AUTOMATICO);
+        generadas++;
       }
     }
+    return generadas;
   }
 
   private BoletaPension generarBoleta(

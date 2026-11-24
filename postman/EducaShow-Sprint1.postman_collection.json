@@ -2641,6 +2641,54 @@
           ]
         },
         {
+          "name": "Generar historial de boletas del alumno (US-1.4 / US-1.5)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/boletas-pension/historiales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "boletas-pension",
+                "historiales"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Historial de boletas generado', () => pm.response.to.have.status(200));",
+                  "const historial = pm.response.json();",
+                  "pm.expect(String(historial.estudianteId)).to.eql(pm.environment.get('estudianteId'));",
+                  "const boletas = historial.matriculas.flatMap(m => m.boletas);",
+                  "pm.expect(boletas.some(b => String(b.id) === pm.environment.get('boletaId')), 'boleta inicial').to.eql(true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Rechazar pago con monto distinto (US-1.5)",
           "request": {
             "method": "POST",
