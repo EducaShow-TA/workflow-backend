@@ -67,6 +67,22 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
         seccionId, LocalDate.of(anhio, 1, 1), LocalDate.of(anhio, 12, 31));
   }
 
+  /** Matrículas registradas sin confirmar: reservan vacante, pero aún no son alumnos del aula. */
+  @Query(
+      "select count(distinct m.estudiante.id) from Matricula m "
+          + "where m.periodo.seccion.id = :seccionId and m.active = true "
+          + "and m.periodo.fechaInicio between :desde and :hasta "
+          + "and m.estado = pe.edu.pucp.colegio.common.model.EstadoMatricula.EN_REGISTRO")
+  long countPendientesPorSeccionEntre(
+      @Param("seccionId") Integer seccionId,
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta);
+
+  default long countPendientesPorSeccionEnAnhio(Integer seccionId, int anhio) {
+    return countPendientesPorSeccionEntre(
+        seccionId, LocalDate.of(anhio, 1, 1), LocalDate.of(anhio, 12, 31));
+  }
+
   boolean existsByActiveTrueAndFechaMatriculaBetween(LocalDate desde, LocalDate hasta);
 
   /**

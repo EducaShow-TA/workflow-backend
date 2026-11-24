@@ -64,6 +64,9 @@ public class VacantesService {
     long matriculasActivas =
         matriculas.countAlumnosActivosPorSeccionEnAnhio(
             periodo.getSeccion().getId(), periodo.getFechaInicio().getYear());
+    long matriculasPendientes =
+        matriculas.countPendientesPorSeccionEnAnhio(
+            periodo.getSeccion().getId(), periodo.getFechaInicio().getYear());
     int vacantesDisponibles = (int) Math.max(0, vacantesTotales - matriculasActivas);
 
     return new VacantesPeriodoResponse(
@@ -77,6 +80,7 @@ public class VacantesService {
         periodo.getFechaFin(),
         vacantesTotales,
         matriculasActivas,
+        matriculasPendientes,
         vacantesDisponibles,
         vacantesDisponibles > 0,
         periodo.calcularEstado(LocalDate.now(clock)),
