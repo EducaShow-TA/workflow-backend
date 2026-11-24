@@ -109,6 +109,10 @@ class PanelAdministradorIntegrationTest {
     assertEquals(1, diferencia(antes, despues, "$.pendientes.erroresUltimas24h"));
     assertEquals(1, diferencia(antes, despues, "$.pendientes.erroresCriticos24h"));
     assertEquals(2, diferencia(antes, despues, "$.indicadores.estudiantesMatriculados"));
+    assertEquals(1, diferencia(antes, despues, "$.indicadores.estudiantesConfirmados"));
+    assertTrue(
+        JsonPath.<List<Integer>>read(despues, "$.pendientes.anhiosPorConfirmar")
+            .contains(hoy.getYear()));
     assertEquals(30, diferencia(antes, despues, "$.indicadores.vacantesTotales"));
     assertEquals(500, diferencia(antes, despues, "$.indicadores.pensionMesEmitida"));
     assertEquals(300, diferencia(antes, despues, "$.indicadores.pensionMesCobrada"));
@@ -116,6 +120,7 @@ class PanelAdministradorIntegrationTest {
     String grado = "$.ocupacion[?(@.nivelEducativo=='SECUNDARIA' && @.grado==1)].";
     assertEquals(1, diferencia(antes, despues, grado + "secciones"));
     assertEquals(30, diferencia(antes, despues, grado + "vacantes"));
+    assertEquals(1, diferencia(antes, despues, grado + "pendientes"));
     String cobranza = "$.cobranza[?(@.mes==" + mes + ")].";
     assertEquals(300, diferencia(antes, despues, cobranza + "pagado"));
     assertEquals(200, diferencia(antes, despues, cobranza + "vencido"));
