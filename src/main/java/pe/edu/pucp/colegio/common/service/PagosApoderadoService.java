@@ -50,6 +50,7 @@ public class PagosApoderadoService {
   private final FinanzasService finanzas;
   private final ComprobantePdfService pdf;
   private final boolean pagoSimuladoEnabled;
+  private final ParametrosSistemaService parametros;
 
   public PagosApoderadoService(
       CuentaUsuarioRepository cuentas,
@@ -60,6 +61,7 @@ public class PagosApoderadoService {
       ComprobantePagoRepository comprobantes,
       FinanzasService finanzas,
       ComprobantePdfService pdf,
+      ParametrosSistemaService parametros,
       @Value("${app.pagos.simulado.enabled:false}") boolean pagoSimuladoEnabled) {
     this.cuentas = cuentas;
     this.apoderados = apoderados;
@@ -70,6 +72,7 @@ public class PagosApoderadoService {
     this.finanzas = finanzas;
     this.pdf = pdf;
     this.pagoSimuladoEnabled = pagoSimuladoEnabled;
+    this.parametros = parametros;
   }
 
   @Transactional(readOnly = true)
@@ -95,6 +98,11 @@ public class PagosApoderadoService {
     if (!pagoSimuladoEnabled) {
       throw new ResponseStatusException(
           HttpStatus.SERVICE_UNAVAILABLE, "El pago simulado está deshabilitado");
+    }
+    if (!parametros.pagoEnLineaDisponible()) {
+      throw new ResponseStatusException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          "El pago en línea no está disponible en este momento. Puedes pagar en la tesorería del colegio");
     }
     Apoderado apoderado = apoderadoActivo(username);
     if (new HashSet<>(request.boletaIds()).size() != request.boletaIds().size()) {
