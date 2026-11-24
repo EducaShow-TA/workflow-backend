@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -30,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
@@ -250,6 +252,65 @@ class CalendarioBimestresIntegrationTest {
   }
 
   @Test
+  void crearEvaluacion_enBimestrePorCerrar_sePermite() throws Exception {
+    guardarCalendario("2041-05-15", "2041-05-18").andExpect(status().isOk());
+    mvc.perform(get("/api/v1/bimestres").param("anhio", "" + ANHIO).with(admin()))
+        .andExpect(jsonPath("$[0].estado").value("POR_CERRAR"));
+
+    mvc.perform(
+            post("/api/v1/evaluaciones-parciales")
+                .with(admin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"periodoId\":"
+                        + periodo.getId()
+                        + ",\"competenciaCodigo\":\""
+                        + competencia.getCodigo()
+                        + "\",\"titulo\":\"Examen tardío\",\"ponderacion\":20,\"bimestre\":1}"))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
+  void actualizarEvaluacion_deBimestreCerrado_seRechaza() throws Exception {
+    cerrarPrimerBimestre();
+
+    mvc.perform(actualizacion(evaluacion.getId(), 2)).andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  void actualizarEvaluacion_haciaBimestreCerrado_seRechaza() throws Exception {
+    evaluacion.setBimestre(2);
+    entityManager.flush();
+    cerrarPrimerBimestre();
+
+    mvc.perform(actualizacion(evaluacion.getId(), 1))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "El bimestre 1 está cerrado; no se pueden crear ni cambiar sus evaluaciones"));
+  }
+
+  @Test
+  void actualizarEvaluacion_entreBimestresAbiertos_seGuarda() throws Exception {
+    evaluacion.setBimestre(2);
+    entityManager.flush();
+    cerrarPrimerBimestre();
+
+    mvc.perform(actualizacion(evaluacion.getId(), 3))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.bimestre").value(3));
+  }
+
+  @Test
+  void eliminarEvaluacion_deBimestreCerrado_seRechaza() throws Exception {
+    cerrarPrimerBimestre();
+
+    mvc.perform(delete("/api/v1/evaluaciones-parciales/{id}", evaluacion.getId()).with(admin()))
+        .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
   void elCierreRespetaElOrdenDeLosBimestres() throws Exception {
     guardarCalendario("2041-05-15", "2041-05-18").andExpect(status().isOk());
     entityManager.flush();
@@ -263,6 +324,22 @@ class CalendarioBimestresIntegrationTest {
     mvc.perform(post("/api/v1/bimestres/" + ANHIO + "/2/cierre").with(admin()))
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.message").value("Primero cierra el bimestre 1"));
+  }
+
+  private void cerrarPrimerBimestre() throws Exception {
+    guardarCalendario("2041-05-15", "2041-05-18").andExpect(status().isOk());
+    mvc.perform(post("/api/v1/bimestres/" + ANHIO + "/1/cierre").with(admin()))
+        .andExpect(status().isOk());
+  }
+
+  private static MockHttpServletRequestBuilder actualizacion(int evaluacionId, int bimestre) {
+    return put("/api/v1/evaluaciones-parciales/{id}", evaluacionId)
+        .with(admin())
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+            "{\"titulo\":\"Práctica calificada 1\",\"ponderacion\":100,\"bimestre\":"
+                + bimestre
+                + "}");
   }
 
   private ResultActions guardarCalendario(String finPrimero, String inicioSegundo)
