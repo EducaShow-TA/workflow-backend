@@ -123,9 +123,10 @@ public class MatriculaService {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT,
           "El estudiante ya está matriculado en "
-              + otro.getGrado().getNumero()
-              + ".° "
-              + otro.getSeccion().getCodigo()
+              + NombreSeccion.completa(
+                  otro.getGrado().getNumero(),
+                  otro.getSeccion().getCodigo(),
+                  otro.getGrado().getNivelEducativo())
               + " ("
               + anhio
               + ")");

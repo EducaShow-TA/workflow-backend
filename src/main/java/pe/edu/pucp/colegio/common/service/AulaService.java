@@ -90,9 +90,10 @@ public class AulaService {
             "No se puede reducir la capacidad a "
                 + nuevaCapacidad
                 + ": "
-                + horario.getSeccion().getGrado().getNumero()
-                + "° "
-                + horario.getSeccion().getCodigo()
+                + NombreSeccion.completa(
+                    horario.getSeccion().getGrado().getNumero(),
+                    horario.getSeccion().getCodigo(),
+                    horario.getSeccion().getGrado().getNivelEducativo())
                 + " requiere espacio para "
                 + Math.max(alumnos, capacidadSeccion)
                 + " alumnos; tiene "

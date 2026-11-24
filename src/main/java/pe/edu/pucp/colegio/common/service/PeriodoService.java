@@ -197,11 +197,12 @@ public class PeriodoService {
     if (!cruces.isEmpty()) {
       Periodo cruce = cruces.get(0);
       throw new ConflictException(
-          "Las fechas se cruzan con el periodo de la sección "
-              + seccion.getCodigo()
-              + " de "
-              + seccion.getGrado().getNumero()
-              + "° grado, que va del "
+          "Las fechas se cruzan con el periodo de "
+              + NombreSeccion.completa(
+                  seccion.getGrado().getNumero(),
+                  seccion.getCodigo(),
+                  seccion.getGrado().getNivelEducativo())
+              + ", que va del "
               + cruce.getFechaInicio().format(FORMATO_FECHA)
               + " al "
               + cruce.getFechaFin().format(FORMATO_FECHA));

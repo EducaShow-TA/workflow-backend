@@ -34,7 +34,7 @@ class ReporteAsistenciaCsvTest {
     assertThat(lineas)
         .containsExactly(
             ENCABEZADO,
-            "Ana Quispe Rojas,3.° Secundaria,A,40,5,6,1,52,11.5",
+            "Ana Quispe Rojas,3.º de secundaria,A,40,5,6,1,52,11.5",
             "TOTAL,,,40,5,6,1,52,11.5");
   }
 
@@ -46,7 +46,7 @@ class ReporteAsistenciaCsvTest {
                 List.of(fila("Muñoz, Pedro", 1, 0, 0, 0, "0.0")),
                 new TotalesAsistenciaResponse(1, 0, 0, 0, 1)));
 
-    assertThat(texto(bytes)).contains("\"Muñoz, Pedro\",3.° Secundaria,A,1,0,0,0,1,0.0");
+    assertThat(texto(bytes)).contains("\"Muñoz, Pedro\",3.º de secundaria,A,1,0,0,0,1,0.0");
   }
 
   @Test
@@ -91,7 +91,8 @@ class ReporteAsistenciaCsvTest {
         1,
         nombre,
         3,
-        "3.° Secundaria",
+        3,
+        "3.º de secundaria",
         7,
         "A",
         p,

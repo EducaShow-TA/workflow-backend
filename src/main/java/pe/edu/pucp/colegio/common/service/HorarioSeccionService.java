@@ -684,7 +684,10 @@ public class HorarioSeccionService {
   }
 
   private String nombreSeccion(Seccion seccion) {
-    return seccion.getGrado().getNumero() + "° " + seccion.getCodigo();
+    return NombreSeccion.completa(
+        seccion.getGrado().getNumero(),
+        seccion.getCodigo(),
+        seccion.getGrado().getNivelEducativo());
   }
 
   private String nombreDia(DayOfWeek dia) {

@@ -351,7 +351,7 @@ class AuditoriaHorarioIntegrationTest {
   private AuditoriaHorario registroValido(int horarioId) {
     AuditoriaHorario registro = new AuditoriaHorario();
     registro.setHorarioId(horarioId);
-    registro.setSeccion("1° Prueba");
+    registro.setSeccion("1.º de secundaria A");
     registro.setAccion("CREACIÓN");
     registro.setFechaHora(LocalDateTime.of(HOY, LocalTime.NOON));
     registro.setUsuarioNombre("prueba");

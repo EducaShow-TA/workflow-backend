@@ -138,7 +138,7 @@ public class LibretaPdfService {
   private void agregarPeriodo(Document documento, PeriodoLibreta periodo) throws DocumentException {
     Paragraph tituloPeriodo =
         new Paragraph(
-            "Grado " + periodo.gradoNumero() + "° " + " - Sección " + periodo.seccion(),
+            NombreSeccion.completa(periodo.gradoNumero(), periodo.seccion()),
             new Font(Font.HELVETICA, 12, Font.BOLD, COLOR_INSTITUCIONAL));
     tituloPeriodo.setSpacingBefore(10);
     tituloPeriodo.setSpacingAfter(4);
