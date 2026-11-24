@@ -16,6 +16,7 @@ import pe.edu.pucp.colegio.common.model.EstadoPeriodoMatricula;
 import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
+import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
 
 /** Gestiona las ventanas de tiempo habilitadas para registrar matrículas. */
 @Service
@@ -25,13 +26,33 @@ public class PeriodoMatriculaService {
 
   private final PeriodoMatriculaRepository periodos;
   private final MatriculaRepository matriculas;
+  private final PeriodoRepository periodosAcademicos;
   private final Clock clock;
 
   public PeriodoMatriculaService(
-      PeriodoMatriculaRepository periodos, MatriculaRepository matriculas, Clock clock) {
+      PeriodoMatriculaRepository periodos,
+      MatriculaRepository matriculas,
+      PeriodoRepository periodosAcademicos,
+      Clock clock) {
     this.periodos = periodos;
     this.matriculas = matriculas;
+    this.periodosAcademicos = periodosAcademicos;
     this.clock = clock;
+  }
+
+  /**
+   * Año escolar que se matricula en una ventana: si las clases del año en que empieza ya empezaron,
+   * la ventana es para el año siguiente (p. ej., noviembre de 2026 matricula para 2027).
+   */
+  @Transactional(readOnly = true)
+  public int anhioEscolar(LocalDate inicioVentana) {
+    int anhio = inicioVentana.getYear();
+    boolean clasesEmpezadas =
+        periodosAcademicos
+            .buscar(LocalDate.of(anhio, 1, 1), LocalDate.of(anhio, 12, 31), null, null)
+            .stream()
+            .anyMatch(periodo -> !periodo.getFechaInicio().isAfter(inicioVentana));
+    return clasesEmpezadas ? anhio + 1 : anhio;
   }
 
   @Transactional
@@ -164,6 +185,7 @@ public class PeriodoMatriculaService {
         periodo.getFechaInicio(),
         periodo.getFechaLimite(),
         calcularEstado(periodo),
-        tieneMatriculas(periodo));
+        tieneMatriculas(periodo),
+        anhioEscolar(periodo.getFechaInicio()));
   }
 }

@@ -56,12 +56,17 @@ public class PanelAdministradorService {
   private final Clock clock;
   private final VacantesService vacantes;
   private final BoletaPensionRepository boletas;
+  private final PeriodoMatriculaService periodosMatricula;
 
   public PanelAdministradorService(
-      Clock clock, VacantesService vacantes, BoletaPensionRepository boletas) {
+      Clock clock,
+      VacantesService vacantes,
+      BoletaPensionRepository boletas,
+      PeriodoMatriculaService periodosMatricula) {
     this.clock = clock;
     this.vacantes = vacantes;
     this.boletas = boletas;
+    this.periodosMatricula = periodosMatricula;
   }
 
   @Transactional(readOnly = true)
@@ -132,7 +137,8 @@ public class PanelAdministradorService {
                     p.getFechaLimite(),
                     hoy.isBefore(p.getFechaInicio())
                         ? EstadoPeriodoMatricula.PENDIENTE
-                        : EstadoPeriodoMatricula.VIGENTE))
+                        : EstadoPeriodoMatricula.VIGENTE,
+                    periodosMatricula.anhioEscolar(p.getFechaInicio())))
         .orElse(null);
   }
 

@@ -143,7 +143,8 @@ class PanelAdministradorIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.fecha").value(hoy.toString()))
         .andExpect(jsonPath("$.ventanaMatricula.estado").value("VIGENTE"))
-        .andExpect(jsonPath("$.ventanaMatricula.fechaLimite").value(hoy.plusDays(10).toString()));
+        .andExpect(jsonPath("$.ventanaMatricula.fechaLimite").value(hoy.plusDays(10).toString()))
+        .andExpect(jsonPath("$.ventanaMatricula.anhioEscolar").isNumber());
   }
 
   private String consultar() throws Exception {
