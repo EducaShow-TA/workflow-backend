@@ -90,9 +90,10 @@ public class ComprobantePdfService {
       fila(
           datos,
           "Grado y sección",
-          periodo.getGrado().getNumero()
-              + ".° grado · Sección "
-              + periodo.getSeccion().getCodigo());
+          NombreSeccion.completa(
+              periodo.getGrado().getNumero(),
+              periodo.getSeccion().getCodigo(),
+              periodo.getGrado().getNivelEducativo()));
       fila(datos, "Apoderado titular", compromiso.getApoderado().getPersona().getNombreCompleto());
       fila(datos, "Concepto", compromiso.getConcepto() + " · " + mes);
       fila(
