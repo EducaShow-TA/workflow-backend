@@ -27,6 +27,9 @@ jobs:
         run: chmod +x ./mvnw
 
       - name: Verify formatting, tests, and coverage
+        # Los tests comparan contra la fecha del colegio (America/Lima); sin esto fallan de 19:00 a 24:00.
+        env:
+          TZ: America/Lima
         run: ./mvnw --batch-mode --no-transfer-progress verify
 
       - name: Confirm JaCoCo coverage rules match classes
