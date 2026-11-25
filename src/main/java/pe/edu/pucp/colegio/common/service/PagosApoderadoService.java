@@ -62,7 +62,7 @@ public class PagosApoderadoService {
       FinanzasService finanzas,
       ComprobantePdfService pdf,
       ParametrosSistemaService parametros,
-      @Value("${app.pagos.simulado.enabled:false}") boolean pagoSimuladoEnabled) {
+      @Value("${app.pagos.simulado.enabled:true}") boolean pagoSimuladoEnabled) {
     this.cuentas = cuentas;
     this.apoderados = apoderados;
     this.vinculos = vinculos;
