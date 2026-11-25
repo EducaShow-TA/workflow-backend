@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -32,6 +33,7 @@ public class ParametrosSistemaService {
   private final RelojSistema reloj;
   private final CuentaUsuarioRepository cuentas;
   private final RegistroAuditoriaRepository auditorias;
+  private final PasswordEncoder encoder;
   private final boolean fechaSimuladaPermitida;
   private final boolean pagoEnLineaPermitido;
 
@@ -40,12 +42,14 @@ public class ParametrosSistemaService {
       RelojSistema reloj,
       CuentaUsuarioRepository cuentas,
       RegistroAuditoriaRepository auditorias,
-      @Value("${app.demo.fecha-permitida:false}") boolean fechaSimuladaPermitida,
-      @Value("${app.pagos.simulado.enabled:false}") boolean pagoEnLineaPermitido) {
+      PasswordEncoder encoder,
+      @Value("${app.demo.fecha-permitida:true}") boolean fechaSimuladaPermitida,
+      @Value("${app.pagos.simulado.enabled:true}") boolean pagoEnLineaPermitido) {
     this.parametros = parametros;
     this.reloj = reloj;
     this.cuentas = cuentas;
     this.auditorias = auditorias;
+    this.encoder = encoder;
     this.fechaSimuladaPermitida = fechaSimuladaPermitida;
     this.pagoEnLineaPermitido = pagoEnLineaPermitido;
   }
@@ -99,6 +103,7 @@ public class ParametrosSistemaService {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Elige una fecha entre 2020 y 2100");
     }
+    exigirContrasenia(username, request.contrasenia());
     LocalDateTime anterior = LocalDateTime.now(reloj);
     LocalDateTime ahoraReal = LocalDateTime.now(reloj.real()).truncatedTo(ChronoUnit.SECONDS);
     long desfase = Duration.between(ahoraReal, request.fecha()).toSeconds();
@@ -157,6 +162,17 @@ public class ParametrosSistemaService {
             ? "Pago en línea disponible para los apoderados"
             : "Pago en línea desactivado para los apoderados");
     return obtener();
+  }
+
+  /**
+   * Segunda confirmación: no responde 401 para que una contraseña mal escrita no cierre la sesión.
+   */
+  private void exigirContrasenia(String username, String contrasenia) {
+    CuentaUsuario cuenta = cuentas.findByUsername(username).orElse(null);
+    if (cuenta == null || !encoder.matches(contrasenia, cuenta.getPassword())) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "La contraseña no es correcta. Vuelve a escribirla.");
+    }
   }
 
   private ParametrosSistema actual() {

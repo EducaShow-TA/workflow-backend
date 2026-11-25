@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.common;
 
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -16,16 +17,21 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.config.RelojSistema;
+import pe.edu.pucp.colegio.security.model.CuentaUsuario;
+import pe.edu.pucp.colegio.security.model.Rol;
+import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
 @SpringBootTest(properties = {"app.demo.fecha-permitida=true", "app.pagos.simulado.enabled=true"})
 @AutoConfigureMockMvc
@@ -33,13 +39,25 @@ import pe.edu.pucp.colegio.common.config.RelojSistema;
 class ParametrosSistemaIntegrationTest {
 
   private static final String RUTA = "/api/v1/parametros-sistema";
+  private static final String CONTRASENIA = "ClaveDemo123!";
   private static final String FECHA_DEMO =
-      "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"Demostración del flujo de bimestres\"}";
+      "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"Demostración del flujo de bimestres\","
+          + "\"contrasenia\":\""
+          + CONTRASENIA
+          + "\"}";
 
   @Autowired MockMvc mvc;
   @Autowired JdbcTemplate jdbc;
   @Autowired RelojSistema reloj;
   @Autowired Clock clock;
+  @Autowired CuentaUsuarioRepository cuentas;
+  @Autowired PasswordEncoder encoder;
+
+  @BeforeEach
+  void crearAdministrador() {
+    cuentas.save(
+        new CuentaUsuario("admin-param", encoder.encode(CONTRASENIA), Rol.ADMINISTRADOR, null));
+  }
 
   @AfterEach
   void volverAFechaReal() {
@@ -115,7 +133,10 @@ class ParametrosSistemaIntegrationTest {
             put(RUTA + "/fecha")
                 .with(admin())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"demo\"}"))
+                .content(
+                    "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"demo\",\"contrasenia\":\""
+                        + CONTRASENIA
+                        + "\"}"))
         .andExpect(status().isBadRequest());
     assertEquals(Duration.ZERO, reloj.desfase());
   }
@@ -127,9 +148,61 @@ class ParametrosSistemaIntegrationTest {
                 .with(admin())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    "{\"fecha\":\"1999-04-01T07:50:00\",\"motivo\":\"Demostración del sistema\"}"))
+                    "{\"fecha\":\"1999-04-01T07:50:00\",\"motivo\":\"Demostración del sistema\","
+                        + "\"contrasenia\":\""
+                        + CONTRASENIA
+                        + "\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("Elige una fecha entre 2020 y 2100"));
+  }
+
+  @Test
+  void conContraseniaIncorrectaNoCambiaLaFechaNiCierraLaSesion() throws Exception {
+    Integer cambiosAntes = cambiosDeFechaAuditados();
+    mvc.perform(
+            put(RUTA + "/fecha")
+                .with(admin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"Demostración del sistema\","
+                        + "\"contrasenia\":\"otra-clave\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            jsonPath("$.message").value("La contraseña no es correcta. Vuelve a escribirla."));
+
+    assertEquals(Duration.ZERO, reloj.desfase());
+    assertEquals(cambiosAntes, cambiosDeFechaAuditados());
+    CuentaUsuario cuenta = cuentas.findByUsername("admin-param").orElseThrow();
+    assertEquals(0, cuenta.getIntentosFallidos() == null ? 0 : cuenta.getIntentosFallidos());
+    assertFalse(cuenta.estaBloqueada());
+  }
+
+  @Test
+  void sinContraseniaNoCambiaLaFecha() throws Exception {
+    mvc.perform(
+            put(RUTA + "/fecha")
+                .with(admin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"Demostración del sistema\"}"))
+        .andExpect(status().isBadRequest());
+    assertEquals(Duration.ZERO, reloj.desfase());
+  }
+
+  @Test
+  void laContraseniaNoQuedaEnLaAuditoria() throws Exception {
+    mvc.perform(
+            put(RUTA + "/fecha")
+                .with(admin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(FECHA_DEMO))
+        .andExpect(status().isOk());
+    Integer conClave =
+        jdbc.queryForObject(
+            "select count(*) from registros_auditoria where descripcion like ?",
+            Integer.class,
+            "%" + CONTRASENIA + "%");
+    assertEquals(0, conClave);
   }
 
   @Test
@@ -177,6 +250,12 @@ class ParametrosSistemaIntegrationTest {
             "select descripcion from registros_auditoria where accion='CONFIGURAR_PAGO_EN_LINEA' order by id desc limit 1",
             String.class);
     assertEquals("Pago en línea desactivado para los apoderados", descripcion);
+  }
+
+  private Integer cambiosDeFechaAuditados() {
+    return jdbc.queryForObject(
+        "select count(*) from registros_auditoria where accion='CAMBIAR_FECHA_SISTEMA'",
+        Integer.class);
   }
 
   private static RequestPostProcessor admin() {

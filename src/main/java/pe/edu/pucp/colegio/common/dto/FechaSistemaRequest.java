@@ -9,4 +9,11 @@ public record FechaSistemaRequest(
     @NotNull(message = "Elige la fecha y la hora") LocalDateTime fecha,
     @NotBlank(message = "Escribe el motivo del cambio")
         @Size(min = 10, max = 300, message = "El motivo debe tener entre 10 y 300 caracteres")
-        String motivo) {}
+        String motivo,
+    @NotBlank(message = "Escribe tu contraseña para confirmar el cambio") String contrasenia) {
+
+  @Override
+  public String toString() {
+    return "FechaSistemaRequest[fecha=" + fecha + ", motivo=" + motivo + ", contrasenia=***]";
+  }
+}

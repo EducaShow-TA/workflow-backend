@@ -14,7 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
+@SpringBootTest(properties = {"app.demo.fecha-permitida=false", "app.pagos.simulado.enabled=false"})
 @AutoConfigureMockMvc
 @Transactional
 class ParametrosSistemaDeshabilitadoIntegrationTest {
@@ -30,7 +30,8 @@ class ParametrosSistemaDeshabilitadoIntegrationTest {
                 .with(user("admin-off").roles("ADMINISTRADOR"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"Demostración del sistema\"}"))
+                    "{\"fecha\":\"2026-04-01T07:50:00\",\"motivo\":\"Demostración del sistema\","
+                        + "\"contrasenia\":\"ClaveDemo123!\"}"))
         .andExpect(status().isConflict())
         .andExpect(
             jsonPath("$.message").value("La fecha simulada no está habilitada en este servidor"));

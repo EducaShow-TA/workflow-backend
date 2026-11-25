@@ -44,9 +44,9 @@ spring:
 app:
     pagos:
       simulado:
-        enabled: ${PAGOS_SIMULADO_ENABLED:false}
+        enabled: ${PAGOS_SIMULADO_ENABLED:true}
     demo:
-      fecha-permitida: ${DEMO_FECHA_PERMITIDA:false}
+      fecha-permitida: ${DEMO_FECHA_PERMITIDA:true}
     finanzas:
       monto-pension-predeterminado: ${FINANZAS_MONTO_PENSION_PREDETERMINADO:500.00}
     jwt:
