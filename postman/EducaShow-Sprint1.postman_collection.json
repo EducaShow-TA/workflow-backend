@@ -4323,7 +4323,7 @@
                 "carga-masiva"
               ]
             },
-            "description": "Genera el CSV de prueba automáticamente en el script previo: APODERADO, ALUMNO vinculado a ese apoderado y DOCENTE, con DNI y correos únicos por ejecución. El Runner ejecuta la carga sin seleccionar archivo local.",
+            "description": "Genera el CSV de prueba automáticamente en el script previo: ALUMNO con apoderado nuevo incluido en la misma fila y DOCENTE, con DNI y correos únicos por ejecución. Comprueba las tres cuentas creadas y el vínculo familiar sin seleccionar archivo local.",
             "header": [
               {
                 "key": "Content-Type",
@@ -4342,10 +4342,9 @@
                   "pm.environment.set(\"csvSuffix\", suffix);",
                   "pm.environment.set(\"csvBoundary\", boundary);",
                   "pm.environment.set(\"csvContenido\", [",
-                  "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,parentesco\",",
-                  "  `APODERADO,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,rosa${suffix},987654321,,,`,",
-                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,,,2011-05-14,4${suffix},MADRE`,",
-                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,,,,,`",
+                  "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,nombres_apoderado,apellido_paterno_apoderado,apellido_materno_apoderado,correo_apoderado,telefono_apoderado,parentesco\",",
+                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,,,2011-05-14,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,+51987654321,MADRE`,",
+                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,,,,,,,,,,`",
                   "].join(\"\\r\\n\"));"
                 ]
               }
@@ -4357,17 +4356,18 @@
                 "exec": [
                   "const body = pm.response.json();",
                   "pm.test(\"Carga masiva completa\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Procesa las tres filas sin rechazo\", () => {",
+                  "pm.test(\"Procesa las dos filas sin rechazo\", () => {",
                   "  pm.expect(body.exitoso).to.eql(true);",
-                  "  pm.expect(body.totalFilas).to.eql(3);",
+                  "  pm.expect(body.totalFilas).to.eql(2);",
                   "  pm.expect(body.usuariosCreados).to.eql(3);",
                   "  pm.expect(body.usuariosVinculados).to.eql(1);",
                   "  pm.expect(body.filasRechazadas).to.eql(0);",
-                  "  pm.expect(body.resultados).to.have.lengthOf(3);",
-                  "  pm.expect(body.resultados.map((fila) => fila.estado)).to.eql([\"CREADO\", \"CREADO_Y_VINCULADO\", \"CREADO\"]);",
+                  "  pm.expect(body.resultados).to.have.lengthOf(2);",
+                  "  pm.expect(body.resultados.map((fila) => fila.estado)).to.eql([\"CREADO_Y_VINCULADO\", \"CREADO\"]);",
                   "});",
-                  "pm.test(\"Devuelve contraseñas temporales para las tres cuentas nuevas\", () => {",
+                  "pm.test(\"Devuelve contraseñas temporales para alumno, apoderado y docente\", () => {",
                   "  pm.expect(body.cuentas).to.have.lengthOf(3);",
+                  "  pm.expect(body.cuentas.map((cuenta) => cuenta.rol)).to.eql([\"ALUMNO\", \"APODERADO\", \"DOCENTE\"]);",
                   "  body.cuentas.forEach((cuenta) => pm.expect(cuenta.contrasenhaTemporal).to.be.a(\"string\").and.not.empty);",
                   "});"
                 ]

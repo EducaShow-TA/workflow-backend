@@ -95,15 +95,6 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       if (errores.containsKey(fila.fila())) {
         continue;
       }
-      if (rolDe(fila) == Rol.ALUMNO && !apoderados.existsByPersonaDni(fila.dniApoderado())) {
-        agregar(
-            errores,
-            fila.fila(),
-            "dni_apoderado",
-            "No se pudo procesar: el apoderado no está registrado o su fila fue rechazada");
-        continue;
-      }
-
       try {
         ResultadoProcesamientoFila procesado = procesador.procesar(fila);
         boolean creado = procesado.cuentaCreada();
@@ -119,6 +110,10 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
                   procesado.username(),
                   procesado.contrasenhaTemporal()));
         }
+        if (procesado.cuentaApoderadoCreada() != null) {
+          usuariosCreados++;
+          cuentasCreadas.add(procesado.cuentaApoderadoCreada());
+        }
         if (actualizado) {
           usuariosActualizados++;
         }
@@ -131,7 +126,7 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
         resultados.add(
             new FilaCargaMasivaResultadoDTO(
                 fila.fila(),
-                estado(creado, actualizado, vinculado),
+                estado(creado || procesado.cuentaApoderadoCreada() != null, actualizado, vinculado),
                 procesado.rol().name(),
                 procesado.dni(),
                 procesado.username()));
@@ -196,7 +191,6 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     Map<String, FilaUsuarioCsv> primeraFilaDni = new LinkedHashMap<>();
     Map<String, FilaUsuarioCsv> primeraFilaCorreo = new LinkedHashMap<>();
     Map<String, FilaUsuarioCsv> primeraFilaUsername = new LinkedHashMap<>();
-    Map<String, FilaUsuarioCsv> apoderadosEnArchivo = new LinkedHashMap<>();
     Map<String, FilaUsuarioCsv> vinculosPrincipales = new LinkedHashMap<>();
     Set<String> vinculosVistos = new HashSet<>();
 
@@ -217,9 +211,6 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
             "dni_alumno",
             "Es obligatorio en la carga específica de apoderados");
       }
-      if (rolDe(fila) == Rol.APODERADO && fila.dni() != null) {
-        apoderadosEnArchivo.putIfAbsent(fila.dni(), fila);
-      }
       if (rol == Rol.APODERADO && fila.dniAlumno() != null) {
         String claveVinculo = fila.dni() + ":" + fila.dniAlumno();
         if (!vinculosVistos.add(claveVinculo)) {
@@ -239,13 +230,6 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       }
     }
 
-    Set<String> apoderadosValidosEnArchivo = new HashSet<>();
-    for (Map.Entry<String, FilaUsuarioCsv> entry : apoderadosEnArchivo.entrySet()) {
-      if (!errores.containsKey(entry.getValue().fila())) {
-        apoderadosValidosEnArchivo.add(entry.getKey());
-      }
-    }
-
     for (FilaUsuarioCsv fila : filas) {
       if (rolDe(fila) != Rol.ALUMNO) {
         if (rolDe(fila) == Rol.APODERADO) {
@@ -261,13 +245,14 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       }
       if (fila.dniApoderado() == null) {
         agregar(errores, fila.fila(), "dni_apoderado", "Es obligatorio para un ALUMNO");
-      } else if (!apoderados.existsByPersonaDni(fila.dniApoderado())
-          && !apoderadosValidosEnArchivo.contains(fila.dniApoderado())) {
+      } else if (Objects.equals(fila.dni(), fila.dniApoderado())) {
         agregar(
             errores,
             fila.fila(),
             "dni_apoderado",
-            "No existe un apoderado válido con ese DNI ni una fila válida en el archivo");
+            "El alumno no puede registrarse como su propio apoderado");
+      } else if (rolEsperado == Rol.ALUMNO || rolEsperado == null) {
+        validarApoderadoDeAlumno(fila, errores);
       }
       if (fila.parentesco() == null) {
         agregar(errores, fila.fila(), "parentesco", "Es obligatorio para un ALUMNO");
@@ -280,6 +265,78 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       }
     }
     return errores;
+  }
+
+  private void validarApoderadoDeAlumno(
+      FilaUsuarioCsv fila, Map<Integer, List<ErrorFilaDTO>> errores) {
+    boolean apoderadoRegistrado = apoderados.existsByPersonaDni(fila.dniApoderado());
+    CuentaUsuario cuentaApoderado = cuentas.findByPersonaDni(fila.dniApoderado()).orElse(null);
+
+    if (cuentaApoderado != null
+        && (cuentaApoderado.getRol() != Rol.APODERADO
+            || !Boolean.TRUE.equals(cuentaApoderado.getActive()))) {
+      agregar(
+          errores,
+          fila.fila(),
+          "dni_apoderado",
+          "El documento indicado pertenece a una cuenta con otro rol");
+      return;
+    }
+    if (estudiantes.existsByPersonaDni(fila.dniApoderado())) {
+      agregar(
+          errores,
+          fila.fila(),
+          "dni_apoderado",
+          "El apoderado indicado está registrado como alumno");
+      return;
+    }
+
+    if (!apoderadoRegistrado
+        && cuentaApoderado == null
+        && (fila.nombresApoderado() == null
+            || fila.nombresApoderado().isBlank()
+            || fila.apellidoPaternoApoderado() == null
+            || fila.apellidoPaternoApoderado().isBlank()
+            || fila.apellidoMaternoApoderado() == null
+            || fila.apellidoMaternoApoderado().isBlank()
+            || fila.telefonoApoderado() == null
+            || fila.telefonoApoderado().isBlank())) {
+      agregar(
+          errores,
+          fila.fila(),
+          "datos_apoderado",
+          "Para crear un apoderado nuevo, complete nombres, ambos apellidos y telefono_apoderado");
+    }
+    validarTexto(errores, fila.fila(), "nombres_apoderado", fila.nombresApoderado(), 100, false);
+    validarTexto(
+        errores,
+        fila.fila(),
+        "apellido_paterno_apoderado",
+        fila.apellidoPaternoApoderado(),
+        100,
+        false);
+    validarTexto(
+        errores,
+        fila.fila(),
+        "apellido_materno_apoderado",
+        fila.apellidoMaternoApoderado(),
+        100,
+        false);
+    validarTexto(errores, fila.fila(), "telefono_apoderado", fila.telefonoApoderado(), 20, false);
+    if (fila.telefonoApoderado() != null
+        && !fila.telefonoApoderado().isBlank()
+        && !TelefonoPolicy.esValido(fila.telefonoApoderado().trim())) {
+      agregar(
+          errores,
+          fila.fila(),
+          "telefono_apoderado",
+          "El teléfono debe usar formato internacional, con 7 a 15 dígitos");
+    }
+    if (fila.correoApoderado() != null
+        && (fila.correoApoderado().length() > 254
+            || !CORREO.matcher(fila.correoApoderado()).matches())) {
+      agregar(errores, fila.fila(), "correo_apoderado", "Correo inválido (máximo 254 caracteres)");
+    }
   }
 
   private void validarVinculoApoderado(

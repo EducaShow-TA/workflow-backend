@@ -38,6 +38,10 @@ class CargaMasivaUsuariosIntegrationTest {
   private static final String CABECERA =
       "rol,dni,nombres,apellido_paterno,apellido_materno,correo,telefono,fecha_nacimiento,"
           + "dni_apoderado,parentesco\n";
+  private static final String CABECERA_ALUMNO =
+      "rol,dni,nombres,apellido_paterno,apellido_materno,correo,telefono,fecha_nacimiento,"
+          + "dni_apoderado,nombres_apoderado,apellido_paterno_apoderado,"
+          + "apellido_materno_apoderado,correo_apoderado,telefono_apoderado,parentesco\n";
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
@@ -83,19 +87,16 @@ class CargaMasivaUsuariosIntegrationTest {
     String dniDocente = dniAleatorio();
     String dniAlumno = dniAleatorio();
     String csv =
-        CABECERA
+        CABECERA_ALUMNO
             + "ALUMNO,"
             + dniAlumno
             + ",Luis,Torres,Quispe,al"
             + s
             + "@colegio.edu.pe,,2011-05-14,"
             + dniApoderado
-            + ",MADRE\n"
-            + "APODERADO,"
-            + dniApoderado
             + ",Rosa,Quispe,Mamani,ap"
             + s
-            + "@correo.com,987654321,,,\n"
+            + "@correo.com,+51987654321,MADRE\n"
             + "DOCENTE,"
             + dniDocente
             + ",Carlos,Vega,Rios,do"
@@ -286,44 +287,38 @@ class CargaMasivaUsuariosIntegrationTest {
     String dniApoderadoInicial = dniAleatorio();
     String correoAlumno = "alumno" + s + "@colegio.edu.pe";
     String csvInicial =
-        CABECERA
+        CABECERA_ALUMNO
             + "ALUMNO,"
             + dniAlumno
             + ",Luis,Torres,Quispe,"
             + correoAlumno
             + ",,2011-05-14,"
             + dniApoderadoInicial
-            + ",MADRE\n"
-            + "APODERADO,"
-            + dniApoderadoInicial
             + ",Rosa,Quispe,Mamani,ap-inicial"
             + s
-            + "@colegio.edu.pe,,,,\n";
+            + "@colegio.edu.pe,+51987654321,MADRE\n";
     mvc.perform(multipart(URL).file(archivo(csvInicial)).header("Authorization", "Bearer " + admin))
         .andExpect(status().isCreated());
 
     Integer estudianteId = estudiantes.findByPersonaDni(dniAlumno).orElseThrow().getId();
     String dniApoderadoNuevo = dniAleatorio();
     String csvActualizado =
-        CABECERA
+        CABECERA_ALUMNO
             + "ALUMNO,"
             + dniAlumno
             + ",Luis,Torres,Quispe,"
             + correoAlumno
             + ",,2011-05-14,"
             + dniApoderadoNuevo
-            + ",PADRE\n"
-            + "APODERADO,"
-            + dniApoderadoNuevo
             + ",Rosa,Quispe,Mamani,ap-nuevo"
             + s
-            + "@colegio.edu.pe,,,,\n";
+            + "@colegio.edu.pe,+51987654321,PADRE\n";
     mvc.perform(
             multipart(URL).file(archivo(csvActualizado)).header("Authorization", "Bearer " + admin))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.usuariosCreados").value(1))
         .andExpect(jsonPath("$.usuariosVinculados").value(1))
-        .andExpect(jsonPath("$.resultados[0].estado").value("CREADO"));
+        .andExpect(jsonPath("$.resultados[0].estado").value("CREADO_Y_VINCULADO"));
 
     assertEquals(estudianteId, estudiantes.findByPersonaDni(dniAlumno).orElseThrow().getId());
     var apoderadoNuevo = apoderados.findByPersonaDni(dniApoderadoNuevo).orElseThrow();
@@ -344,26 +339,25 @@ class CargaMasivaUsuariosIntegrationTest {
     String dniAlumnoUno = dniAleatorio();
     String dniAlumnoDos = dniAleatorio();
     String csvInicial =
-        CABECERA
+        CABECERA_ALUMNO
             + "ALUMNO,"
             + dniAlumnoUno
             + ",Luis,Torres,Quispe,alumno-uno-"
             + s
             + "@colegio.edu.pe,,2011-05-14,"
             + dniApoderadoInicial
-            + ",MADRE\n"
+            + ",Rosa,Quispe,Mamani,apoderado-inicial-"
+            + s
+            + "@colegio.edu.pe,+51987654321,MADRE\n"
             + "ALUMNO,"
             + dniAlumnoDos
             + ",Ana,Torres,Quispe,alumno-dos-"
             + s
             + "@colegio.edu.pe,,2012-06-15,"
             + dniApoderadoInicial
-            + ",MADRE\n"
-            + "APODERADO,"
-            + dniApoderadoInicial
             + ",Rosa,Quispe,Mamani,apoderado-inicial-"
             + s
-            + "@colegio.edu.pe,,,,\n";
+            + "@colegio.edu.pe,+51987654321,MADRE\n";
     mvc.perform(multipart(URL).file(archivo(csvInicial)).header("Authorization", "Bearer " + admin))
         .andExpect(status().isCreated());
 
@@ -411,19 +405,33 @@ class CargaMasivaUsuariosIntegrationTest {
   }
 
   @Test
-  void cargaConAlumnoCuyoApoderadoNoExiste_retorna422() throws Exception {
+  void cargaConAlumnoCuyoApoderadoNoExiste_creaLaCuentaYDevuelveCredenciales() throws Exception {
     String admin = login("admin@educore.edu.pe", "Admin2026!");
+    String dniAlumno = dniAleatorio();
+    String dniApoderado = dniAleatorio();
+    String s = sufijo();
     String csv =
-        CABECERA
+        CABECERA_ALUMNO
             + "ALUMNO,"
-            + dniAleatorio()
+            + dniAlumno
             + ",Luis,Torres,Quispe,al"
-            + sufijo()
-            + "@colegio.edu.pe,,,99999999,PADRE\n";
+            + s
+            + "@colegio.edu.pe,,2011-05-14,"
+            + dniApoderado
+            + ",Rosa,Quispe,Mamani,ap"
+            + s
+            + "@colegio.edu.pe,+51987654321,MADRE\n";
 
     mvc.perform(multipart(URL).file(archivo(csv)).header("Authorization", "Bearer " + admin))
-        .andExpect(status().isUnprocessableEntity())
-        .andExpect(jsonPath("$.errores[0].campo").value("dni_apoderado"));
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.exitoso").value(true))
+        .andExpect(jsonPath("$.usuariosCreados").value(2))
+        .andExpect(jsonPath("$.cuentas.length()").value(2))
+        .andExpect(jsonPath("$.cuentas[0].rol").value("ALUMNO"))
+        .andExpect(jsonPath("$.cuentas[1].rol").value("APODERADO"));
+
+    assertTrue(apoderados.existsByPersonaDni(dniApoderado));
+    assertTrue(estudiantes.existsByPersonaDni(dniAlumno));
   }
 
   @Test

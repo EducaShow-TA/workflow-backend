@@ -125,6 +125,11 @@ public class CargaMasivaUsuariosController {
           "fecha_nacimiento",
           "telefono",
           "dni_apoderado",
+          "nombres_apoderado",
+          "apellido_paterno_apoderado",
+          "apellido_materno_apoderado",
+          "correo_apoderado",
+          "telefono_apoderado",
           "parentesco");
     }
     if ("APODERADO".equals(rol)) {
@@ -174,10 +179,13 @@ public class CargaMasivaUsuariosController {
     }
     if ("ALUMNO".equals(rol)) {
       return List.of(
-          "Completa una fila por alumno. El DNI del apoderado debe corresponder a un apoderado"
-              + " registrado.",
+          "Completa una fila por alumno y especifica el DNI y parentesco del apoderado.",
+          "Si el apoderado aún no está registrado, completa también nombres_apoderado,"
+              + " apellido_paterno_apoderado, apellido_materno_apoderado y telefono_apoderado.",
+          "correo_apoderado es opcional. Si el apoderado ya existe, estos datos adicionales no son"
+              + " necesarios.",
           "Parentesco: PADRE, MADRE, TUTOR_LEGAL u OTRO. La cuenta del alumno se genera"
-              + " automáticamente.",
+              + " automáticamente; si el apoderado es nuevo, también se genera su cuenta.",
           "Para vincular apoderados adicionales, usa la plantilla específica de apoderados.");
     }
     if ("DOCENTE".equals(rol)) {
