@@ -21,7 +21,7 @@ Para el estado funcional de backend e interfaz por historia, consulta [el README
 
 Importa `EducaShow-Sprint1.postman_collection.json` y `EducaShow-Sprint1.postman_environment.json`, y selecciona **EducaShow - Local**. Ejecuta la colección completa en orden con el Runner. El login guarda el JWT y las solicitudes encadenadas almacenan los IDs de estudiantes, matrículas, compromisos, boletas, comprobantes y otros recursos.
 
-Los flujos incluyen autenticación y recuperación, catálogo curricular, ventanas y matrículas, finanzas, cuentas y roles, carga CSV, logs, plantillas horarias, tareas y evidencias. La colección crea datos persistentes. Al final retira las matrículas y desactiva las ventanas de matrícula creadas, pero conserva estudiantes, cuentas, catálogos, periodos, compromisos, boletas, comprobantes, secciones y otros registros. Cada ejecución puede acumular datos.
+Los flujos incluyen autenticación y recuperación, catálogo curricular, ventanas y matrículas, finanzas, cuentas y roles, carga CSV, logs, plantillas horarias, tareas y evidencias. La colección crea datos persistentes. Al final retira las matrículas y desactiva las ventanas de matrícula creadas, pero conserva estudiantes, cuentas, catálogos, periodos, compromisos, boletas, comprobantes, secciones y otros registros. Cada ejecución puede acumular datos. En el flujo de matrícula, ejecuta con Runner: las solicitudes visibles “Preparar actas del año anterior” y “Cerrar actas del periodo pendiente” consultan y cierran secuencialmente las actas abiertas antes de configurar la ventana. El endpoint de matrícula requiere que exista al menos un periodo académico del año anterior y que todas sus actas estén cerradas.
 
 La colección presupone que `gradoId=1` es el primer grado de secundaria sembrado por Flyway. Si se usa una base con catálogo personalizado, confirma ese ID antes de ejecutarla. La plantilla CSV generada por la colección usa datos aleatorios y no requiere seleccionar un archivo local.
 
@@ -51,3 +51,4 @@ Esta carga facilita explorar matrícula, vacantes, apoderados, pagos, roles, cat
 - **Riesgo académico (US-3.4):** `GET /api/v1/docentes/mis-clases/{periodoId}/riesgo-academico?areaCodigo={codigo}` usa el umbral global persistido, inicialmente `1`, y marca a quienes superan ese umbral con notas `C` manuales o parciales no justificadas del bimestre actual. El bimestre se calcula en cuatro tramos según las fechas del período. Requiere que el docente autenticado dicte esa área en la sección; solo ADMINISTRADOR puede cambiar el umbral en `/api/v1/configuracion/riesgo-academico`.
 
 Los pagos del módulo de pensiones requieren rol `ADMINISTRADOR`. Para contratos de rutas, formatos de respuesta y limitaciones adicionales, consulta [el README principal](../README.md).
+

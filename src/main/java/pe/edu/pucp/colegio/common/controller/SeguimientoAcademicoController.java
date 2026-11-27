@@ -3,7 +3,6 @@ package pe.edu.pucp.colegio.common.controller;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -27,7 +26,6 @@ import pe.edu.pucp.colegio.common.dto.CalificacionRequest;
 import pe.edu.pucp.colegio.common.dto.CalificacionResponse;
 import pe.edu.pucp.colegio.common.dto.CalificacionTareaRequest;
 import pe.edu.pucp.colegio.common.dto.CargaMasivaCalificacionesResultado;
-import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
 import pe.edu.pucp.colegio.common.dto.EstadoEntregaRequest;
 import pe.edu.pucp.colegio.common.dto.HistorialCalificacionResponse;
 import pe.edu.pucp.colegio.common.dto.TareaRequest;
@@ -82,18 +80,9 @@ public class SeguimientoAcademicoController {
       @Valid @RequestBody EstadoEntregaRequest request,
       Authentication authentication) {
     if (!esAdministrador(authentication)) {
-      boolean tareaAsignada =
-          misClases.listar(authentication.getName()).stream()
-              .flatMap(clase -> service.listarTareas(clase.periodoId()).stream())
-              .anyMatch(
-                  tarea ->
-                      tarea.id().equals(tareaId)
-                          && competenciasDelDocente(authentication, tarea.periodoId())
-                              .contains(tarea.competenciaCodigo()));
-      if (!tareaAsignada) {
-        throw new ResponseStatusException(
-            HttpStatus.FORBIDDEN, "La tarea no pertenece a tus clases");
-      }
+      Tarea tarea = service.obtenerTarea(tareaId);
+      validarAccesoCompetenciaEnPeriodo(
+          tarea.getPeriodo().getId(), tarea.getCompetencia().getCodigo(), authentication);
     }
     return service.marcarEntrega(tareaId, matriculaId, request.cumplida());
   }
@@ -131,11 +120,7 @@ public class SeguimientoAcademicoController {
   }
 
   private Set<String> competenciasDelDocente(Authentication authentication, Integer periodoId) {
-    return misClases.listar(authentication.getName()).stream()
-        .filter(clase -> clase.periodoId().equals(periodoId))
-        .flatMap(clase -> clase.competencias().stream())
-        .map(CompetenciaClaseResponse::codigo)
-        .collect(Collectors.toSet());
+    return misClases.competenciasEnPeriodo(authentication.getName(), periodoId);
   }
 
   private static boolean esAdministrador(Authentication authentication) {

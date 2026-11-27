@@ -7,6 +7,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -117,6 +119,33 @@ public class MisClasesService {
             .thenComparing(MiClaseResponse::gradoNumero)
             .thenComparing(MiClaseResponse::seccionCodigo));
     return clases;
+  }
+
+  /** Competencias que el docente tiene asignadas en el período consultado. */
+  @Transactional(readOnly = true)
+  public Set<String> competenciasEnPeriodo(String usuario, Integer periodoId) {
+    Periodo periodo =
+        periodos
+            .findById(periodoId)
+            .filter(encontrado -> Boolean.TRUE.equals(encontrado.getActive()))
+            .orElse(null);
+    if (periodo == null) return Set.of();
+
+    Docente docente = docenteService.obtenerDeCuenta(usuario);
+    Integer personaId = docente.getPersona().getId();
+    return areas.findAllByActivoTrueOrderByNombreAsc().stream()
+        .filter(
+            area ->
+                sesiones.docenteTieneAreaEnSeccion(
+                    personaId,
+                    periodo.getSeccion().getId(),
+                    periodo.getFechaInicio(),
+                    periodo.getFechaFin(),
+                    area.getCodigo()))
+        .flatMap(area -> area.getCompetencias().stream())
+        .filter(competencia -> Boolean.TRUE.equals(competencia.getActivo()))
+        .map(competencia -> competencia.getCodigo())
+        .collect(Collectors.toSet());
   }
 
   @Transactional
