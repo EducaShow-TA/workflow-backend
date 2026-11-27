@@ -186,7 +186,7 @@ public class SesionClaseService {
     alumnosMatriculados(sesion).forEach(e -> matriculados.put(e.getId(), e));
     Map<Integer, AsistenciaEstudiante> existentes = new HashMap<>();
     asistencias
-        .findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(sesionId)
+        .findAllBySesionClaseIdAndActiveTrueAndEstudianteActiveTrueOrderByEstudianteId(sesionId)
         .forEach(a -> existentes.put(a.getEstudiante().getId(), a));
 
     Set<Integer> vistos = new HashSet<>();
@@ -319,7 +319,9 @@ public class SesionClaseService {
   @Transactional(readOnly = true)
   public List<AsistenciaEstudianteResponse> listarAsistencias(Integer sesionId, Acceso acceso) {
     exigirAccesoConsulta(buscarSesion(sesionId), acceso);
-    return asistencias.findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(sesionId).stream()
+    return asistencias
+        .findAllBySesionClaseIdAndActiveTrueAndEstudianteActiveTrueOrderByEstudianteId(sesionId)
+        .stream()
         .map(this::respuesta)
         .toList();
   }
@@ -400,7 +402,8 @@ public class SesionClaseService {
     return resumen(
         sesion,
         alumnosMatriculados(sesion).size(),
-        asistencias.findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(sesion.getId()));
+        asistencias.findAllBySesionClaseIdAndActiveTrueAndEstudianteActiveTrueOrderByEstudianteId(
+            sesion.getId()));
   }
 
   private SesionClaseResumenResponse resumen(
@@ -445,7 +448,8 @@ public class SesionClaseService {
   private ListaAsistenciaResponse lista(SesionClase sesion) {
     List<Estudiante> matriculados = alumnosMatriculados(sesion);
     List<AsistenciaEstudiante> registradas =
-        asistencias.findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(sesion.getId());
+        asistencias.findAllBySesionClaseIdAndActiveTrueAndEstudianteActiveTrueOrderByEstudianteId(
+            sesion.getId());
 
     Map<Integer, AsistenciaEstudiante> porAlumno = new HashMap<>();
     registradas.forEach(a -> porAlumno.put(a.getEstudiante().getId(), a));

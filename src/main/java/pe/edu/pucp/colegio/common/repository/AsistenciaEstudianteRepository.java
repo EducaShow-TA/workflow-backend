@@ -21,8 +21,9 @@ public interface AsistenciaEstudianteRepository
   Optional<AsistenciaEstudiante> findByIdAndActiveTrue(Integer id);
 
   @EntityGraph(attributePaths = {"estudiante", "estudiante.persona"})
-  List<AsistenciaEstudiante> findAllBySesionClaseIdAndActiveTrueOrderByEstudianteId(
-      Integer sesionClaseId);
+  List<AsistenciaEstudiante>
+      findAllBySesionClaseIdAndActiveTrueAndEstudianteActiveTrueOrderByEstudianteId(
+          Integer sesionClaseId);
 
   @EntityGraph(attributePaths = {"estudiante", "estudiante.persona", "sesionClase"})
   Optional<AsistenciaEstudiante> findBySesionClaseIdAndEstudianteIdAndActiveTrue(
@@ -41,7 +42,8 @@ public interface AsistenciaEstudianteRepository
       })
   @Query(
       "select a from AsistenciaEstudiante a where a.active = true "
-          + "and a.estudiante.id = :estudianteId and a.sesionClase.active = true "
+          + "and a.estudiante.active = true and a.estudiante.id = :estudianteId "
+          + "and a.sesionClase.active = true "
           + "and a.sesionClase.cancelada = false "
           + "and (:desde is null or a.sesionClase.fecha >= :desde) "
           + "and (:hasta is null or a.sesionClase.fecha <= :hasta) "
@@ -74,7 +76,7 @@ public interface AsistenciaEstudianteRepository
           + "JUSTIFICADA then 1 else 0 end) as justificadas"
           + " from AsistenciaEstudiante a join a.estudiante e join e.persona p"
           + " join a.sesionClase s join s.seccion sec join sec.grado g"
-          + " where a.active = true and s.active = true and s.cancelada = false"
+          + " where a.active = true and e.active = true and s.active = true and s.cancelada = false"
           + " and s.fecha between :desde and :hasta"
           + " and a.estadoAsistencia <> "
           + ESTADO
