@@ -133,10 +133,34 @@ public class FinanzasService {
     return respuesta;
   }
 
+  /** Las pensiones no pasan de diciembre del año escolar, aunque el alumno entre a mitad de año. */
+  private void validarCuotasDentroDelAnhio(Matricula matricula, CompromisoPagoRequest request) {
+    if (matricula.getPeriodo() == null || request.primerVencimiento() == null) {
+      return;
+    }
+    int anhioEscolar = matricula.getPeriodo().getFechaInicio().getYear();
+    YearMonth ultimaCuota =
+        YearMonth.from(request.primerVencimiento()).plusMonths(request.numeroCuotas() - 1L);
+    if (ultimaCuota.isAfter(YearMonth.of(anhioEscolar, 12))) {
+      long caben =
+          Math.max(
+              0,
+              YearMonth.from(request.primerVencimiento())
+                      .until(YearMonth.of(anhioEscolar, 12), ChronoUnit.MONTHS)
+                  + 1);
+      throw new BusinessException(
+          "Las pensiones de "
+              + anhioEscolar
+              + " terminan en diciembre: con ese primer vencimiento "
+              + (caben == 1 ? "cabe 1 cuota" : "caben " + caben + " cuotas"));
+    }
+  }
+
   @Transactional
   public CompromisoPagoResponse crearCompromiso(
       Matricula matricula, CompromisoPagoRequest request) {
     validarTerminos(request);
+    validarCuotasDentroDelAnhio(matricula, request);
     List<String> requisitos = validarRequisitosCompromiso(matricula);
     if (requisitos.contains(COMPROMISO_EXISTENTE)) {
       throw new ConflictException("La matrícula ya tiene un compromiso de pago");

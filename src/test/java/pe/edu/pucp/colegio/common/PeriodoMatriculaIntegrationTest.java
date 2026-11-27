@@ -75,7 +75,7 @@ class PeriodoMatriculaIntegrationTest {
   }
 
   @Test
-  void permiteAbrirEnParaleloLaMatriculaDelAnioActualYElSiguiente() throws Exception {
+  void abrirElAnioSiguienteCierraLaMatriculaDelAnioActualAlCerrarSusActas() throws Exception {
     LocalDate hoy = LocalDate.now();
     int anhio = hoy.getYear();
     LocalDate inicioClases = LocalDate.of(anhio, 1, 2);
@@ -92,14 +92,16 @@ class PeriodoMatriculaIntegrationTest {
         .andExpect(jsonPath("$.fechaLimite").value("2100-12-31"))
         .andExpect(jsonPath("$.estado").value("VIGENTE"));
 
-    org.junit.jupiter.api.Assertions.assertTrue(
+    org.junit.jupiter.api.Assertions.assertFalse(
         periodosMatricula.hayPeriodoVigenteParaAnhio(anhio));
     org.junit.jupiter.api.Assertions.assertTrue(
         periodosMatricula.hayPeriodoVigenteParaAnhio(anhio + 1));
 
     mvc.perform(get("/api/v1/periodos-matricula"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(ventanasAntes + 2));
+        .andExpect(jsonPath("$.length()").value(ventanasAntes + 2))
+        .andExpect(jsonPath("$[?(@.anhioEscolar == " + anhio + ")].estado").value("VENCIDO"))
+        .andExpect(jsonPath("$[?(@.anhioEscolar == " + (anhio + 1) + ")].estado").value("VIGENTE"));
   }
 
   @Test

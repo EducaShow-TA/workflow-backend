@@ -102,10 +102,14 @@ public class PeriodoMatriculaService {
       throw new BusinessException(
           "No se puede modificar un periodo de matrícula vencido con matrículas registradas");
     }
+    if (estado != EstadoPeriodoMatricula.PENDIENTE
+        && !Objects.equals(anual.anhioEscolar(), periodo.getAnhioEscolar())) {
+      throw new BusinessException(
+          estado == EstadoPeriodoMatricula.VIGENTE
+              ? "El año escolar de un periodo vigente no se puede modificar"
+              : "El año escolar de una matrícula cerrada no se puede modificar");
+    }
     if (estado == EstadoPeriodoMatricula.VIGENTE) {
-      if (!Objects.equals(anual.anhioEscolar(), periodo.getAnhioEscolar())) {
-        throw new BusinessException("El año escolar de un periodo vigente no se puede modificar");
-      }
       anual =
           new PeriodoMatriculaRequest(
               periodo.getFechaInicio(),
@@ -140,11 +144,21 @@ public class PeriodoMatriculaService {
   @Transactional(readOnly = true)
   public boolean hayPeriodoVigenteParaAnhio(int anhioEscolar) {
     LocalDate hoy = LocalDate.now(clock);
-    return periodos.findAllByActiveTrue().stream()
-        .anyMatch(
-            periodo ->
-                !hoy.isBefore(periodo.getFechaInicio())
-                    && Objects.equals(periodo.getAnhioEscolar(), anhioEscolar));
+    return !actasCerradas(anhioEscolar)
+        && periodos.findAllByActiveTrue().stream()
+            .anyMatch(
+                periodo ->
+                    !hoy.isBefore(periodo.getFechaInicio())
+                        && Objects.equals(periodo.getAnhioEscolar(), anhioEscolar));
+  }
+
+  /** La matrícula de un año se cierra sola cuando se cierran las actas de todas sus secciones. */
+  private boolean actasCerradas(int anhioEscolar) {
+    List<Periodo> delAnhio =
+        periodosAcademicos.buscar(
+            LocalDate.of(anhioEscolar, 1, 1), LocalDate.of(anhioEscolar, 12, 31), null, null);
+    return !delAnhio.isEmpty()
+        && delAnhio.stream().allMatch(periodo -> Boolean.TRUE.equals(periodo.getActasCerradas()));
   }
 
   @Transactional(readOnly = true)
@@ -225,9 +239,7 @@ public class PeriodoMatriculaService {
     List<Periodo> anteriores =
         periodosAcademicos.buscar(
             LocalDate.of(anhio - 1, 1, 1), LocalDate.of(anhio - 1, 12, 31), null, null);
-    if (anteriores.isEmpty()
-        || anteriores.stream()
-            .anyMatch(periodo -> !Boolean.TRUE.equals(periodo.getActasCerradas()))) {
+    if (anteriores.stream().anyMatch(periodo -> !Boolean.TRUE.equals(periodo.getActasCerradas()))) {
       throw new ConflictException(
           "Cierra las actas de todas las secciones del año escolar "
               + (anhio - 1)
@@ -280,6 +292,9 @@ public class PeriodoMatriculaService {
     LocalDate hoy = LocalDate.now(clock);
     if (hoy.isBefore(periodo.getFechaInicio())) {
       return EstadoPeriodoMatricula.PENDIENTE;
+    }
+    if (actasCerradas(periodo.getAnhioEscolar())) {
+      return EstadoPeriodoMatricula.VENCIDO;
     }
     return EstadoPeriodoMatricula.VIGENTE;
   }
