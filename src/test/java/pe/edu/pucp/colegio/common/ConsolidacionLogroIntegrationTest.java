@@ -197,6 +197,38 @@ class ConsolidacionLogroIntegrationTest {
   }
 
   @Test
+  void alumnoQueEntraAMitadDeAnioNoRecibeCEnLosBimestresQueYaTerminaron() throws Exception {
+    Periodo periodo = entityManager.find(Periodo.class, periodoId);
+    Persona persona =
+        new Persona("X" + UUID.randomUUID().toString().substring(0, 8), "Luis", "Soto", "Vera");
+    entityManager.persist(persona);
+    Estudiante estudiante = new Estudiante();
+    estudiante.setPersona(persona);
+    entityManager.persist(estudiante);
+    Matricula extemporanea = new Matricula();
+    extemporanea.setFechaMatricula(LocalDate.of(2026, 8, 15));
+    extemporanea.setEstado(EstadoMatricula.CONFIRMADA);
+    extemporanea.setPeriodo(periodo);
+    extemporanea.setEstudiante(estudiante);
+    entityManager.persist(extemporanea);
+    entityManager.flush();
+    int delPrimerBimestre = crearEvaluacion("50.00", 1);
+    int delCuartoBimestre = crearEvaluacion("50.00", 4);
+
+    mvc.perform(post("/api/v1/periodos/{id}/cierre-actas", periodoId)).andExpect(status().isOk());
+
+    mvc.perform(get("/api/v1/evaluaciones-parciales/{id}/calificaciones", delPrimerBimestre))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.matriculaId == " + matriculaId + ")].nota").value("C"))
+        .andExpect(
+            jsonPath("$[?(@.matriculaId == " + extemporanea.getId() + ")].nota")
+                .value(org.hamcrest.Matchers.contains(nullValue())));
+    mvc.perform(get("/api/v1/evaluaciones-parciales/{id}/calificaciones", delCuartoBimestre))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.matriculaId == " + extemporanea.getId() + ")].nota").value("C"));
+  }
+
+  @Test
   void cierreConvierteFaltantesEnCYEImpideCambiosPosteriores() throws Exception {
     int primera = crearEvaluacion("40.00");
     int segunda = crearEvaluacion("60.00");

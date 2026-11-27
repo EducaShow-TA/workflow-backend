@@ -73,6 +73,7 @@ public class MatriculaService {
   public MatriculaResponse crear(Integer periodoId, MatriculaCreateRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
     int anhioEscolar = periodo.getFechaInicio().getYear();
+    validarActasAbiertas(periodo);
     if (!periodosMatricula.hayPeriodoVigenteParaAnhio(anhioEscolar)) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT,
@@ -119,6 +120,21 @@ public class MatriculaService {
     actualizarUsuarioAlumno(estudiante, periodo);
 
     return respuesta(matricula);
+  }
+
+  private void validarActasAbiertas(Periodo periodo) {
+    if (Boolean.TRUE.equals(periodo.getActasCerradas())) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "Las actas de "
+              + NombreSeccion.completa(
+                  periodo.getGrado().getNumero(),
+                  periodo.getSeccion().getCodigo(),
+                  periodo.getGrado().getNivelEducativo())
+              + " en "
+              + periodo.getFechaInicio().getYear()
+              + " ya están cerradas: no se puede matricular en ese año");
+    }
   }
 
   private void actualizarUsuarioAlumno(Estudiante estudiante, Periodo periodo) {
@@ -221,6 +237,7 @@ public class MatriculaService {
             .filter(m -> Boolean.TRUE.equals(m.getActive()))
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la matrícula"));
+    validarActasAbiertas(periodo);
     if (!periodosMatricula.hayPeriodoVigenteParaAnhio(periodo.getFechaInicio().getYear())) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "La matrícula de este año escolar está cerrada");

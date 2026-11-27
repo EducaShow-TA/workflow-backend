@@ -58,6 +58,30 @@ public class CalendarioBimestralService {
     return fecha -> bimestreEn(calendario, fecha);
   }
 
+  /**
+   * Primer bimestre que cursa un alumno según su fecha de matrícula: los bimestres que ya
+   * terminaron cuando se matriculó no le corresponden.
+   */
+  @Transactional(readOnly = true)
+  public ToIntFunction<LocalDate> primerBimestreCursado(Periodo periodo) {
+    List<BimestreCalendario> calendario =
+        bimestres.findAllByAnhioOrderByNumero(periodo.getFechaInicio().getYear());
+    if (calendario.size() != BIMESTRES) {
+      return fecha -> fecha == null ? 1 : BimestreAcademico.actual(periodo, fecha);
+    }
+    return fecha -> {
+      if (fecha == null) {
+        return 1;
+      }
+      for (BimestreCalendario bimestre : calendario) {
+        if (!fecha.isAfter(bimestre.getFechaFin())) {
+          return bimestre.getNumero();
+        }
+      }
+      return BIMESTRES + 1;
+    };
+  }
+
   @Transactional(readOnly = true)
   public boolean cerrado(Periodo periodo, Integer bimestre) {
     return bimestre != null

@@ -282,6 +282,67 @@ class MatriculaControllerIntegrationTest {
   }
 
   @Test
+  void rechazaPensionesQuePasanDeDiciembreDelAnioEscolar() throws Exception {
+    Integer periodoId = crearPeriodo(1);
+    EstudianteResponse estudiante = crearEstudiante();
+    matricular(periodoId, estudiante.estudianteId()).andExpect(status().isCreated());
+    int anhio = LocalDate.now().getYear() + 1;
+
+    mvc.perform(
+            patch(
+                    "/api/v1/periodos/{periodoId}/matriculas/{estudianteId}/confirmar",
+                    periodoId,
+                    estudiante.estudianteId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        new CompromisoPagoRequest(
+                            "Pensión escolar",
+                            new java.math.BigDecimal("900.00"),
+                            2,
+                            LocalDate.of(anhio, 12, 10),
+                            10))))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "Las pensiones de "
+                        + anhio
+                        + " terminan en diciembre: con ese primer vencimiento cabe 1 cuota"));
+  }
+
+  @Test
+  void noPermiteMatricularEnUnaSeccionConActasCerradas() throws Exception {
+    Integer periodoId = crearPeriodo(2);
+    EstudianteResponse estudiante = crearEstudiante();
+    entityManager.find(Periodo.class, periodoId).setActasCerradas(true);
+    entityManager.flush();
+
+    matricular(periodoId, estudiante.estudianteId())
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value(containsString("ya están cerradas")));
+  }
+
+  @Test
+  void listaLaSituacionDeLosEstudiantesParaElAnio() throws Exception {
+    EstudianteResponse estudiante = crearEstudiante();
+    int anhio = LocalDate.now().getYear() + 1;
+
+    mvc.perform(get("/api/v1/matriculas/situacion").param("anhio", String.valueOf(anhio)))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$[?(@.estudianteId == " + estudiante.estudianteId() + ")].situacion")
+                .value("NUEVO"));
+  }
+
+  @Test
+  @WithMockUser(username = "docente-situacion", roles = "DOCENTE")
+  void soloElAdministradorConsultaLaSituacionDeMatricula() throws Exception {
+    mvc.perform(get("/api/v1/matriculas/situacion").param("anhio", "2030"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void noPermiteRegistrarMatriculaFueraDeLaVentanaVigente() throws Exception {
     Integer periodoId = crearPeriodo(1);
     EstudianteResponse estudiante = crearEstudiante();

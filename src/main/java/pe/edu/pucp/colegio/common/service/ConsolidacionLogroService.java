@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,6 +12,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.ToIntFunction;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -585,8 +587,12 @@ public class ConsolidacionLogroService {
     List<CalificacionParcial> completar = new ArrayList<>();
     Map<CalificacionParcial, AuditoriaCalificacionService.ParcialAnterior> anteriores =
         new IdentityHashMap<>();
+    ToIntFunction<LocalDate> primerBimestre = calendario.primerBimestreCursado(periodo);
     for (EvaluacionParcial evaluacion : delBimestre) {
       for (Matricula matricula : roster) {
+        if (!cursoElBimestre(matricula, evaluacion, primerBimestre)) {
+          continue;
+        }
         CalificacionParcial nota = registradas.get(clave(evaluacion.getId(), matricula.getId()));
         if (nota == null) {
           nota = new CalificacionParcial();
@@ -619,6 +625,13 @@ public class ConsolidacionLogroService {
                 recalcularCompetencia(
                     periodo, codigo, false, username, "ADMINISTRADOR", "CIERRE_BIMESTRE"));
     return guardadas.size();
+  }
+
+  /** Un alumno que entró a mitad de año no recibe C en los bimestres que terminaron antes. */
+  private boolean cursoElBimestre(
+      Matricula matricula, EvaluacionParcial evaluacion, ToIntFunction<LocalDate> primerBimestre) {
+    return evaluacion.getBimestre() == null
+        || evaluacion.getBimestre() >= primerBimestre.applyAsInt(matricula.getFechaMatricula());
   }
 
   @Transactional(readOnly = true)
@@ -673,8 +686,12 @@ public class ConsolidacionLogroService {
       List<CalificacionParcial> completar = new ArrayList<>();
       Map<CalificacionParcial, AuditoriaCalificacionService.ParcialAnterior> anteriores =
           new IdentityHashMap<>();
+      ToIntFunction<LocalDate> primerBimestre = calendario.primerBimestreCursado(periodo);
       for (EvaluacionParcial evaluacion : evaluacionesActivas) {
         for (Matricula matricula : roster) {
+          if (!cursoElBimestre(matricula, evaluacion, primerBimestre)) {
+            continue;
+          }
           String key = clave(evaluacion.getId(), matricula.getId());
           CalificacionParcial nota = porEvaluacionMatricula.get(key);
           boolean cambio = false;
