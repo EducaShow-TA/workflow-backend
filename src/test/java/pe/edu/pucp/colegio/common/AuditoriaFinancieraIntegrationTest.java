@@ -121,7 +121,7 @@ class AuditoriaFinancieraIntegrationTest {
   void registraCompromisoBoletaYPagoConQuienLoHizoYElApoderadoTitular() throws Exception {
     mvc.perform(get(RUTA).param("estudiante", dniEstudiante))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.page.totalElements").value(3))
+        .andExpect(jsonPath("$.page.totalElements").value(4))
         .andExpect(jsonPath("$.content[0].accion").value("PAGO_REGISTRADO"))
         .andExpect(jsonPath("$.content[0].usuario").value("caja-auditoria"))
         .andExpect(jsonPath("$.content[0].rolUsuario").value("ADMINISTRADOR"))
@@ -136,20 +136,21 @@ class AuditoriaFinancieraIntegrationTest {
         .andExpect(jsonPath("$.content[1].accion").value("BOLETA_GENERADA"))
         .andExpect(jsonPath("$.content[1].estadoNuevo").value("PENDIENTE"))
         .andExpect(jsonPath("$.content[1].mecanismo").value("AUTOMATICO"))
-        .andExpect(jsonPath("$.content[2].accion").value("COMPROMISO_GENERADO"))
-        .andExpect(jsonPath("$.content[2].numeroCuotas").value(2))
-        .andExpect(jsonPath("$.content[2].monto").value(700.0))
-        .andExpect(jsonPath("$.content[2].estadoAnterior").value(nullValue()));
+        .andExpect(jsonPath("$.content[2].accion").value("BOLETA_GENERADA"))
+        .andExpect(jsonPath("$.content[3].accion").value("COMPROMISO_GENERADO"))
+        .andExpect(jsonPath("$.content[3].numeroCuotas").value(2))
+        .andExpect(jsonPath("$.content[3].monto").value(700.0))
+        .andExpect(jsonPath("$.content[3].estadoAnterior").value(nullValue()));
   }
 
   @Test
   void resumenYFiltrosSeAplicanSobreTodosLosEventos() throws Exception {
     mvc.perform(get(RUTA + "/resumen").param("estudiante", dniEstudiante))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.eventos").value(3))
+        .andExpect(jsonPath("$.eventos").value(4))
         .andExpect(jsonPath("$.pagos").value(1))
         .andExpect(jsonPath("$.montoPagado").value(cuota.doubleValue()))
-        .andExpect(jsonPath("$.boletasGeneradas").value(1))
+        .andExpect(jsonPath("$.boletasGeneradas").value(2))
         .andExpect(jsonPath("$.compromisosGenerados").value(1))
         .andExpect(jsonPath("$.boletasEnMora").value(0));
 
@@ -171,7 +172,7 @@ class AuditoriaFinancieraIntegrationTest {
                 .param("seccionId", "" + seccionId)
                 .param("desde", hoy)
                 .param("hasta", hoy))
-        .andExpect(jsonPath("$.page.totalElements").value(3));
+        .andExpect(jsonPath("$.page.totalElements").value(4));
     mvc.perform(get(RUTA).param("estudiante", "ana prueba"))
         .andExpect(jsonPath("$.content[0].estudianteNombre").value(containsString("Ana")));
     mvc.perform(
@@ -218,11 +219,11 @@ class AuditoriaFinancieraIntegrationTest {
             .getContentAsString(StandardCharsets.UTF_8);
 
     String[] lineas = csv.split("\r\n");
-    assertEquals(4, lineas.length);
+    assertEquals(5, lineas.length);
     assertTrue(lineas[0].contains("Fecha y hora,Acción,Estudiante"));
     assertTrue(lineas[1].contains("Pago registrado"));
     assertTrue(lineas[1].contains("Pendiente,Pagada"));
-    assertTrue(lineas[3].contains("Compromiso generado"));
+    assertTrue(lineas[4].contains("Compromiso generado"));
   }
 
   @Test

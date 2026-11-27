@@ -19,8 +19,8 @@ import java.time.YearMonth;
     name = "boletas_pension",
     uniqueConstraints =
         @UniqueConstraint(
-            name = "uk_boleta_compromiso_mes",
-            columnNames = {"compromiso_id", "mes_cobro"}))
+            name = "uk_boleta_compromiso_mes_tipo",
+            columnNames = {"compromiso_id", "mes_cobro", "tipo_cargo"}))
 public class BoletaPension extends EntidadBase {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "compromiso_id", nullable = false)
@@ -41,6 +41,10 @@ public class BoletaPension extends EntidadBase {
   @Enumerated(EnumType.STRING)
   @Column(name = "estado_pago", nullable = false, length = 20)
   private EstadoBoleta estadoPago = EstadoBoleta.PENDIENTE;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "tipo_cargo", nullable = false, length = 20)
+  private TipoCargoBoleta tipoCargo = TipoCargoBoleta.PENSION;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "mecanismo_generacion", nullable = false, length = 20)
@@ -95,6 +99,14 @@ public class BoletaPension extends EntidadBase {
 
   public void setEstadoPago(EstadoBoleta value) {
     estadoPago = value;
+  }
+
+  public TipoCargoBoleta getTipoCargo() {
+    return tipoCargo;
+  }
+
+  public void setTipoCargo(TipoCargoBoleta value) {
+    tipoCargo = value;
   }
 
   public MecanismoGeneracion getMecanismoGeneracion() {

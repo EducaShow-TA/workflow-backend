@@ -15,6 +15,10 @@ import pe.edu.pucp.colegio.common.model.SesionHorario;
 
 public interface SesionHorarioRepository extends JpaRepository<SesionHorario, Integer> {
 
+  @EntityGraph(
+      attributePaths = {"horario", "horario.seccion", "horario.seccion.grado", "bloque", "area"})
+  List<SesionHorario> findAllByDocenteIdAndHorarioAnio(Integer docenteId, Integer anio);
+
   @Query(
       "select case when count(s) > 0 then true else false end from SesionHorario s "
           + "where s.bloque.plantilla.id = :plantillaId")

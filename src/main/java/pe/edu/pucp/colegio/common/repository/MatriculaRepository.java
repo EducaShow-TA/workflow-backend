@@ -31,6 +31,16 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
         "periodo.grado",
         "periodo.seccion"
       })
+  Optional<Matricula> findByIdAndActiveTrue(Integer id);
+
+  @EntityGraph(
+      attributePaths = {
+        "estudiante",
+        "estudiante.persona",
+        "periodo",
+        "periodo.grado",
+        "periodo.seccion"
+      })
   @Query(
       "select m from Matricula m where m.estudiante.id = :estudianteId "
           + "and m.active = true and m.estado = :estado and m.periodo.active = true "
@@ -83,7 +93,11 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
         seccionId, LocalDate.of(anhio, 1, 1), LocalDate.of(anhio, 12, 31));
   }
 
-  boolean existsByActiveTrueAndFechaMatriculaBetween(LocalDate desde, LocalDate hasta);
+  @Query(
+      "select case when count(m) > 0 then true else false end from Matricula m "
+          + "where m.active = true and m.periodo.fechaInicio between :desde and :hasta")
+  boolean existsByActiveTrueAndPeriodoFechaInicioBetween(
+      @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
   /**
    * Matrículas vigentes (no retiradas) del estudiante en otros periodos del mismo rango de años.

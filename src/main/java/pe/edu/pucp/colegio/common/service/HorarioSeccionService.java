@@ -112,6 +112,34 @@ public class HorarioSeccionService {
 
   private record Resolucion(BloqueHorario bloque, Area area, Docente docente, Aula aula) {}
 
+  public record DisponibilidadDocente(
+      DayOfWeek dia,
+      java.time.LocalTime horaInicio,
+      java.time.LocalTime horaFin,
+      String seccion,
+      String area) {}
+
+  @Transactional(readOnly = true)
+  public List<DisponibilidadDocente> disponibilidadDocente(Integer docenteId, Integer anio) {
+    return sesiones.findAllByDocenteIdAndHorarioAnio(docenteId, anio).stream()
+        .filter(sesion -> sesion.estaVigenteEn(LocalDate.now(clock)))
+        .map(
+            sesion ->
+                new DisponibilidadDocente(
+                    sesion.getDia(),
+                    sesion.getBloque().getHoraInicio(),
+                    sesion.getBloque().getHoraFin(),
+                    NombreSeccion.completa(
+                        sesion.getHorario().getSeccion().getGrado().getNumero(),
+                        sesion.getHorario().getSeccion().getCodigo(),
+                        sesion.getHorario().getSeccion().getGrado().getNivelEducativo()),
+                    sesion.getArea().getNombre()))
+        .sorted(
+            Comparator.comparing(DisponibilidadDocente::dia)
+                .thenComparing(DisponibilidadDocente::horaInicio))
+        .toList();
+  }
+
   @Transactional
   public HorarioSeccionResponse crear(HorarioSeccionCreateRequest request) {
     Seccion seccion =

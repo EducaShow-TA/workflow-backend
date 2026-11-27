@@ -1,6 +1,5 @@
 package pe.edu.pucp.colegio.common.service;
 
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,17 +39,11 @@ import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+import pe.edu.pucp.colegio.security.service.ContrasenhaTemporal;
 
 /** Gestiona el registro, consulta y asignación de perfiles de estudiante. */
 @Service
 public class EstudianteService {
-
-  private static final SecureRandom RANDOM = new SecureRandom();
-  private static final String CARACTERES =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?";
-  private static final String[] REQUERIDOS = {
-    "ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnopqrstuvwxyz", "23456789", "!@#$%&*?"
-  };
 
   private final PersonaRepository personas;
   private final EstudianteRepository estudiantes;
@@ -152,13 +145,10 @@ public class EstudianteService {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "Ya existe una persona con ese documento");
     }
-    if (cuentas.existsByUsernameIgnoreCase(request.username().trim())) {
+    String username = UsernamePolicy.generarAlumnoDesdeDocumento(request.numeroDocumento());
+    if (cuentas.existsByUsernameIgnoreCase(username)) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Ya existe una cuenta con ese nombre de usuario");
-    }
-    if (!cuentas.findAllByPersonaCorreoIgnoreCase(request.username().trim()).isEmpty()) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "El usuario coincide con el correo de otra cuenta");
+          HttpStatus.CONFLICT, "Ya existe una cuenta para el documento del estudiante");
     }
     if (request.correoElectronico() != null
         && !request.correoElectronico().isBlank()
@@ -198,7 +188,7 @@ public class EstudianteService {
 
     CuentaUsuario cuenta =
         new CuentaUsuario(
-            request.username(), passwordEncoder.encode(request.password()), Rol.ALUMNO, persona);
+            username, passwordEncoder.encode(request.password()), Rol.ALUMNO, persona);
     cuentas.save(cuenta);
 
     List<CuentaTemporalResponse> cuentasApoderados = new ArrayList<>();
@@ -497,28 +487,10 @@ public class EstudianteService {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "No se pudo generar un usuario único para el apoderado");
     }
-    String password = generarContrasenhaTemporal();
+    String password = ContrasenhaTemporal.generar();
     cuentas.save(
         new CuentaUsuario(username, passwordEncoder.encode(password), Rol.APODERADO, persona));
     return new CuentaTemporalResponse(persona.getDni(), username, password);
-  }
-
-  private String generarContrasenhaTemporal() {
-    char[] clave = new char[12];
-    for (int i = 0; i < REQUERIDOS.length; i++) {
-      String grupo = REQUERIDOS[i];
-      clave[i] = grupo.charAt(RANDOM.nextInt(grupo.length()));
-    }
-    for (int i = 4; i < clave.length; i++) {
-      clave[i] = CARACTERES.charAt(RANDOM.nextInt(CARACTERES.length()));
-    }
-    for (int i = clave.length - 1; i > 0; i--) {
-      int j = RANDOM.nextInt(i + 1);
-      char temporal = clave[i];
-      clave[i] = clave[j];
-      clave[j] = temporal;
-    }
-    return new String(clave);
   }
 
   private void validarDocumento(String tipo, String numero) {

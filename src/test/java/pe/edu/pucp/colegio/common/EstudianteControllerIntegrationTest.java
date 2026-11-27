@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,9 +40,9 @@ class EstudianteControllerIntegrationTest {
   @Test
   void crearDaDeAltaCuentaConRolAlumnoYPerfilEstudiante() throws Exception {
     String suffix = UUID.randomUUID().toString().substring(0, 8);
-    String username = "alumno" + suffix;
     String dni =
         String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
+    String username = "usuario" + LocalDate.now().getYear() + dni;
     String dniApoderado =
         String.format("%08d", Math.abs(UUID.randomUUID().getMostSignificantBits() % 100_000_000));
     String dniSegundoApoderado =
@@ -49,15 +50,9 @@ class EstudianteControllerIntegrationTest {
 
     String cuerpo =
         """
-        {"username":"%s","password":"ClaveSegura123!","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
+        {"password":"ClaveSegura123!","tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Ana","apellidoPaterno":"Pérez","apellidoMaterno":"Díaz","correoElectronico":"ana-%s@ejemplo.edu.pe","fechaNacimiento":"2012-05-10","apoderados":[{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Rosa","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654321","parentesco":"MADRE","esPrincipal":true},{"tipoDocumento":"DNI","numeroDocumento":"%s","nombres":"Juan","apellidoPaterno":"Quispe","apellidoMaterno":"Mamani","celular":"987654320","parentesco":"PADRE","esPrincipal":false}]}
         """
-            .formatted(username, dni, suffix, dniApoderado, dniSegundoApoderado);
-
-    mvc.perform(
-            post("/api/v1/estudiantes")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(cuerpo.replace(username, "alumno" + suffix + "@ejemplo.edu.pe")))
-        .andExpect(status().isBadRequest());
+            .formatted(dni, suffix, dniApoderado, dniSegundoApoderado);
 
     mvc.perform(post("/api/v1/estudiantes").contentType(MediaType.APPLICATION_JSON).content(cuerpo))
         .andExpect(status().isCreated())

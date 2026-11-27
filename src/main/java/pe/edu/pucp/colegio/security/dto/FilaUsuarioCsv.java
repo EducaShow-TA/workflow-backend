@@ -12,7 +12,9 @@ public record FilaUsuarioCsv(
     String fechaNacimiento,
     String dniApoderado,
     String parentesco,
-    String username) {
+    String username,
+    String dniAlumno,
+    String esPrincipal) {
 
   public FilaUsuarioCsv(
       int fila,
@@ -38,6 +40,8 @@ public record FilaUsuarioCsv(
         fechaNacimiento,
         dniApoderado,
         parentesco,
+        null,
+        null,
         null);
   }
 }

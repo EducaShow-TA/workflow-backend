@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.edu.pucp.colegio.common.audit.RegistroErrorRepository;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 
@@ -28,6 +29,7 @@ class CuentaUsuarioIntegrationTest {
   @Autowired CuentaUsuarioRepository cuentas;
   @Autowired EstudianteRepository estudiantes;
   @Autowired ApoderadoRepository apoderados;
+  @Autowired DocenteRepository docentes;
 
   private String login(String user, String pass) throws Exception {
     String body =
@@ -88,6 +90,47 @@ class CuentaUsuarioIntegrationTest {
         .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.path").value("/api/v1/cuentas-usuario"));
     assertEquals(antes, errores.count(), "El conflicto 4xx no debe quedar en registros_error");
+  }
+
+  @Test
+  void administradorCreaDocenteConCredencialesGeneradasYPerfilDocente() throws Exception {
+    String token = login("admin@educore.edu.pe", "Admin2026!");
+    String dni =
+        String.valueOf(
+            10_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(89_000_000));
+    String correo = "docente-" + UUID.randomUUID().toString().substring(0, 8) + "@colegio.edu.pe";
+    String request =
+        "{\"dni\":\""
+            + dni
+            + "\",\"nombre\":\"Ana\",\"apellidoPaterno\":\"Perez\","
+            + "\"apellidoMaterno\":\"Diaz\",\"correo\":\""
+            + correo
+            + "\"}";
+
+    String respuesta =
+        mvc.perform(
+                post("/api/v1/cuentas-usuario/docentes")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(request))
+            .andExpect(status().isCreated())
+            .andExpect(
+                org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                    .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
+            .andExpect(jsonPath("$.dni").value(dni))
+            .andExpect(jsonPath("$.username").value("usuario" + dni))
+            .andExpect(jsonPath("$.contrasenhaTemporal").isNotEmpty())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    var credenciales = json.readTree(respuesta);
+    String username = credenciales.get("username").asText();
+    String contrasenha = credenciales.get("contrasenhaTemporal").asText();
+
+    assertTrue(cuentas.findByUsername(username).isPresent());
+    assertTrue(docentes.findByPersonaDniAndActiveTrue(dni).isPresent());
+    login(username, contrasenha);
+    login(correo, contrasenha);
   }
 
   @Test

@@ -32,13 +32,12 @@ import pe.edu.pucp.colegio.common.dto.PanelAdministradorResponse.Indicadores;
 import pe.edu.pucp.colegio.common.dto.PanelAdministradorResponse.OcupacionGrado;
 import pe.edu.pucp.colegio.common.dto.PanelAdministradorResponse.Pendientes;
 import pe.edu.pucp.colegio.common.dto.PanelAdministradorResponse.VentanaMatricula;
+import pe.edu.pucp.colegio.common.dto.PeriodoMatriculaResponse;
 import pe.edu.pucp.colegio.common.dto.VacantesPeriodoResponse;
 import pe.edu.pucp.colegio.common.model.EstadoAsistencia;
 import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
-import pe.edu.pucp.colegio.common.model.EstadoPeriodoMatricula;
-import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
 import pe.edu.pucp.colegio.common.repository.BoletaPensionFiltros;
 import pe.edu.pucp.colegio.common.repository.BoletaPensionRepository;
 
@@ -89,7 +88,7 @@ public class PanelAdministradorService {
     return new PanelAdministradorResponse(
         hoy,
         anio,
-        ventanaMatricula(hoy),
+        ventanaMatricula(),
         new Pendientes(
             contar(
                 "select count(m) from Matricula m where m.active = true and m.estado = :estado",
@@ -121,24 +120,18 @@ public class PanelAdministradorService {
         actividad());
   }
 
-  private VentanaMatricula ventanaMatricula(LocalDate hoy) {
-    return em.createQuery(
-            "select p from PeriodoMatricula p where p.active = true and p.fechaLimite >= :hoy"
-                + " order by p.fechaInicio",
-            PeriodoMatricula.class)
-        .setParameter("hoy", hoy)
-        .setMaxResults(1)
-        .getResultStream()
-        .findFirst()
+  private VentanaMatricula ventanaMatricula() {
+    return periodosMatricula.listar().stream()
+        .max(
+            Comparator.comparingInt(PeriodoMatriculaResponse::anhioEscolar)
+                .thenComparing(PeriodoMatriculaResponse::fechaInicio))
         .map(
-            p ->
+            periodo ->
                 new VentanaMatricula(
-                    p.getFechaInicio(),
-                    p.getFechaLimite(),
-                    hoy.isBefore(p.getFechaInicio())
-                        ? EstadoPeriodoMatricula.PENDIENTE
-                        : EstadoPeriodoMatricula.VIGENTE,
-                    periodosMatricula.anhioEscolar(p.getFechaInicio())))
+                    periodo.fechaInicio(),
+                    periodo.fechaLimite(),
+                    periodo.estado(),
+                    periodo.anhioEscolar()))
         .orElse(null);
   }
 

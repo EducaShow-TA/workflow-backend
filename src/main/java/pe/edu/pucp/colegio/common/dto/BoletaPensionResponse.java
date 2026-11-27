@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.MecanismoGeneracion;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 
 public record BoletaPensionResponse(
     Integer id,
@@ -23,5 +24,6 @@ public record BoletaPensionResponse(
     BigDecimal montoTotal,
     LocalDate fechaVencimiento,
     EstadoBoleta estadoPago,
+    TipoCargoBoleta tipoCargo,
     MecanismoGeneracion mecanismoGeneracion,
     LocalDateTime fechaGeneracion) {}

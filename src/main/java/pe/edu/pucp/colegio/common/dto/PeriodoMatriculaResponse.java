@@ -1,5 +1,6 @@
 package pe.edu.pucp.colegio.common.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import pe.edu.pucp.colegio.common.model.EstadoPeriodoMatricula;
 
@@ -9,4 +10,6 @@ public record PeriodoMatriculaResponse(
     LocalDate fechaLimite,
     EstadoPeriodoMatricula estado,
     boolean tieneMatriculas,
-    int anhioEscolar) {}
+    int anhioEscolar,
+    BigDecimal montoMatricula,
+    BigDecimal montoPension) {}

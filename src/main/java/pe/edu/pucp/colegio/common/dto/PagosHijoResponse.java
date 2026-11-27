@@ -6,6 +6,7 @@ import java.time.YearMonth;
 import java.util.List;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.MedioPago;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 
 /** Compromisos de pago y boletas emitidas de un hijo del apoderado autenticado (HU 1.8). */
 public record PagosHijoResponse(
@@ -44,6 +45,7 @@ public record PagosHijoResponse(
       BigDecimal mora,
       BigDecimal montoTotal,
       EstadoBoleta estadoPago,
+      TipoCargoBoleta tipoCargo,
       ComprobanteApoderado comprobante) {}
 
   public record ComprobanteApoderado(

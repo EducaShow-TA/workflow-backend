@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.security.service;
 
 import pe.edu.pucp.colegio.security.dto.CargaMasivaResultadoDTO;
+import pe.edu.pucp.colegio.security.model.Rol;
 
 /** Creación de cuentas de docentes, alumnos y apoderados a partir de un CSV (US-5.9). */
 public interface CargaMasivaUsuariosService {
@@ -10,4 +11,6 @@ public interface CargaMasivaUsuariosService {
    * se reportan con su motivo sin impedir el procesamiento del resto.
    */
   CargaMasivaResultadoDTO cargar(byte[] contenido, String usernameResponsable);
+
+  CargaMasivaResultadoDTO cargar(byte[] contenido, String usernameResponsable, Rol rolEsperado);
 }

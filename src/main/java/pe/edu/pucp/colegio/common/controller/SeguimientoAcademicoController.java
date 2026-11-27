@@ -26,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.dto.CalificacionRequest;
 import pe.edu.pucp.colegio.common.dto.CalificacionResponse;
 import pe.edu.pucp.colegio.common.dto.CalificacionTareaRequest;
+import pe.edu.pucp.colegio.common.dto.CargaMasivaCalificacionesResultado;
 import pe.edu.pucp.colegio.common.dto.CompetenciaClaseResponse;
 import pe.edu.pucp.colegio.common.dto.EstadoEntregaRequest;
 import pe.edu.pucp.colegio.common.dto.HistorialCalificacionResponse;
@@ -36,6 +37,7 @@ import pe.edu.pucp.colegio.common.model.Tarea;
 import pe.edu.pucp.colegio.common.service.EvidenciaStorageService;
 import pe.edu.pucp.colegio.common.service.MisClasesService;
 import pe.edu.pucp.colegio.common.service.SeguimientoAcademicoService;
+import pe.edu.pucp.colegio.common.validation.ArchivoCsv;
 
 /** Endpoints de seguimiento académico, evidencias y calificaciones. */
 @RestController
@@ -158,6 +160,34 @@ public class SeguimientoAcademicoController {
                 () -> new IllegalStateException("La cuenta autenticada no tiene un rol asignado"));
     return ResponseEntity.ok(
         service.registrarCalificacion(request, archivo, authentication.getName(), rol));
+  }
+
+  @PostMapping(
+      value = "/api/v1/calificaciones/carga-masiva",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public CargaMasivaCalificacionesResultado cargaMasivaCalificaciones(
+      @RequestParam Integer periodoId,
+      @RequestParam String competenciaCodigo,
+      @RequestParam Integer bimestre,
+      @RequestParam(value = "archivo", required = false) MultipartFile archivo,
+      Authentication authentication)
+      throws java.io.IOException {
+    validarAccesoCompetenciaEnPeriodo(periodoId, competenciaCodigo, authentication);
+    String rol =
+        authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .filter(autoridad -> autoridad.startsWith("ROLE_"))
+            .map(autoridad -> autoridad.substring("ROLE_".length()))
+            .findFirst()
+            .orElseThrow(
+                () -> new IllegalStateException("La cuenta autenticada no tiene un rol asignado"));
+    return service.cargaMasivaCalificaciones(
+        periodoId,
+        competenciaCodigo,
+        bimestre,
+        ArchivoCsv.leerContenido(archivo),
+        authentication.getName(),
+        rol);
   }
 
   @GetMapping("/api/v1/seguimiento/competencias/{codigo}")

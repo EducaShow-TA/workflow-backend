@@ -11,6 +11,14 @@ public interface PeriodoMatriculaRepository extends JpaRepository<PeriodoMatricu
 
   List<PeriodoMatricula> findAllByActiveTrueOrderByFechaInicioDesc();
 
+  List<PeriodoMatricula> findAllByActiveTrue();
+
+  java.util.Optional<PeriodoMatricula> findFirstByAnhioEscolarOrderByIdDesc(Integer anhioEscolar);
+
+  java.util.Optional<PeriodoMatricula>
+      findFirstByAnhioEscolarAndActiveTrueAndFechaInicioLessThanEqualOrderByIdDesc(
+          Integer anhioEscolar, LocalDate fecha);
+
   boolean existsByActiveTrueAndFechaInicioLessThanEqualAndFechaLimiteGreaterThanEqual(
       LocalDate inicioHasta, LocalDate limiteDesde);
 
@@ -25,4 +33,11 @@ public interface PeriodoMatriculaRepository extends JpaRepository<PeriodoMatricu
       @Param("fechaInicio") LocalDate fechaInicio,
       @Param("fechaLimite") LocalDate fechaLimite,
       @Param("idExcluido") Integer idExcluido);
+
+  @Query(
+      "select count(p) > 0 from PeriodoMatricula p where p.active = true"
+          + " and p.anhioEscolar = :anhioEscolar"
+          + " and (:idExcluido is null or p.id <> :idExcluido)")
+  boolean existeAperturaActivaParaAnhio(
+      @Param("anhioEscolar") Integer anhioEscolar, @Param("idExcluido") Integer idExcluido);
 }

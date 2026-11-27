@@ -135,15 +135,20 @@ class PanelAdministradorIntegrationTest {
     LocalDate hoy = LocalDate.now(clock);
     jdbc.update("update ventanas_matricula set active=false");
     jdbc.update(
-        "insert into ventanas_matricula(fecha_inicio,fecha_limite) values (?,?)",
+        "insert into ventanas_matricula"
+            + "(fecha_inicio,fecha_limite,anhio_escolar,monto_matricula,monto_pension) "
+            + "values (?,?,?,?,?)",
         hoy.minusDays(2),
-        hoy.plusDays(10));
+        LocalDate.of(2100, 12, 31),
+        hoy.getYear(),
+        new java.math.BigDecimal("300.00"),
+        new java.math.BigDecimal("500.00"));
 
     mvc.perform(get(RUTA))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.fecha").value(hoy.toString()))
         .andExpect(jsonPath("$.ventanaMatricula.estado").value("VIGENTE"))
-        .andExpect(jsonPath("$.ventanaMatricula.fechaLimite").value(hoy.plusDays(10).toString()))
+        .andExpect(jsonPath("$.ventanaMatricula.fechaLimite").value("2100-12-31"))
         .andExpect(jsonPath("$.ventanaMatricula.anhioEscolar").isNumber());
   }
 

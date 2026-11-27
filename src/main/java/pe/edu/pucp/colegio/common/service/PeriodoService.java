@@ -16,6 +16,7 @@ import pe.edu.pucp.colegio.common.dto.VacantesPeriodoResponse;
 import pe.edu.pucp.colegio.common.exception.BusinessException;
 import pe.edu.pucp.colegio.common.exception.ConflictException;
 import pe.edu.pucp.colegio.common.model.Grado;
+import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.GradoRepository;
@@ -100,6 +101,7 @@ public class PeriodoService {
       throw new BusinessException("El inicio de clases no puede ser una fecha pasada");
     }
 
+    asegurarEstructuraSecundaria();
     List<Seccion> activas = secciones.findAllByActiveTrueOrderByGradoNumeroAscCodigoAsc();
     if (activas.isEmpty()) {
       throw new BusinessException("No hay secciones registradas para abrir el año escolar");
@@ -128,6 +130,30 @@ public class PeriodoService {
     }
     calendario.guardar(anhio, request.fechaInicio(), request.fechaFin(), request.bimestres());
     return creados;
+  }
+
+  /** Al abrir el año se crea la estructura base 1.º-5.º de secundaria y la sección A. */
+  private void asegurarEstructuraSecundaria() {
+    for (int numero = 1; numero <= 5; numero++) {
+      final int gradoNumero = numero;
+      Grado grado =
+          grados
+              .findByNumeroAndNivelEducativoAndActiveTrue(gradoNumero, NivelEducativo.SECUNDARIA)
+              .orElseGet(
+                  () -> {
+                    Grado nuevo = new Grado();
+                    nuevo.setNumero(gradoNumero);
+                    nuevo.setNivelEducativo(NivelEducativo.SECUNDARIA);
+                    return grados.save(nuevo);
+                  });
+      if (!secciones.existsByGradoIdAndCodigoIgnoreCase(grado.getId(), "A")) {
+        Seccion seccion = new Seccion();
+        seccion.setCodigo("A");
+        seccion.setVacantesTotales(30);
+        grado.agregarSeccion(seccion);
+        secciones.save(seccion);
+      }
+    }
   }
 
   @Transactional

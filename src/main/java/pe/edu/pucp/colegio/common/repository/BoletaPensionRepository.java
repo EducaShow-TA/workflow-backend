@@ -17,6 +17,7 @@ import org.springframework.data.repository.query.Param;
 import pe.edu.pucp.colegio.common.dto.EstudianteConBoletasResponse;
 import pe.edu.pucp.colegio.common.model.BoletaPension;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 
 public interface BoletaPensionRepository
     extends JpaRepository<BoletaPension, Integer>,
@@ -51,11 +52,16 @@ public interface BoletaPensionRepository
           + "order by 2, 1")
   List<EstudianteConBoletasResponse> listarEstudiantesConBoletas();
 
-  boolean existsByCompromisoIdAndMesCobroAndActiveTrue(Integer compromisoId, LocalDate mesCobro);
+  boolean existsByCompromisoIdAndMesCobroAndTipoCargoAndActiveTrue(
+      Integer compromisoId, LocalDate mesCobro, TipoCargoBoleta tipoCargo);
+
+  boolean existsByCompromisoIdAndTipoCargoAndActiveTrue(
+      Integer compromisoId, TipoCargoBoleta tipoCargo);
 
   @Query(
       "select count(b) > 0 from BoletaPension b "
           + "where b.active = true and b.mesCobro = :mes "
+          + "and b.tipoCargo = pe.edu.pucp.colegio.common.model.TipoCargoBoleta.PENSION "
           + "and lower(b.compromiso.concepto) = lower(:concepto) "
           + "and b.compromiso.matricula.estudiante.id = :estudianteId")
   boolean existsByEstudianteConceptoMes(
@@ -92,4 +98,8 @@ public interface BoletaPensionRepository
   @EntityGraph(attributePaths = {"compromiso", "compromiso.matricula"})
   List<BoletaPension> findAllByCompromisoMatriculaEstudianteIdAndActiveTrueOrderByMesCobroAsc(
       Integer estudianteId);
+
+  boolean
+      existsByCompromisoMatriculaEstudianteIdAndActiveTrueAndEstadoPagoInAndFechaVencimientoBefore(
+          Integer estudianteId, List<EstadoBoleta> estados, LocalDate fecha);
 }
