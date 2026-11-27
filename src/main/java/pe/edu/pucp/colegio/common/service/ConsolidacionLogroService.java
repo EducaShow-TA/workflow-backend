@@ -573,7 +573,8 @@ public class ConsolidacionLogroService {
     }
     List<Matricula> roster =
         matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
-            periodo.getId(), List.of(EstadoMatricula.CONFIRMADA));
+            periodo.getId(),
+            List.of(EstadoMatricula.CONFIRMADA, EstadoMatricula.FINALIZADA));
     Map<String, CalificacionParcial> registradas = new HashMap<>();
     notasParciales
         .findAllByEvaluacionIdInAndActiveTrue(
@@ -658,7 +659,8 @@ public class ConsolidacionLogroService {
     }
     List<Matricula> roster =
         matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
-            periodo.getId(), List.of(EstadoMatricula.CONFIRMADA));
+            periodo.getId(),
+            List.of(EstadoMatricula.CONFIRMADA, EstadoMatricula.FINALIZADA));
     List<Integer> idsEvaluaciones =
         evaluacionesActivas.stream().map(EvaluacionParcial::getId).toList();
     List<CalificacionParcial> existentes =
