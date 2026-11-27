@@ -265,6 +265,13 @@ public class SesionClaseService {
       exigirDocentePresente(sesion);
     }
     Estudiante estudiante = buscarEstudiante(request.estudianteId());
+    boolean matriculado =
+        alumnosMatriculados(sesion).stream()
+            .anyMatch(alumno -> alumno.getId().equals(estudiante.getId()));
+    if (!matriculado) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El alumno no está matriculado en esta sección");
+    }
     if (asistencias.existsBySesionClaseIdAndEstudianteIdAndActiveTrue(
         sesionId, estudiante.getId())) {
       throw new ResponseStatusException(
