@@ -47,6 +47,7 @@ import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.MecanismoGeneracion;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 import pe.edu.pucp.colegio.common.model.VinculoFamiliar;
 import pe.edu.pucp.colegio.common.repository.BoletaPensionFiltros;
 import pe.edu.pucp.colegio.common.repository.BoletaPensionRepository;
@@ -100,6 +101,40 @@ public class FinanzasService {
 
   @Transactional
   public CompromisoPagoResponse crearCompromiso(
+      Matricula matricula,
+      CompromisoPagoRequest request,
+      BigDecimal montoMatricula,
+      BigDecimal montoPensionMensual) {
+    if (montoMatricula == null
+        || montoMatricula.signum() <= 0
+        || montoPensionMensual == null
+        || montoPensionMensual.signum() <= 0) {
+      throw new BusinessException(
+          "Las tarifas anuales de matrícula y pensión no están configuradas");
+    }
+    BigDecimal totalPensiones =
+        montoPensionMensual
+            .multiply(BigDecimal.valueOf(request.numeroCuotas()))
+            .setScale(2, RoundingMode.HALF_UP);
+    CompromisoPagoRequest terminosPensiones =
+        new CompromisoPagoRequest(
+            request.concepto(),
+            totalPensiones,
+            request.numeroCuotas(),
+            request.primerVencimiento(),
+            request.diaVencimiento());
+    CompromisoPagoResponse respuesta = crearCompromiso(matricula, terminosPensiones);
+    CompromisoPago compromiso =
+        compromisos
+            .findByMatriculaId(matricula.getId())
+            .orElseThrow(
+                () -> new IllegalStateException("No se guardó el compromiso de pensiones"));
+    generarBoletaMatricula(compromiso, montoMatricula, request.primerVencimiento());
+    return respuesta;
+  }
+
+  @Transactional
+  public CompromisoPagoResponse crearCompromiso(
       Matricula matricula, CompromisoPagoRequest request) {
     validarTerminos(request);
     List<String> requisitos = validarRequisitosCompromiso(matricula);
@@ -133,12 +168,15 @@ public class FinanzasService {
       auditoriaFinanciera.registrarCompromiso(existente);
       LocalDate primerMes = YearMonth.from(existente.getPrimerVencimiento()).atDay(1);
       boolean yaTieneBoletaDelCompromiso =
-          boletas.existsByCompromisoIdAndMesCobroAndActiveTrue(existente.getId(), primerMes);
+          boletas.existsByCompromisoIdAndMesCobroAndTipoCargoAndActiveTrue(
+              existente.getId(), primerMes, TipoCargoBoleta.PENSION);
       boolean yaTieneBoletaDelEstudiante =
           boletas.existsByEstudianteConceptoMes(
               matricula.getEstudiante().getId(), existente.getConcepto(), primerMes);
       if (!yaTieneBoletaDelCompromiso && !yaTieneBoletaDelEstudiante) {
-        generarBoleta(existente, YearMonth.from(primerMes), MecanismoGeneracion.AUTOMATICO);
+        generarCronogramaCompleto(existente);
+      } else {
+        generarCronogramaCompleto(existente);
       }
       return respuesta(existente);
     }
@@ -154,8 +192,18 @@ public class FinanzasService {
     c.setDiaVencimiento(request.diaVencimiento());
     c = compromisos.save(c);
     auditoriaFinanciera.registrarCompromiso(c);
-    generarBoleta(c, YearMonth.from(c.getPrimerVencimiento()), MecanismoGeneracion.AUTOMATICO);
+    generarCronogramaCompleto(c);
     return respuesta(c);
+  }
+
+  private void generarCronogramaCompleto(CompromisoPago compromiso) {
+    for (int indice = 0; indice < compromiso.getNumeroCuotas(); indice++) {
+      YearMonth mes = compromiso.getMesInicio().plusMonths(indice);
+      if (!boletas.existsByCompromisoIdAndMesCobroAndTipoCargoAndActiveTrue(
+          compromiso.getId(), mes.atDay(1), TipoCargoBoleta.PENSION)) {
+        generarBoleta(compromiso, mes, MecanismoGeneracion.AUTOMATICO);
+      }
+    }
   }
 
   /** Precondiciones por estudiante para que una confirmación masiva pueda crear el compromiso. */
@@ -442,7 +490,8 @@ public class FinanzasService {
   private BoletaPension generarBoleta(
       CompromisoPago c, YearMonth mes, MecanismoGeneracion mecanismo) {
     validarMesCompromiso(c, mes);
-    if (boletas.existsByCompromisoIdAndMesCobroAndActiveTrue(c.getId(), mes.atDay(1))) {
+    if (boletas.existsByCompromisoIdAndMesCobroAndTipoCargoAndActiveTrue(
+        c.getId(), mes.atDay(1), TipoCargoBoleta.PENSION)) {
       throw new ConflictException("Ya existe una boleta para el compromiso y mes indicados");
     }
     if (boletas.existsByEstudianteConceptoMes(
@@ -453,6 +502,7 @@ public class FinanzasService {
     int indice = Math.toIntExact(ChronoUnit.MONTHS.between(c.getMesInicio(), mes)) + 1;
     BoletaPension b = new BoletaPension();
     b.setCompromiso(c);
+    b.setTipoCargo(TipoCargoBoleta.PENSION);
     b.setMesCobro(mes);
     b.setMonto(c.getMontoCuota(indice));
     b.setFechaVencimiento(
@@ -467,6 +517,38 @@ public class FinanzasService {
         AccionAuditoria.GENERAR_BOLETA,
         "Boleta " + b.getId() + " generada " + mecanismo + " para " + mes);
     return b;
+  }
+
+  private BoletaPension generarBoletaMatricula(
+      CompromisoPago compromiso, BigDecimal monto, LocalDate vencimiento) {
+    YearMonth mes = YearMonth.from(vencimiento);
+    if (boletas.existsByCompromisoIdAndTipoCargoAndActiveTrue(
+        compromiso.getId(), TipoCargoBoleta.MATRICULA)) {
+      return boletas
+          .findAllByCompromisoIdAndActiveTrueOrderByMesCobroAsc(compromiso.getId())
+          .stream()
+          .filter(boleta -> boleta.getTipoCargo() == TipoCargoBoleta.MATRICULA)
+          .findFirst()
+          .orElseThrow(
+              () ->
+                  new IllegalStateException("Existe un cargo de matrícula sin poder consultarlo"));
+    }
+    BoletaPension boleta = new BoletaPension();
+    boleta.setCompromiso(compromiso);
+    boleta.setTipoCargo(TipoCargoBoleta.MATRICULA);
+    boleta.setMesCobro(mes);
+    boleta.setMonto(monto.setScale(2, RoundingMode.HALF_UP));
+    boleta.setFechaVencimiento(vencimiento);
+    boleta.setMora(BigDecimal.ZERO.setScale(2));
+    boleta.setEstadoPago(EstadoBoleta.PENDIENTE);
+    boleta.setMecanismoGeneracion(MecanismoGeneracion.AUTOMATICO);
+    boleta.setFechaGeneracion(LocalDateTime.now(clock));
+    boleta = boletas.save(boleta);
+    auditoriaFinanciera.registrarBoletaGenerada(boleta);
+    registrarAuditoria(
+        AccionAuditoria.GENERAR_BOLETA,
+        "Boleta de matrícula " + boleta.getId() + " generada para " + mes);
+    return boleta;
   }
 
   public void validarTerminos(CompromisoPagoRequest r) {
@@ -548,6 +630,7 @@ public class FinanzasService {
         b.calcularMontoTotal(),
         b.getFechaVencimiento(),
         b.getEstadoPago(),
+        b.getTipoCargo(),
         b.getMecanismoGeneracion(),
         b.getFechaGeneracion());
   }

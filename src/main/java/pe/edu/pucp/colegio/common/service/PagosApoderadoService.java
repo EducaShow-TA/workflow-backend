@@ -29,6 +29,7 @@ import pe.edu.pucp.colegio.common.model.CompromisoPago;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.MedioPago;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.BoletaPensionRepository;
 import pe.edu.pucp.colegio.common.repository.ComprobantePagoRepository;
@@ -161,9 +162,13 @@ public class PagosApoderadoService {
     List<BoletaPension> emitidas =
         boletas.findAllByCompromisoIdAndActiveTrueOrderByMesCobroAsc(compromiso.getId());
     List<BoletaApoderado> detalle = emitidas.stream().map(this::boleta).toList();
-    long pagadas = contar(emitidas, EstadoBoleta.PAGADA);
-    long enMora = contar(emitidas, EstadoBoleta.EN_MORA);
-    long pendientes = contar(emitidas, EstadoBoleta.PENDIENTE);
+    List<BoletaPension> pensiones =
+        emitidas.stream()
+            .filter(boleta -> boleta.getTipoCargo() == TipoCargoBoleta.PENSION)
+            .toList();
+    long pagadas = contar(pensiones, EstadoBoleta.PAGADA);
+    long enMora = contar(pensiones, EstadoBoleta.EN_MORA);
+    long pendientes = contar(pensiones, EstadoBoleta.PENDIENTE);
     BigDecimal pagado =
         detalle.stream()
             .filter(b -> b.comprobante() != null)
@@ -176,7 +181,12 @@ public class PagosApoderadoService {
             .map(BoletaPension::calcularMontoTotal)
             .reduce(BigDecimal.ZERO, BigDecimal::add)
             .setScale(2);
-    int porEmitir = Math.max(0, compromiso.getNumeroCuotas() - emitidas.size());
+    BigDecimal totalMatricula =
+        emitidas.stream()
+            .filter(boleta -> boleta.getTipoCargo() == TipoCargoBoleta.MATRICULA)
+            .map(BoletaPension::getMonto)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    int porEmitir = Math.max(0, compromiso.getNumeroCuotas() - pensiones.size());
     var periodo = compromiso.getMatricula().getPeriodo();
     return new CompromisoApoderado(
         compromiso.getId(),
@@ -185,7 +195,7 @@ public class PagosApoderadoService {
         periodo.getGrado().getNumero(),
         periodo.getSeccion().getCodigo(),
         compromiso.getApoderado().getPersona().getNombreCompleto(),
-        compromiso.getMontoTotal(),
+        compromiso.getMontoTotal().add(totalMatricula),
         pagado,
         porPagar,
         compromiso.getNumeroCuotas(),
@@ -194,9 +204,11 @@ public class PagosApoderadoService {
         pendientes,
         porEmitir,
         porEmitir == 0 ? null : compromiso.getMesInicio().plusMonths(emitidas.size()).atDay(1),
-        enMora > 0
+        emitidas.stream().anyMatch(boleta -> boleta.getEstadoPago() == EstadoBoleta.EN_MORA)
             ? Situacion.CON_MORA
-            : pendientes > 0 ? Situacion.CON_PENDIENTES : Situacion.AL_DIA,
+            : emitidas.stream().anyMatch(boleta -> boleta.getEstadoPago() == EstadoBoleta.PENDIENTE)
+                ? Situacion.CON_PENDIENTES
+                : Situacion.AL_DIA,
         detalle);
   }
 
@@ -221,6 +233,7 @@ public class PagosApoderadoService {
         boleta.getMora(),
         boleta.calcularMontoTotal(),
         boleta.getEstadoPago(),
+        boleta.getTipoCargo(),
         comprobante);
   }
 

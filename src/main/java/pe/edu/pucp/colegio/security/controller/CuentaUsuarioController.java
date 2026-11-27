@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.security.controller;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,10 +15,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import pe.edu.pucp.colegio.common.dto.CuentaTemporalResponse;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarRolCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CrearDocenteRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
@@ -38,6 +41,14 @@ public class CuentaUsuarioController {
       @Valid @RequestBody CrearCuentaRequestDTO request, Authentication authentication) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(servicio.crear(request, authentication.getName()));
+  }
+
+  @PostMapping("/docentes")
+  public ResponseEntity<CuentaTemporalResponse> crearDocente(
+      @Valid @RequestBody CrearDocenteRequestDTO request, Authentication authentication) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .body(servicio.crearDocente(request, authentication.getName()));
   }
 
   @GetMapping

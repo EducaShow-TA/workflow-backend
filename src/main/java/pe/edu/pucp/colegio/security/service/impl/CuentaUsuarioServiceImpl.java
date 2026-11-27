@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.security.service.impl;
 
 import java.util.List;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,22 +12,27 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.pucp.colegio.common.audit.AccionAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoria;
 import pe.edu.pucp.colegio.common.audit.RegistroAuditoriaRepository;
+import pe.edu.pucp.colegio.common.dto.CuentaTemporalResponse;
 import pe.edu.pucp.colegio.common.exception.ConflictException;
 import pe.edu.pucp.colegio.common.model.Apoderado;
+import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
 import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
+import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 import pe.edu.pucp.colegio.security.dto.ActualizarCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarEstadoCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CambiarRolCuentaRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CrearCuentaRequestDTO;
+import pe.edu.pucp.colegio.security.dto.CrearDocenteRequestDTO;
 import pe.edu.pucp.colegio.security.dto.CuentaResponseDTO;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+import pe.edu.pucp.colegio.security.service.ContrasenhaTemporal;
 import pe.edu.pucp.colegio.security.service.CuentaUsuarioService;
 
 /** Gestiona la creación, consulta, actualización y estado de las cuentas. */
@@ -95,7 +101,60 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
       Apoderado apoderado = new Apoderado();
       apoderado.setPersona(persona);
       apoderados.save(apoderado);
+    } else if (request.rol() == Rol.DOCENTE) {
+      Docente docente = new Docente();
+      docente.setPersona(persona);
+      docentes.save(docente);
     }
+    registrarAuditoriaCreacion(cuenta, usernameResponsable);
+    return aDto(cuenta);
+  }
+
+  @Override
+  @Transactional
+  public CuentaTemporalResponse crearDocente(
+      CrearDocenteRequestDTO request, String usernameResponsable) {
+    String dni = request.dni().trim();
+    String correo = request.correo().trim().toLowerCase(Locale.ROOT);
+    String username = UsernamePolicy.generarDesdeDocumento(dni);
+    if (cuentas.existsByUsernameIgnoreCase(username)) {
+      throw new ConflictException("No se pudo generar un usuario único para el docente");
+    }
+    if (!cuentas.findAllByPersonaCorreoIgnoreCase(username).isEmpty()) {
+      throw new ConflictException("El usuario generado coincide con el correo de otra cuenta");
+    }
+    if (!cuentas.findAllByPersonaCorreoIgnoreCase(correo).isEmpty()) {
+      throw new ConflictException("El correo ya está asociado a otra cuenta");
+    }
+    if (cuentas.findByUsernameIgnoreCase(correo).isPresent()) {
+      throw new ConflictException("El correo coincide con el usuario de otra cuenta");
+    }
+    if (personas.existsByDni(dni)) {
+      throw new ConflictException("Ya existe una persona con ese DNI");
+    }
+
+    Persona persona =
+        new Persona(
+            dni,
+            request.nombre().trim(),
+            request.apellidoPaterno().trim(),
+            request.apellidoMaterno().trim());
+    persona.setCorreo(correo);
+    persona = personas.save(persona);
+
+    String contrasenhaTemporal = ContrasenhaTemporal.generar();
+    CuentaUsuario cuenta =
+        cuentas.save(
+            new CuentaUsuario(username, encoder.encode(contrasenhaTemporal), Rol.DOCENTE, persona));
+    Docente docente = new Docente();
+    docente.setPersona(persona);
+    docentes.save(docente);
+
+    registrarAuditoriaCreacion(cuenta, usernameResponsable);
+    return new CuentaTemporalResponse(dni, username, contrasenhaTemporal);
+  }
+
+  private void registrarAuditoriaCreacion(CuentaUsuario cuenta, String usernameResponsable) {
     var responsable = cuentas.findByUsername(usernameResponsable).orElse(null);
     auditorias.save(
         new RegistroAuditoria(
@@ -108,7 +167,6 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
         cuenta.getId(),
         cuenta.getRol(),
         usernameResponsable);
-    return aDto(cuenta);
   }
 
   @Override

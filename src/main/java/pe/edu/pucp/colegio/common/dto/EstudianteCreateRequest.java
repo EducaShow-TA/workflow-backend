@@ -9,15 +9,8 @@ import java.time.LocalDate;
 import java.util.List;
 import pe.edu.pucp.colegio.common.validation.PasswordPolicy;
 import pe.edu.pucp.colegio.common.validation.TelefonoPolicy;
-import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
 
 public record EstudianteCreateRequest(
-    @NotBlank
-        @Pattern(
-            regexp = UsernamePolicy.PATRON,
-            message = "El usuario solo puede contener letras y números")
-        @Size(max = 50)
-        String username,
     @NotBlank @PasswordPolicy String password,
     @NotBlank @Pattern(regexp = "DNI|PASAPORTE") String tipoDocumento,
     @NotBlank @Size(max = 15) String numeroDocumento,
@@ -31,6 +24,38 @@ public record EstudianteCreateRequest(
     @Size(max = 50) String nacionalidad,
     @Size(max = 255) String direccion,
     @NotEmpty @Valid List<ApoderadoCreateRequest> apoderados) {
+
+  /** Compatibilidad de constructores Java: el usuario no se recibe ni se usa. */
+  public EstudianteCreateRequest(
+      String usernameIgnorado,
+      String password,
+      String tipoDocumento,
+      String numeroDocumento,
+      String nombres,
+      String apellidoPaterno,
+      String apellidoMaterno,
+      LocalDate fechaNacimiento,
+      String celular,
+      String genero,
+      String correoElectronico,
+      String nacionalidad,
+      String direccion,
+      List<ApoderadoCreateRequest> apoderados) {
+    this(
+        password,
+        tipoDocumento,
+        numeroDocumento,
+        nombres,
+        apellidoPaterno,
+        apellidoMaterno,
+        fechaNacimiento,
+        celular,
+        genero,
+        correoElectronico,
+        nacionalidad,
+        direccion,
+        apoderados);
+  }
 
   public record ApoderadoCreateRequest(
       @NotBlank @Pattern(regexp = "DNI|PASAPORTE") String tipoDocumento,

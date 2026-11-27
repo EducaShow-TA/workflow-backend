@@ -7,6 +7,7 @@ import java.util.List;
 import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.MecanismoGeneracion;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 
 /** Todas las boletas de un estudiante, agrupadas por matrícula (US-1.4, US-1.5). */
 public record HistorialBoletasResponse(
@@ -39,6 +40,7 @@ public record HistorialBoletasResponse(
       LocalDate fechaVencimiento,
       BigDecimal montoTotal,
       EstadoBoleta estadoPago,
+      TipoCargoBoleta tipoCargo,
       MecanismoGeneracion mecanismoGeneracion,
       String numeroComprobante) {}
 }

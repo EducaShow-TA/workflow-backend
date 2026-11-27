@@ -1,6 +1,5 @@
 package pe.edu.pucp.colegio.security.service.impl;
 
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.Locale;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -8,11 +7,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.model.Apoderado;
+import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Parentesco;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.VinculoFamiliar;
 import pe.edu.pucp.colegio.common.repository.ApoderadoRepository;
+import pe.edu.pucp.colegio.common.repository.DocenteRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
@@ -21,25 +22,17 @@ import pe.edu.pucp.colegio.security.dto.FilaUsuarioCsv;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
 import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
+import pe.edu.pucp.colegio.security.service.ContrasenhaTemporal;
 
 /** Procesa una fila CSV y crea o actualiza los perfiles asociados al usuario. */
 @Service
 public class ProcesadorFilaCargaMasiva {
 
-  private static final String ALFABETO =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  private static final String MAYUSCULAS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  private static final String MINUSCULAS = "abcdefghijkmnopqrstuvwxyz";
-  private static final String DIGITOS = "23456789";
-  private static final String SIMBOLOS = "!@#$%&*?";
-  private static final String ALFABETO_COMPLETO = ALFABETO + SIMBOLOS;
-  private static final int LARGO_CONTRASENHA = 12;
-  private static final SecureRandom ALEATORIO = new SecureRandom();
-
   private final PersonaRepository personas;
   private final CuentaUsuarioRepository cuentas;
   private final EstudianteRepository estudiantes;
   private final ApoderadoRepository apoderados;
+  private final DocenteRepository docentes;
   private final VinculoFamiliarRepository vinculos;
   private final PasswordEncoder encoder;
 
@@ -48,12 +41,14 @@ public class ProcesadorFilaCargaMasiva {
       CuentaUsuarioRepository cuentas,
       EstudianteRepository estudiantes,
       ApoderadoRepository apoderados,
+      DocenteRepository docentes,
       VinculoFamiliarRepository vinculos,
       PasswordEncoder encoder) {
     this.personas = personas;
     this.cuentas = cuentas;
     this.estudiantes = estudiantes;
     this.apoderados = apoderados;
+    this.docentes = docentes;
     this.vinculos = vinculos;
     this.encoder = encoder;
   }
@@ -105,15 +100,18 @@ public class ProcesadorFilaCargaMasiva {
           "El rol del CSV no coincide con el rol de la cuenta existente");
     }
     boolean cuentaCreada = cuenta == null;
+    boolean usernameAutomatico = rol == Rol.ALUMNO || rol == Rol.DOCENTE && cuenta == null;
     String username =
-        fila.username() == null
+        usernameAutomatico || fila.username() == null
             ? (cuenta == null
-                ? UsernamePolicy.generarDesdeDocumento(fila.dni())
+                ? (rol == Rol.ALUMNO
+                    ? UsernamePolicy.generarAlumnoDesdeDocumento(fila.dni())
+                    : UsernamePolicy.generarDesdeDocumento(fila.dni()))
                 : cuenta.getUsername())
             : fila.username().trim();
     String contrasenhaTemporal = null;
     if (cuentaCreada) {
-      contrasenhaTemporal = generarContrasenha();
+      contrasenhaTemporal = ContrasenhaTemporal.generar();
       cuenta =
           cuentas.save(
               new CuentaUsuario(username, encoder.encode(contrasenhaTemporal), rol, persona));
@@ -124,11 +122,32 @@ public class ProcesadorFilaCargaMasiva {
     }
 
     boolean vinculoCreado = false;
-    if (rol == Rol.APODERADO) {
+    if (rol == Rol.DOCENTE) {
+      if (docentes.findByPersonaId(persona.getId()).isEmpty()) {
+        Docente docente = new Docente();
+        docente.setPersona(persona);
+        docentes.save(docente);
+      }
+    } else if (rol == Rol.APODERADO) {
       Apoderado apoderado = apoderados.findByPersonaDni(fila.dni()).orElseGet(Apoderado::new);
       if (apoderado.getPersona() == null) {
         apoderado.setPersona(persona);
         apoderados.save(apoderado);
+      }
+      if (fila.dniAlumno() != null) {
+        Estudiante estudiante =
+            estudiantes
+                .findByPersonaDni(fila.dniAlumno())
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException(
+                            "No existe el alumno indicado para el apoderado"));
+        vinculoCreado =
+            vincular(
+                estudiante,
+                apoderado,
+                parentesco(fila.parentesco()),
+                esPrincipal(fila.esPrincipal()));
       }
     } else if (rol == Rol.ALUMNO) {
       Estudiante estudiante = estudiantes.findByPersonaDni(fila.dni()).orElseGet(Estudiante::new);
@@ -144,51 +163,7 @@ public class ProcesadorFilaCargaMasiva {
                   () ->
                       new IllegalArgumentException(
                           "No existe el apoderado indicado para el alumno"));
-      VinculoFamiliar vinculo =
-          vinculos
-              .findByEstudianteIdAndApoderadoId(estudiante.getId(), apoderado.getId())
-              .orElse(null);
-      for (VinculoFamiliar existente : vinculos.findAllByEstudianteId(estudiante.getId())) {
-        if (!existente.getApoderado().getId().equals(apoderado.getId())
-            && existente.isEsPrincipal()) {
-          existente.setEsPrincipal(false);
-          vinculos.save(existente);
-        }
-      }
-      if (vinculo == null) {
-        vinculo = new VinculoFamiliar();
-        vinculo.setEstudiante(estudiante);
-        vinculo.setApoderado(apoderado);
-        vinculo.setParentesco(
-            Parentesco.valueOf(fila.parentesco().trim().toUpperCase(Locale.ROOT)));
-        vinculo.setEsPrincipal(true);
-        vinculos.save(vinculo);
-        vinculoCreado = true;
-      } else {
-        boolean cambio = false;
-        if (!vinculo.getApoderado().getId().equals(apoderado.getId())) {
-          vinculo.setApoderado(apoderado);
-          cambio = true;
-        }
-        Parentesco parentesco =
-            Parentesco.valueOf(fila.parentesco().trim().toUpperCase(Locale.ROOT));
-        if (vinculo.getParentesco() != parentesco) {
-          vinculo.setParentesco(parentesco);
-          cambio = true;
-        }
-        if (!vinculo.isEsPrincipal()) {
-          vinculo.setEsPrincipal(true);
-          cambio = true;
-        }
-        if (!Boolean.TRUE.equals(vinculo.getActive())) {
-          vinculo.setActive(true);
-          cambio = true;
-        }
-        if (cambio) {
-          vinculos.save(vinculo);
-          vinculoCreado = true;
-        }
-      }
+      vinculoCreado = vincular(estudiante, apoderado, parentesco(fila.parentesco()), true);
     }
     return new ResultadoProcesamientoFila(
         rol,
@@ -200,21 +175,57 @@ public class ProcesadorFilaCargaMasiva {
         contrasenhaTemporal);
   }
 
-  private static String generarContrasenha() {
-    char[] clave = new char[LARGO_CONTRASENHA];
-    clave[0] = MAYUSCULAS.charAt(ALEATORIO.nextInt(MAYUSCULAS.length()));
-    clave[1] = MINUSCULAS.charAt(ALEATORIO.nextInt(MINUSCULAS.length()));
-    clave[2] = DIGITOS.charAt(ALEATORIO.nextInt(DIGITOS.length()));
-    clave[3] = SIMBOLOS.charAt(ALEATORIO.nextInt(SIMBOLOS.length()));
-    for (int i = 4; i < clave.length; i++) {
-      clave[i] = ALFABETO_COMPLETO.charAt(ALEATORIO.nextInt(ALFABETO_COMPLETO.length()));
+  private boolean vincular(
+      Estudiante estudiante, Apoderado apoderado, Parentesco parentesco, boolean esPrincipal) {
+    VinculoFamiliar vinculo =
+        vinculos
+            .findByEstudianteIdAndApoderadoId(estudiante.getId(), apoderado.getId())
+            .orElse(null);
+    if (esPrincipal) {
+      for (VinculoFamiliar existente : vinculos.findAllByEstudianteId(estudiante.getId())) {
+        if (!existente.getApoderado().getId().equals(apoderado.getId())
+            && existente.isEsPrincipal()) {
+          existente.setEsPrincipal(false);
+          vinculos.save(existente);
+        }
+      }
     }
-    for (int i = clave.length - 1; i > 0; i--) {
-      int j = ALEATORIO.nextInt(i + 1);
-      char temporal = clave[i];
-      clave[i] = clave[j];
-      clave[j] = temporal;
+    if (vinculo == null) {
+      vinculo = new VinculoFamiliar();
+      vinculo.setEstudiante(estudiante);
+      vinculo.setApoderado(apoderado);
+      vinculo.setParentesco(parentesco);
+      vinculo.setEsPrincipal(esPrincipal);
+      vinculos.save(vinculo);
+      return true;
     }
-    return new String(clave);
+    boolean cambio = false;
+    if (vinculo.getParentesco() != parentesco) {
+      vinculo.setParentesco(parentesco);
+      cambio = true;
+    }
+    if (vinculo.isEsPrincipal() != esPrincipal) {
+      vinculo.setEsPrincipal(esPrincipal);
+      cambio = true;
+    }
+    if (!Boolean.TRUE.equals(vinculo.getActive())) {
+      vinculo.setActive(true);
+      cambio = true;
+    }
+    if (cambio) {
+      vinculos.save(vinculo);
+    }
+    return cambio;
+  }
+
+  private static Parentesco parentesco(String valor) {
+    return Parentesco.valueOf(valor.trim().toUpperCase(Locale.ROOT));
+  }
+
+  private static boolean esPrincipal(String valor) {
+    return switch (valor.trim().toUpperCase(Locale.ROOT)) {
+      case "SI", "SÍ", "TRUE", "1" -> true;
+      default -> false;
+    };
   }
 }

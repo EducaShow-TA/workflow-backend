@@ -164,6 +164,7 @@ public class HistorialBoletasService {
                         b.getFechaVencimiento(),
                         b.calcularMontoTotal(),
                         b.getEstadoPago(),
+                        b.getTipoCargo(),
                         b.getMecanismoGeneracion(),
                         numeroPorBoleta.get(b.getId())))
             .toList());

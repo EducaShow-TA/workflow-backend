@@ -22,8 +22,9 @@ import org.springframework.stereotype.Service;
 import pe.edu.pucp.colegio.common.model.BoletaPension;
 import pe.edu.pucp.colegio.common.model.ComprobantePago;
 import pe.edu.pucp.colegio.common.model.MedioPago;
+import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 
-/** Comprobante de pago de una pensión en PDF. No reemplaza a un comprobante electrónico. */
+/** Comprobante de pago de una boleta en PDF. No reemplaza a un comprobante electrónico. */
 @Service
 public class ComprobantePdfService {
 
@@ -95,7 +96,11 @@ public class ComprobantePdfService {
               periodo.getSeccion().getCodigo(),
               periodo.getGrado().getNivelEducativo()));
       fila(datos, "Apoderado titular", compromiso.getApoderado().getPersona().getNombreCompleto());
-      fila(datos, "Concepto", compromiso.getConcepto() + " · " + mes);
+      String concepto =
+          boleta.getTipoCargo() == TipoCargoBoleta.MATRICULA
+              ? "Matrícula anual"
+              : compromiso.getConcepto();
+      fila(datos, "Concepto", concepto + " · " + mes);
       fila(
           datos,
           "Medio de pago",

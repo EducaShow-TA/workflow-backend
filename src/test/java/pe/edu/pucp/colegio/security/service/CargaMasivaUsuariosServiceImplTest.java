@@ -145,6 +145,46 @@ class CargaMasivaUsuariosServiceImplTest {
   }
 
   @Test
+  void cargar_conRolDistintoAlSolicitado_rechazaLaFilaAntesDeProcesarla() {
+    when(lector.leer(any())).thenReturn(List.of(docente(1, "12345678", "ana@colegio.edu.pe")));
+
+    CargaMasivaResultadoDTO resultado =
+        servicio.cargar(new byte[0], "admin@educore.edu.pe", Rol.ALUMNO);
+
+    assertFalse(resultado.exitoso());
+    assertEquals("rol", resultado.errores().get(0).campo());
+    verify(procesador, never()).procesar(any(FilaUsuarioCsv.class));
+  }
+
+  @Test
+  void cargar_alumnoConUsernameIngresado_rechazaElDatoManual() {
+    FilaUsuarioCsv alumno =
+        new FilaUsuarioCsv(
+            1,
+            "ALUMNO",
+            "70333444",
+            "Luis",
+            "Torres",
+            "Quispe",
+            "luis@colegio.edu.pe",
+            null,
+            null,
+            "40111222",
+            "MADRE",
+            "luis123",
+            null,
+            null);
+    when(lector.leer(any())).thenReturn(List.of(alumno));
+
+    CargaMasivaResultadoDTO resultado =
+        servicio.cargar(new byte[0], "admin@educore.edu.pe", Rol.ALUMNO);
+
+    assertFalse(resultado.exitoso());
+    assertTrue(resultado.errores().stream().anyMatch(error -> "username".equals(error.campo())));
+    verify(procesador, never()).procesar(any(FilaUsuarioCsv.class));
+  }
+
+  @Test
   void cargar_conDocenteValido_guardaCuentaGeneraContrasenhaYAudita() {
     when(lector.leer(any())).thenReturn(List.of(docente(1, "12345678", "Ana@Colegio.edu.pe")));
     when(procesador.procesar(any(FilaUsuarioCsv.class)))

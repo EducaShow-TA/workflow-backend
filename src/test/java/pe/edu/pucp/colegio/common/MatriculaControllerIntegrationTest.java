@@ -58,9 +58,31 @@ class MatriculaControllerIntegrationTest {
   @BeforeEach
   void abrirVentanaDeMatriculaParaLosCasosDeMatricula() {
     PeriodoMatricula ventana = new PeriodoMatricula();
-    ventana.setFechaInicio(LocalDate.now().minusDays(1));
-    ventana.setFechaLimite(LocalDate.now().plusDays(1));
+    ventana.setFechaInicio(LocalDate.now());
+    ventana.setFechaLimite(LocalDate.of(2100, 12, 31));
+    ventana.setAnhioEscolar(LocalDate.now().getYear() + 1);
+    ventana.setMontoMatricula(new java.math.BigDecimal("300.00"));
+    ventana.setMontoPension(new java.math.BigDecimal("500.00"));
     entityManager.persist(ventana);
+
+    int anhioActual = LocalDate.now().getYear();
+    Grado gradoActual = new Grado();
+    gradoActual.setNumero(NUMERO_GRADO.getAndIncrement());
+    gradoActual.setNivelEducativo(NivelEducativo.SECUNDARIA);
+    Seccion seccionActual = new Seccion();
+    seccionActual.setCodigo("A");
+    seccionActual.setVacantesTotales(30);
+    gradoActual.agregarSeccion(seccionActual);
+    entityManager.persist(gradoActual);
+    entityManager.persist(seccionActual);
+    Periodo periodoActual = new Periodo();
+    periodoActual.setGrado(gradoActual);
+    periodoActual.setSeccion(seccionActual);
+    periodoActual.setFechaInicio(LocalDate.of(anhioActual, 1, 1));
+    periodoActual.setFechaFin(LocalDate.of(anhioActual, 12, 31));
+    periodoActual.setEstado(EstadoPeriodo.PLANIFICADO);
+    entityManager.persist(periodoActual);
+
     entityManager.flush();
     ventanaMatriculaId = ventana.getId();
   }
@@ -264,8 +286,7 @@ class MatriculaControllerIntegrationTest {
     Integer periodoId = crearPeriodo(1);
     EstudianteResponse estudiante = crearEstudiante();
     PeriodoMatricula ventana = entityManager.find(PeriodoMatricula.class, ventanaMatriculaId);
-    ventana.setFechaInicio(LocalDate.now().minusDays(5));
-    ventana.setFechaLimite(LocalDate.now().minusDays(1));
+    ventana.setActive(false);
     entityManager.flush();
 
     mvc.perform(
@@ -275,7 +296,11 @@ class MatriculaControllerIntegrationTest {
                     objectMapper.writeValueAsString(
                         new MatriculaCreateRequest(estudiante.estudianteId()))))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.message").value("No hay un periodo de matrícula vigente"));
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "No hay un periodo de matrícula vigente para el año escolar "
+                        + (LocalDate.now().getYear() + 1)));
   }
 
   @Test
@@ -301,7 +326,9 @@ class MatriculaControllerIntegrationTest {
     matricular(segunda, estudiante.estudianteId())
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.message").value(containsString("ya está matriculado en")))
-        .andExpect(jsonPath("$.message").value(containsString("(2026)")));
+        .andExpect(
+            jsonPath("$.message")
+                .value(containsString("(" + (LocalDate.now().getYear() + 1) + ")")));
 
     mvc.perform(
             delete(
@@ -420,8 +447,9 @@ class MatriculaControllerIntegrationTest {
     Periodo periodo = new Periodo();
     periodo.setGrado(grado);
     periodo.setSeccion(seccion);
-    periodo.setFechaInicio(LocalDate.of(2026, 3, 1));
-    periodo.setFechaFin(LocalDate.of(2026, 12, 20));
+    int anhio = LocalDate.now().getYear() + 1;
+    periodo.setFechaInicio(LocalDate.of(anhio, 3, 1));
+    periodo.setFechaFin(LocalDate.of(anhio, 12, 20));
     periodo.setEstado(EstadoPeriodo.PLANIFICADO);
     entityManager.persist(periodo);
     entityManager.flush();

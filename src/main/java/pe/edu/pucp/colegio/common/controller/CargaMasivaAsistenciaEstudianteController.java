@@ -1,6 +1,7 @@
 package pe.edu.pucp.colegio.common.controller;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import pe.edu.pucp.colegio.common.dto.CargaMasivaAsistenciaResultadoDTO;
 import pe.edu.pucp.colegio.common.dto.ListaAsistenciaResponse;
 import pe.edu.pucp.colegio.common.service.CargaMasivaAsistenciaEstudianteService;
+import pe.edu.pucp.colegio.common.service.PlantillaCargaArchivoService;
 import pe.edu.pucp.colegio.common.service.SesionClaseService;
 import pe.edu.pucp.colegio.common.validation.ArchivoCsv;
 
@@ -30,11 +32,15 @@ public class CargaMasivaAsistenciaEstudianteController {
 
   private final CargaMasivaAsistenciaEstudianteService servicio;
   private final SesionClaseService sesiones;
+  private final PlantillaCargaArchivoService plantillas;
 
   public CargaMasivaAsistenciaEstudianteController(
-      CargaMasivaAsistenciaEstudianteService servicio, SesionClaseService sesiones) {
+      CargaMasivaAsistenciaEstudianteService servicio,
+      SesionClaseService sesiones,
+      PlantillaCargaArchivoService plantillas) {
     this.servicio = servicio;
     this.sesiones = sesiones;
+    this.plantillas = plantillas;
   }
 
   /**
@@ -71,6 +77,36 @@ public class CargaMasivaAsistenciaEstudianteController {
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=plantilla-asistencia.csv")
         .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
         .body("dni_alumno,nombre,estado\n" + filas + "\n");
+  }
+
+  @GetMapping(value = "/plantilla", params = "formato=xlsx")
+  public ResponseEntity<byte[]> plantillaExcel(
+      @PathVariable Integer sesionId, Authentication authentication) {
+    ListaAsistenciaResponse lista =
+        sesiones.obtenerListaParaCarga(sesionId, acceso(authentication));
+    List<List<String>> filas =
+        lista.alumnos().stream()
+            .filter(alumno -> alumno.matriculado())
+            .map(alumno -> List.of(alumno.dni(), alumno.nombreCompleto(), ""))
+            .toList();
+    byte[] archivo =
+        plantillas.generarExcel(
+            "Asistencia de alumnos",
+            "Plantilla de la sesión " + sesionId,
+            List.of("dni_alumno", "nombre", "estado"),
+            filas,
+            List.of(
+                "La plantilla incluye únicamente a los alumnos matriculados en esta sesión.",
+                "No modifiques dni_alumno ni nombre. Completa estado con PRESENTE, TARDANZA o AUSENTE.",
+                "Valida el archivo antes de guardar la asistencia."));
+    return ResponseEntity.ok()
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            "attachment; filename=plantilla-asistencia-sesion-" + sesionId + ".xlsx")
+        .contentType(
+            MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(archivo);
   }
 
   private static SesionClaseService.Acceso acceso(Authentication authentication) {

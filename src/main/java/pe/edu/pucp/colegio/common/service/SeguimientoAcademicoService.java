@@ -1,6 +1,8 @@
 package pe.edu.pucp.colegio.common.service;
 
+import java.io.StringReader;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,6 +13,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -196,6 +201,96 @@ public class SeguimientoAcademicoService {
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "La entrega no tiene un archivo adjunto"));
     return TareasEstudianteService.archivoDe(entrega, storage);
+  }
+
+  @Transactional
+  public pe.edu.pucp.colegio.common.dto.CargaMasivaCalificacionesResultado
+      cargaMasivaCalificaciones(
+          Integer periodoId,
+          String competenciaCodigo,
+          Integer bimestre,
+          byte[] contenido,
+          String username,
+          String rol) {
+    if (bimestre == null || bimestre < 1 || bimestre > 4) {
+      throw new BusinessException("El bimestre debe estar entre 1 y 4");
+    }
+    Periodo periodo = periodo(periodoId);
+    Competencia competencia = competencia(competenciaCodigo);
+    List<Matricula> roster =
+        matriculas.findAllByPeriodoIdAndActiveTrueAndEstadoIn(
+            periodoId, List.of(EstadoMatricula.CONFIRMADA));
+    Map<String, Matricula> porDni =
+        roster.stream()
+            .collect(
+                Collectors.toMap(
+                    matricula -> matricula.getEstudiante().getPersona().getDni(),
+                    matricula -> matricula,
+                    (primera, segunda) -> primera));
+
+    String texto = new String(contenido, StandardCharsets.UTF_8);
+    if (texto.startsWith("\uFEFF")) texto = texto.substring(1);
+    char delimitador = texto.contains(";") && !texto.contains(",") ? ';' : ',';
+    List<String> errores = new ArrayList<>();
+    int filasValidas = 0;
+    int total = 0;
+    try (CSVParser parser =
+        CSVFormat.DEFAULT
+            .builder()
+            .setDelimiter(delimitador)
+            .setHeader()
+            .setSkipHeaderRecord(true)
+            .setIgnoreHeaderCase(true)
+            .setIgnoreEmptyLines(true)
+            .setTrim(true)
+            .build()
+            .parse(new StringReader(texto))) {
+      List<String> cabecera = parser.getHeaderNames();
+      if (!cabecera.stream().map(String::toLowerCase).toList().contains("dni")
+          || !cabecera.stream().map(String::toLowerCase).toList().contains("nota")) {
+        throw new BusinessException("El CSV debe contener las columnas dni y nota");
+      }
+      for (CSVRecord fila : parser) {
+        total++;
+        if (total > 500) throw new BusinessException("El archivo supera el máximo de 500 filas");
+        String dni = fila.isMapped("dni") ? fila.get("dni").trim() : "";
+        String nota = fila.isMapped("nota") ? fila.get("nota").trim().toUpperCase() : "";
+        String observacion = fila.isMapped("observacion") ? fila.get("observacion").trim() : null;
+        Matricula matricula = porDni.get(dni);
+        if (matricula == null) {
+          errores.add("Fila " + total + ": DNI no encontrado en la sección");
+        } else if (!List.of("AD", "A", "B", "C").contains(nota)) {
+          errores.add("Fila " + total + ": la nota debe ser AD, A, B o C");
+        } else {
+          try {
+            registrarCalificacion(
+                new CalificacionRequest(
+                    periodoId,
+                    matricula.getId(),
+                    competenciaCodigo,
+                    bimestre,
+                    nota,
+                    observacion,
+                    null,
+                    "Carga masiva desde CSV"),
+                null,
+                username,
+                rol);
+            filasValidas++;
+          } catch (RuntimeException fallo) {
+            errores.add("Fila " + total + ": " + fallo.getMessage());
+          }
+        }
+      }
+    } catch (java.io.IOException | IllegalArgumentException fallo) {
+      throw new BusinessException("El archivo CSV no tiene un formato válido");
+    }
+    if (!errores.isEmpty()) {
+      return new pe.edu.pucp.colegio.common.dto.CargaMasivaCalificacionesResultado(
+          total, filasValidas, errores.size(), List.copyOf(errores));
+    }
+    return new pe.edu.pucp.colegio.common.dto.CargaMasivaCalificacionesResultado(
+        total, filasValidas, 0, List.of());
   }
 
   @Transactional

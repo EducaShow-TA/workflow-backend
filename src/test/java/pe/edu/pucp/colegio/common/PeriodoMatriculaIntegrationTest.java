@@ -11,8 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,15 +23,10 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import pe.edu.pucp.colegio.common.dto.PeriodoMatriculaRequest;
-import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
-import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Grado;
-import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
 import pe.edu.pucp.colegio.common.model.Periodo;
-import pe.edu.pucp.colegio.common.model.PeriodoMatricula;
-import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.repository.PeriodoMatriculaRepository;
 import pe.edu.pucp.colegio.common.service.PeriodoMatriculaService;
@@ -55,14 +50,52 @@ class PeriodoMatriculaIntegrationTest {
   @PersistenceContext EntityManager entityManager;
 
   @Test
-  void configuraVentanasYExponeSusEstadosCalculados() throws Exception {
+  void listarNoCreaAperturasAutomaticamente() throws Exception {
+    int anhio = LocalDate.now().getYear();
+    mvc.perform(get("/api/v1/periodos-matricula"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+    assertEquals(0, periodos.countByActiveTrue());
+    org.junit.jupiter.api.Assertions.assertFalse(
+        periodosMatricula.hayPeriodoVigenteParaAnhio(anhio));
+  }
+
+  @Test
+  void noVuelveAAbrirUnaVentanaAnualDesactivada() throws Exception {
+    int anhio = LocalDate.now().getYear();
+    int id = crearYObtenerIdPorAnhio(anhio);
+
+    mvc.perform(delete("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNoContent());
+
+    mvc.perform(get("/api/v1/periodos-matricula"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+    org.junit.jupiter.api.Assertions.assertFalse(
+        periodosMatricula.hayPeriodoVigenteParaAnhio(anhio));
+  }
+
+  @Test
+  void permiteAbrirEnParaleloLaMatriculaDelAnioActualYElSiguiente() throws Exception {
+    LocalDate hoy = LocalDate.now();
+    int anhio = hoy.getYear();
+    LocalDate inicioClases = LocalDate.of(anhio, 1, 2);
+    crearPeriodoAcademico(inicioClases);
     long ventanasAntes = periodos.countByActiveTrue();
-    crear(LocalDate.now().plusDays(3), LocalDate.now().plusDays(7))
+    crearPorAnhio(anhio)
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.estado").value("PENDIENTE"));
-    crear(LocalDate.now(), LocalDate.now().plusDays(2))
-        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio))
         .andExpect(jsonPath("$.estado").value("VIGENTE"));
+    crearPorAnhio(anhio + 1)
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio + 1))
+        .andExpect(jsonPath("$.fechaInicio").value(hoy.toString()))
+        .andExpect(jsonPath("$.fechaLimite").value("2100-12-31"))
+        .andExpect(jsonPath("$.estado").value("VIGENTE"));
+
+    org.junit.jupiter.api.Assertions.assertTrue(
+        periodosMatricula.hayPeriodoVigenteParaAnhio(anhio));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        periodosMatricula.hayPeriodoVigenteParaAnhio(anhio + 1));
 
     mvc.perform(get("/api/v1/periodos-matricula"))
         .andExpect(status().isOk())
@@ -70,16 +103,19 @@ class PeriodoMatriculaIntegrationTest {
   }
 
   @Test
-  void rechazaLimiteIgualOAnteriorAlInicio() throws Exception {
-    crear(LocalDate.now(), LocalDate.now()).andExpect(status().isUnprocessableEntity());
-    crear(LocalDate.now().plusDays(2), LocalDate.now().plusDays(1))
-        .andExpect(status().isUnprocessableEntity());
+  void rechazaUnAnioEscolarFueraDelRangoPermitido() throws Exception {
+    crearPorAnhio(1999).andExpect(status().isUnprocessableEntity());
   }
 
   @Test
-  void rechazaFechaDeInicioAnteriorAHoy() throws Exception {
+  void aperturaIgnoraFechasDeCierreYPermaneceActivaHastaDesactivacion() throws Exception {
+    int anhio = LocalDate.now().getYear();
     crear(LocalDate.now().minusDays(1), LocalDate.now().plusDays(2))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio))
+        .andExpect(jsonPath("$.fechaInicio").value(LocalDate.now().toString()))
+        .andExpect(jsonPath("$.fechaLimite").value("2100-12-31"))
+        .andExpect(jsonPath("$.estado").value("VIGENTE"));
   }
 
   @Test
@@ -89,7 +125,9 @@ class PeriodoMatriculaIntegrationTest {
 
     crear(LocalDate.of(anhio, 11, 16), LocalDate.of(anhio, 12, 31))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.anhioEscolar").value(anhio + 1));
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio + 1))
+        .andExpect(jsonPath("$.fechaInicio").value(LocalDate.now().toString()))
+        .andExpect(jsonPath("$.estado").value("VIGENTE"));
     assertEquals(anhio, periodosMatricula.anhioEscolar(LocalDate.of(anhio, 1, 5)));
     assertEquals(anhio, periodosMatricula.anhioEscolar(LocalDate.of(anhio, 3, 1)));
     assertEquals(anhio + 1, periodosMatricula.anhioEscolar(LocalDate.of(anhio, 3, 2)));
@@ -97,33 +135,29 @@ class PeriodoMatriculaIntegrationTest {
   }
 
   @Test
-  void rechazaInicioDemasiadoLejanoDelAnhioEscolarDeLaFechaLimite() throws Exception {
-    int anhio = LocalDate.now().getYear();
-    crear(LocalDate.of(anhio + 2, 1, 10), LocalDate.of(anhio + 4, 1, 20))
+  void rechazaConfigurarMatriculaParaUnAnioAnterior() throws Exception {
+    crearPorAnhio(LocalDate.now().getYear() - 1)
         .andExpect(status().isUnprocessableEntity())
         .andExpect(
-            jsonPath("$.message")
-                .value(
-                    "El inicio del período no puede ser más de un año calendario anterior al año escolar de la fecha límite"));
+            jsonPath("$.message").value("No se puede configurar matrícula para un año anterior"));
   }
 
   @Test
-  void actualizarVentanaValidaFechasPasadasOrdenYCruces() throws Exception {
-    LocalDate hoy = LocalDate.now();
-    int primero = crearYObtenerId(hoy.plusDays(10), hoy.plusDays(20));
-    int segundo = crearYObtenerId(hoy.plusDays(30), hoy.plusDays(40));
+  void actualizarVentanaAnualMantieneLaUnicidadPorAnioEscolar() throws Exception {
+    int anhio = LocalDate.now().getYear();
+    int primero = crearYObtenerIdPorAnhio(anhio);
+    int segundo = crearYObtenerIdPorAnhio(anhio + 1);
 
-    actualizar(primero, hoy.plusDays(12), hoy.plusDays(22))
+    actualizarPorAnhio(primero, anhio)
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.fechaInicio").value(hoy.plusDays(12).toString()));
-    actualizar(primero, hoy.minusDays(1), hoy.plusDays(22))
-        .andExpect(status().isUnprocessableEntity());
-    actualizar(primero, hoy.plusDays(24), hoy.plusDays(23))
-        .andExpect(status().isUnprocessableEntity());
-    actualizar(primero, hoy.plusDays(32), hoy.plusDays(35)).andExpect(status().isConflict());
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio));
+    actualizarPorAnhio(primero, anhio + 1).andExpect(status().isUnprocessableEntity());
     mvc.perform(get("/api/v1/periodos-matricula/{id}", primero))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.fechaInicio").value(hoy.plusDays(12).toString()));
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio));
+    mvc.perform(get("/api/v1/periodos-matricula/{id}", segundo))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.anhioEscolar").value(anhio + 1));
   }
 
   @Test
@@ -152,51 +186,118 @@ class PeriodoMatriculaIntegrationTest {
     mvc.perform(delete("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNoContent());
 
     mvc.perform(get("/api/v1/periodos-matricula/{id}", id)).andExpect(status().isNotFound());
+    mvc.perform(get("/api/v1/periodos-matricula"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
   }
 
   @Test
-  void periodoVigenteSoloPermiteMoverSuFechaLimite() throws Exception {
+  void periodoVigenteConservaSuFechaDeInicioYFinAnual() throws Exception {
     LocalDate hoy = LocalDate.now();
-    LocalDate inicio = hoy.minusDays(5);
-    int id = guardarVentana(inicio, hoy.plusDays(3));
+    int anhio = hoy.getYear();
+    crearPeriodoAcademico(LocalDate.of(anhio, 1, 2));
+    int id = crearYObtenerIdPorAnhio(anhio);
 
-    actualizar(id, inicio, hoy.plusDays(10))
+    actualizarPorAnhio(id, anhio)
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.fechaInicio").value(inicio.toString()))
-        .andExpect(jsonPath("$.fechaLimite").value(hoy.plusDays(10).toString()))
+        .andExpect(jsonPath("$.fechaInicio").value(hoy.toString()))
+        .andExpect(jsonPath("$.fechaLimite").value("2100-12-31"))
         .andExpect(jsonPath("$.estado").value("VIGENTE"));
-    actualizar(id, hoy, hoy.plusDays(10))
+    actualizarPorAnhio(id, anhio + 1)
         .andExpect(status().isUnprocessableEntity())
         .andExpect(
             jsonPath("$.message")
-                .value("El periodo ya inició; su fecha de inicio no se puede modificar"));
-    actualizar(id, inicio, hoy.minusDays(1)).andExpect(status().isUnprocessableEntity());
-    actualizar(id, inicio, hoy).andExpect(status().isOk());
+                .value("El año escolar de un periodo vigente no se puede modificar"));
   }
 
   @Test
-  void noDesactivaUnPeriodoVencidoConMatriculasPeroSiUnoSinMatriculas() throws Exception {
-    LocalDate inicio = LocalDate.of(2001, 1, 1);
-    int conMatriculas = guardarVentana(inicio, inicio.plusDays(30));
-    int sinMatriculas = guardarVentana(LocalDate.of(2002, 1, 1), LocalDate.of(2002, 1, 31));
-    agregarMatricula(inicio.plusDays(10));
-
-    mvc.perform(delete("/api/v1/periodos-matricula/{id}", conMatriculas))
-        .andExpect(status().isConflict());
-    mvc.perform(get("/api/v1/periodos-matricula/{id}", conMatriculas))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.tieneMatriculas").value(true));
-    mvc.perform(delete("/api/v1/periodos-matricula/{id}", sinMatriculas))
-        .andExpect(status().isNoContent());
+  private org.springframework.test.web.servlet.ResultActions crear(
+      LocalDate inicio, LocalDate limite) throws Exception {
+    int anhio = periodosMatricula.anhioEscolar(inicio);
+    prepararRequisitosApertura(anhio);
+    return mvc.perform(
+        post("/api/v1/periodos-matricula")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(
+                objectMapper.writeValueAsString(
+                    new PeriodoMatriculaRequest(
+                        inicio,
+                        limite,
+                        anhio,
+                        new BigDecimal("300.00"),
+                        new BigDecimal("500.00")))));
   }
 
-  private int guardarVentana(LocalDate inicio, LocalDate limite) {
-    PeriodoMatricula ventana = new PeriodoMatricula();
-    ventana.setFechaInicio(inicio);
-    ventana.setFechaLimite(limite);
-    entityManager.persist(ventana);
+  private org.springframework.test.web.servlet.ResultActions crearPorAnhio(int anhio)
+      throws Exception {
+    if (anhio >= LocalDate.now().getYear() && anhio <= 2100) {
+      prepararRequisitosApertura(anhio);
+    }
+    return mvc.perform(
+        post("/api/v1/periodos-matricula")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(
+                objectMapper.writeValueAsString(
+                    new PeriodoMatriculaRequest(
+                        null, null, anhio, new BigDecimal("300.00"), new BigDecimal("500.00")))));
+  }
+
+  private int crearYObtenerIdPorAnhio(int anhio) throws Exception {
+    String body =
+        crearPorAnhio(anhio)
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(body).get("id").asInt();
+  }
+
+  private org.springframework.test.web.servlet.ResultActions actualizarPorAnhio(int id, int anhio)
+      throws Exception {
+    return mvc.perform(
+        put("/api/v1/periodos-matricula/{id}", id)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(
+                objectMapper.writeValueAsString(
+                    new PeriodoMatriculaRequest(
+                        null, null, anhio, new BigDecimal("300.00"), new BigDecimal("500.00")))));
+  }
+
+  private void prepararRequisitosApertura(int anhio) {
+    var activas =
+        entityManager
+            .createQuery("select s from Seccion s where s.active = true", Seccion.class)
+            .getResultList();
+    if (activas.isEmpty()) {
+      Grado grado = new Grado();
+      grado.setNumero(NUMERO_GRADO.getAndIncrement());
+      grado.setNivelEducativo(NivelEducativo.SECUNDARIA);
+      Seccion seccion = new Seccion();
+      seccion.setCodigo("A");
+      seccion.setVacantesTotales(30);
+      grado.agregarSeccion(seccion);
+      entityManager.persist(grado);
+      entityManager.persist(seccion);
+      activas = java.util.List.of(seccion);
+    }
+    cerrarActasDelAnio(anhio - 1);
+    for (Seccion seccion : activas) {
+      asegurarPeriodoAcademico(seccion, anhio - 1, true);
+      asegurarPeriodoAcademico(seccion, anhio, false);
+    }
     entityManager.flush();
-    return ventana.getId();
+  }
+
+  private void cerrarActasDelAnio(int anhio) {
+    var periodosDelAnio =
+        entityManager
+            .createQuery(
+                "select p from Periodo p where p.fechaInicio <= :fin and p.fechaFin >= :inicio",
+                Periodo.class)
+            .setParameter("inicio", LocalDate.of(anhio, 1, 1))
+            .setParameter("fin", LocalDate.of(anhio, 12, 31))
+            .getResultList();
+    periodosDelAnio.forEach(periodo -> periodo.setActasCerradas(true));
   }
 
   private void crearPeriodoAcademico(LocalDate inicioClases) {
@@ -219,64 +320,33 @@ class PeriodoMatriculaIntegrationTest {
     entityManager.flush();
   }
 
-  private void agregarMatricula(LocalDate fechaMatricula) {
-    Grado grado = new Grado();
-    grado.setNumero(NUMERO_GRADO.getAndIncrement());
-    grado.setNivelEducativo(NivelEducativo.SECUNDARIA);
-    Seccion seccion = new Seccion();
-    seccion.setCodigo("A");
-    seccion.setVacantesTotales(30);
-    grado.agregarSeccion(seccion);
-    entityManager.persist(grado);
-    entityManager.persist(seccion);
-
-    Periodo periodo = new Periodo();
-    periodo.setGrado(grado);
-    periodo.setSeccion(seccion);
-    periodo.setFechaInicio(fechaMatricula.plusMonths(2));
-    periodo.setFechaFin(fechaMatricula.plusMonths(11));
-    periodo.setEstado(EstadoPeriodo.PLANIFICADO);
-    entityManager.persist(periodo);
-
-    String dni = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-    Persona persona = new Persona(dni, "Estudiante", "Prueba", "Historial");
-    entityManager.persist(persona);
-    Estudiante estudiante = new Estudiante();
-    estudiante.setPersona(persona);
-    entityManager.persist(estudiante);
-
-    Matricula matricula = new Matricula();
-    matricula.setFechaMatricula(fechaMatricula);
-    matricula.setEstado(EstadoMatricula.CONFIRMADA);
-    matricula.setPeriodo(periodo);
-    matricula.setEstudiante(estudiante);
-    entityManager.persist(matricula);
-    entityManager.flush();
-  }
-
-  private org.springframework.test.web.servlet.ResultActions crear(
-      LocalDate inicio, LocalDate limite) throws Exception {
-    return mvc.perform(
-        post("/api/v1/periodos-matricula")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new PeriodoMatriculaRequest(inicio, limite))));
-  }
-
-  private int crearYObtenerId(LocalDate inicio, LocalDate limite) throws Exception {
-    String body =
-        crear(inicio, limite)
-            .andExpect(status().isCreated())
-            .andReturn()
-            .getResponse()
-            .getContentAsString();
-    return objectMapper.readTree(body).get("id").asInt();
-  }
-
-  private org.springframework.test.web.servlet.ResultActions actualizar(
-      int id, LocalDate inicio, LocalDate limite) throws Exception {
-    return mvc.perform(
-        put("/api/v1/periodos-matricula/{id}", id)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new PeriodoMatriculaRequest(inicio, limite))));
+  private void asegurarPeriodoAcademico(Seccion seccion, int anhio, boolean actasCerradas) {
+    LocalDate inicio = LocalDate.of(anhio, 3, 2);
+    LocalDate fin = LocalDate.of(anhio, 12, 31);
+    var existente =
+        entityManager
+            .createQuery(
+                "select p from Periodo p where p.seccion.id = :seccionId"
+                    + " and p.fechaInicio = :inicio and p.fechaFin = :fin",
+                Periodo.class)
+            .setParameter("seccionId", seccion.getId())
+            .setParameter("inicio", inicio)
+            .setParameter("fin", fin)
+            .getResultList();
+    Periodo periodo;
+    if (existente.isEmpty()) {
+      periodo = new Periodo();
+      periodo.setGrado(seccion.getGrado());
+      periodo.setSeccion(seccion);
+      periodo.setFechaInicio(inicio);
+      periodo.setFechaFin(fin);
+      periodo.setEstado(EstadoPeriodo.PLANIFICADO);
+      entityManager.persist(periodo);
+    } else {
+      periodo = existente.get(0);
+    }
+    if (actasCerradas) {
+      periodo.setActasCerradas(true);
+    }
   }
 }

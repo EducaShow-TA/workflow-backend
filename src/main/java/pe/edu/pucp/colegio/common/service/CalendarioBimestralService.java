@@ -42,6 +42,11 @@ public class CalendarioBimestralService {
     return calculadora(periodo).applyAsInt(fecha);
   }
 
+  @Transactional(readOnly = true)
+  public int actual(Periodo periodo) {
+    return actual(periodo, LocalDate.now(clock));
+  }
+
   /** Para recorrer muchas fechas de un mismo período con una sola consulta del calendario. */
   @Transactional(readOnly = true)
   public ToIntFunction<LocalDate> calculadora(Periodo periodo) {

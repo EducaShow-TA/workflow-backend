@@ -14,11 +14,14 @@ import pe.edu.pucp.colegio.common.dto.ConfirmacionMasivaMatriculaRequest;
 import pe.edu.pucp.colegio.common.dto.IncidenciaConfirmacionMatriculaResponse;
 import pe.edu.pucp.colegio.common.dto.MatriculaCreateRequest;
 import pe.edu.pucp.colegio.common.dto.MatriculaResponse;
+import pe.edu.pucp.colegio.common.dto.TarifasMatriculaResponse;
 import pe.edu.pucp.colegio.common.exception.ValidacionConfirmacionMatriculaException;
+import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.EstadoMatricula;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.Periodo;
+import pe.edu.pucp.colegio.common.repository.BoletaPensionRepository;
 import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.MatriculaRepository;
 import pe.edu.pucp.colegio.common.repository.PeriodoRepository;
@@ -30,31 +33,37 @@ import pe.edu.pucp.colegio.security.repository.CuentaUsuarioRepository;
 public class MatriculaService {
 
   private final MatriculaRepository matriculas;
+  private final BoletaPensionRepository boletas;
   private final EstudianteRepository estudiantes;
   private final PeriodoRepository periodos;
   private final VacantesService vacantes;
   private final SeccionRepository secciones;
   private final PeriodoMatriculaService periodosMatricula;
+  private final AprobacionAnualService aprobacionAnual;
   private final FinanzasService finanzas;
   private final CuentaUsuarioRepository cuentas;
   private final Clock clock;
 
   public MatriculaService(
       MatriculaRepository matriculas,
+      BoletaPensionRepository boletas,
       EstudianteRepository estudiantes,
       PeriodoRepository periodos,
       VacantesService vacantes,
       SeccionRepository secciones,
       PeriodoMatriculaService periodosMatricula,
+      AprobacionAnualService aprobacionAnual,
       FinanzasService finanzas,
       CuentaUsuarioRepository cuentas,
       Clock clock) {
     this.matriculas = matriculas;
+    this.boletas = boletas;
     this.estudiantes = estudiantes;
     this.periodos = periodos;
     this.vacantes = vacantes;
     this.secciones = secciones;
     this.periodosMatricula = periodosMatricula;
+    this.aprobacionAnual = aprobacionAnual;
     this.finanzas = finanzas;
     this.cuentas = cuentas;
     this.clock = clock;
@@ -63,10 +72,13 @@ public class MatriculaService {
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public MatriculaResponse crear(Integer periodoId, MatriculaCreateRequest request) {
     Periodo periodo = buscarPeriodo(periodoId);
-    if (!periodosMatricula.hayPeriodoVigente()) {
+    int anhioEscolar = periodo.getFechaInicio().getYear();
+    if (!periodosMatricula.hayPeriodoVigenteParaAnhio(anhioEscolar)) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "No hay un periodo de matrícula vigente");
+          HttpStatus.CONFLICT,
+          "No hay un periodo de matrícula vigente para el año escolar " + anhioEscolar);
     }
+    periodosMatricula.obtenerTarifasVigentesParaAnhio(anhioEscolar);
     secciones
         .findByIdForUpdate(periodo.getSeccion().getId())
         .orElseThrow(
@@ -79,6 +91,7 @@ public class MatriculaService {
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "No existe el estudiante indicado"));
 
+    validarSinDeudaVencida(estudiante.getId());
     Matricula matricula =
         matriculas.findByPeriodoIdAndEstudianteId(periodoId, estudiante.getId()).orElse(null);
     if (matricula != null
@@ -88,6 +101,7 @@ public class MatriculaService {
           HttpStatus.CONFLICT, "El estudiante ya está matriculado en este periodo");
     }
     validarDisponibleParaMatricula(estudiante, periodo);
+    aprobacionAnual.validarDestino(estudiante.getId(), periodo);
 
     if (vacantes.consultar(periodoId).vacantesDisponibles() == 0) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "El periodo no tiene vacantes");
@@ -102,8 +116,34 @@ public class MatriculaService {
     matricula.setEstado(EstadoMatricula.EN_REGISTRO);
     matricula.setActive(true);
     matricula = matriculas.save(matricula);
+    actualizarUsuarioAlumno(estudiante, periodo);
 
     return respuesta(matricula);
+  }
+
+  private void actualizarUsuarioAlumno(Estudiante estudiante, Periodo periodo) {
+    if (estudiante.getPersona() == null) {
+      return;
+    }
+    pe.edu.pucp.colegio.security.model.CuentaUsuario cuenta =
+        cuentas.findByPersonaDni(estudiante.getPersona().getDni()).orElse(null);
+    if (cuenta == null || cuenta.getRol() != pe.edu.pucp.colegio.security.model.Rol.ALUMNO) {
+      return;
+    }
+    int anhio = periodo.getFechaInicio().getYear();
+    String base =
+        pe.edu.pucp.colegio.common.validation.UsernamePolicy.generarAlumnoDesdeDocumento(
+            estudiante.getPersona().getDni(), anhio);
+    String candidato = base;
+    int suffix = 2;
+    while (cuentas.existsByUsernameIgnoreCase(candidato)
+        && !candidato.equalsIgnoreCase(cuenta.getUsername())) {
+      candidato = base + suffix++;
+    }
+    if (!candidato.equalsIgnoreCase(cuenta.getUsername())) {
+      cuenta.setUsername(candidato);
+      cuentas.save(cuenta);
+    }
   }
 
   /**
@@ -159,6 +199,17 @@ public class MatriculaService {
   @Transactional
   public MatriculaResponse confirmar(
       Integer periodoId, Integer estudianteId, CompromisoPagoRequest compromisoRequest) {
+    return confirmarInterno(periodoId, estudianteId, compromisoRequest);
+  }
+
+  @Transactional
+  public MatriculaResponse confirmarDesdePortalApoderado(
+      Integer periodoId, Integer estudianteId, CompromisoPagoRequest compromisoRequest) {
+    return confirmarInterno(periodoId, estudianteId, compromisoRequest);
+  }
+
+  private MatriculaResponse confirmarInterno(
+      Integer periodoId, Integer estudianteId, CompromisoPagoRequest compromisoRequest) {
     Periodo periodo = buscarPeriodo(periodoId);
     secciones
         .findByIdForUpdate(periodo.getSeccion().getId())
@@ -170,13 +221,22 @@ public class MatriculaService {
             .filter(m -> Boolean.TRUE.equals(m.getActive()))
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la matrícula"));
+    if (!periodosMatricula.hayPeriodoVigenteParaAnhio(periodo.getFechaInicio().getYear())) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "La matrícula de este año escolar está cerrada");
+    }
+    TarifasMatriculaResponse tarifas =
+        periodosMatricula.obtenerTarifasVigentesParaAnhio(periodo.getFechaInicio().getYear());
+    aprobacionAnual.validarDestino(estudianteId, periodo);
     if (matricula.getEstado() != EstadoMatricula.EN_REGISTRO) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "Solo se puede confirmar una matrícula en registro");
     }
+    validarSinDeudaVencida(estudianteId);
     matricula.setEstado(EstadoMatricula.CONFIRMADA);
     matricula = matriculas.save(matricula);
-    finanzas.crearCompromiso(matricula, compromisoRequest);
+    finanzas.crearCompromiso(
+        matricula, compromisoRequest, tarifas.montoMatricula(), tarifas.montoPension());
     return respuesta(matricula);
   }
 
@@ -194,6 +254,8 @@ public class MatriculaService {
           HttpStatus.BAD_REQUEST, "Selecciona al menos un estudiante");
     }
     finanzas.validarTerminos(request.compromiso());
+    TarifasMatriculaResponse tarifas =
+        periodosMatricula.obtenerTarifasVigentesParaAnhio(periodo.getFechaInicio().getYear());
     List<Matricula> pendientes = new ArrayList<>();
     List<IncidenciaConfirmacionMatriculaResponse> incidencias = new ArrayList<>();
     for (Integer estudianteId : ids) {
@@ -215,6 +277,12 @@ public class MatriculaService {
       if (matricula.getEstado() != EstadoMatricula.EN_REGISTRO) {
         problemas.add("La matrícula no está pendiente de confirmación.");
       }
+      if (!periodosMatricula.hayPeriodoVigenteParaAnhio(periodo.getFechaInicio().getYear())) {
+        problemas.add("La matrícula de este año escolar está cerrada.");
+      }
+      if (tieneDeudaVencida(estudianteId)) {
+        problemas.add("El estudiante tiene boletas vencidas e impagas.");
+      }
       problemas.addAll(finanzas.validarRequisitosCompromiso(matricula));
       if (!problemas.isEmpty()) {
         incidencias.add(
@@ -232,7 +300,10 @@ public class MatriculaService {
     pendientes.forEach(m -> m.setEstado(EstadoMatricula.CONFIRMADA));
     List<Matricula> confirmadas = matriculas.saveAll(pendientes);
     CompromisoPagoRequest terminos = request.compromiso();
-    confirmadas.forEach(m -> finanzas.crearCompromiso(m, terminos));
+    confirmadas.forEach(
+        m ->
+            finanzas.crearCompromiso(
+                m, terminos, tarifas.montoMatricula(), tarifas.montoPension()));
     return confirmadas.stream().map(this::respuesta).toList();
   }
 
@@ -241,6 +312,22 @@ public class MatriculaService {
         .findById(estudianteId)
         .map(estudiante -> estudiante.getPersona().getNombreCompleto())
         .orElse("Estudiante #" + estudianteId);
+  }
+
+  private void validarSinDeudaVencida(Integer estudianteId) {
+    if (tieneDeudaVencida(estudianteId)) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "El estudiante tiene boletas vencidas e impagas; regulariza la deuda antes de matricularlo");
+    }
+  }
+
+  private boolean tieneDeudaVencida(Integer estudianteId) {
+    return boletas
+        .existsByCompromisoMatriculaEstudianteIdAndActiveTrueAndEstadoPagoInAndFechaVencimientoBefore(
+            estudianteId,
+            List.of(EstadoBoleta.PENDIENTE, EstadoBoleta.EN_MORA),
+            LocalDate.now(clock));
   }
 
   @Transactional

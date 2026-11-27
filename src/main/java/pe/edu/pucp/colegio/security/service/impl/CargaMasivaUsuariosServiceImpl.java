@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -68,8 +69,14 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
 
   @Override
   public CargaMasivaResultadoDTO cargar(byte[] contenido, String usernameResponsable) {
+    return cargar(contenido, usernameResponsable, null);
+  }
+
+  @Override
+  public CargaMasivaResultadoDTO cargar(
+      byte[] contenido, String usernameResponsable, Rol rolEsperado) {
     List<FilaUsuarioCsv> filas = lector.leer(contenido);
-    Map<Integer, List<ErrorFilaDTO>> errores = validar(filas);
+    Map<Integer, List<ErrorFilaDTO>> errores = validar(filas, rolEsperado);
     List<FilaCargaMasivaResultadoDTO> resultados = new ArrayList<>();
     List<CuentaCargadaDTO> cuentasCreadas = new ArrayList<>();
     int usuariosCreados = 0;
@@ -184,17 +191,51 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
         resultados);
   }
 
-  private Map<Integer, List<ErrorFilaDTO>> validar(List<FilaUsuarioCsv> filas) {
+  private Map<Integer, List<ErrorFilaDTO>> validar(List<FilaUsuarioCsv> filas, Rol rolEsperado) {
     Map<Integer, List<ErrorFilaDTO>> errores = new LinkedHashMap<>();
-    Set<String> dnisVistos = new HashSet<>();
-    Set<String> correosVistos = new HashSet<>();
-    Set<String> usernamesVistos = new HashSet<>();
+    Map<String, FilaUsuarioCsv> primeraFilaDni = new LinkedHashMap<>();
+    Map<String, FilaUsuarioCsv> primeraFilaCorreo = new LinkedHashMap<>();
+    Map<String, FilaUsuarioCsv> primeraFilaUsername = new LinkedHashMap<>();
     Map<String, FilaUsuarioCsv> apoderadosEnArchivo = new LinkedHashMap<>();
+    Map<String, FilaUsuarioCsv> vinculosPrincipales = new LinkedHashMap<>();
+    Set<String> vinculosVistos = new HashSet<>();
 
     for (FilaUsuarioCsv fila : filas) {
-      validarCampos(fila, errores, dnisVistos, correosVistos, usernamesVistos);
+      validarCampos(fila, errores, primeraFilaDni, primeraFilaCorreo, primeraFilaUsername);
+      Rol rol = rolDe(fila);
+      if (rolEsperado != null && rol != rolEsperado) {
+        agregar(
+            errores,
+            fila.fila(),
+            "rol",
+            "Esta plantilla solo admite filas del rol " + rolEsperado.name());
+      }
+      if (rolEsperado == Rol.APODERADO && fila.dniAlumno() == null) {
+        agregar(
+            errores,
+            fila.fila(),
+            "dni_alumno",
+            "Es obligatorio en la carga específica de apoderados");
+      }
       if (rolDe(fila) == Rol.APODERADO && fila.dni() != null) {
         apoderadosEnArchivo.putIfAbsent(fila.dni(), fila);
+      }
+      if (rol == Rol.APODERADO && fila.dniAlumno() != null) {
+        String claveVinculo = fila.dni() + ":" + fila.dniAlumno();
+        if (!vinculosVistos.add(claveVinculo)) {
+          agregar(errores, fila.fila(), "dni_alumno", "El vínculo alumno-apoderado está repetido");
+        }
+        if (esVerdadero(fila.esPrincipal())) {
+          FilaUsuarioCsv principalAnterior =
+              vinculosPrincipales.putIfAbsent(fila.dniAlumno(), fila);
+          if (principalAnterior != null) {
+            agregar(
+                errores,
+                fila.fila(),
+                "es_principal",
+                "Solo puede marcarse un apoderado principal por alumno");
+          }
+        }
       }
     }
 
@@ -207,6 +248,15 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
 
     for (FilaUsuarioCsv fila : filas) {
       if (rolDe(fila) != Rol.ALUMNO) {
+        if (rolDe(fila) == Rol.APODERADO) {
+          validarVinculoApoderado(fila, errores);
+        } else if (fila.dniAlumno() != null || fila.esPrincipal() != null) {
+          agregar(
+              errores,
+              fila.fila(),
+              "dni_alumno",
+              "dni_alumno y es_principal solo se usan para filas de APODERADO");
+        }
         continue;
       }
       if (fila.dniApoderado() == null) {
@@ -232,12 +282,35 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     return errores;
   }
 
+  private void validarVinculoApoderado(
+      FilaUsuarioCsv fila, Map<Integer, List<ErrorFilaDTO>> errores) {
+    if (fila.dniAlumno() == null) {
+      if (fila.parentesco() != null || fila.esPrincipal() != null) {
+        agregar(errores, fila.fila(), "dni_alumno", "Es obligatorio para registrar un vínculo");
+      }
+      return;
+    }
+    if (!estudiantes.existsByPersonaDni(fila.dniAlumno())) {
+      agregar(errores, fila.fila(), "dni_alumno", "No existe un alumno registrado con ese DNI");
+    }
+    if (parentescoDe(fila) == null) {
+      agregar(
+          errores,
+          fila.fila(),
+          "parentesco",
+          "Es obligatorio y debe ser PADRE, MADRE, TUTOR_LEGAL u OTRO");
+    }
+    if (!esValorBooleano(fila.esPrincipal())) {
+      agregar(errores, fila.fila(), "es_principal", "Indique SI o NO");
+    }
+  }
+
   private void validarCampos(
       FilaUsuarioCsv fila,
       Map<Integer, List<ErrorFilaDTO>> errores,
-      Set<String> dnisVistos,
-      Set<String> correosVistos,
-      Set<String> usernamesVistos) {
+      Map<String, FilaUsuarioCsv> primeraFilaDni,
+      Map<String, FilaUsuarioCsv> primeraFilaCorreo,
+      Map<String, FilaUsuarioCsv> primeraFilaUsername) {
     Rol rol = rolDe(fila);
     if (rol == null) {
       agregar(
@@ -264,30 +337,53 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     validarTexto(errores, fila.fila(), "username", fila.username(), 50, false);
     validarFecha(errores, fila.fila(), fila.fechaNacimiento());
 
-    if (fila.dni() != null && !dnisVistos.add(fila.dni())) {
-      agregar(errores, fila.fila(), "dni", "DNI repetido dentro del archivo");
+    if (fila.dni() != null) {
+      FilaUsuarioCsv anterior = primeraFilaDni.putIfAbsent(fila.dni(), fila);
+      if (anterior != null && !esRepeticionDeVinculo(anterior, fila)) {
+        agregar(errores, fila.fila(), "dni", "DNI repetido dentro del archivo");
+      }
     }
     if (fila.correo() != null) {
       String correo = fila.correo().trim().toLowerCase(Locale.ROOT);
-      if (!correosVistos.add(correo)) {
+      FilaUsuarioCsv anterior = primeraFilaCorreo.putIfAbsent(correo, fila);
+      if (anterior != null && !esRepeticionDeVinculo(anterior, fila)) {
         agregar(errores, fila.fila(), "correo", "Correo repetido dentro del archivo");
       }
       validarConflictosExistentes(fila, rol, correo, errores);
     }
     CuentaUsuario cuentaExistente =
         fila.dni() == null ? null : cuentas.findByPersonaDni(fila.dni()).orElse(null);
+    boolean usernameAutomatico = rol == Rol.ALUMNO || rol == Rol.DOCENTE;
     String usernameEfectivo =
-        fila.username() == null
-            ? (cuentaExistente == null
-                ? UsernamePolicy.generarDesdeDocumento(fila.dni())
-                : cuentaExistente.getUsername())
+        usernameAutomatico || fila.username() == null
+            ? cuentaExistente == null
+                ? (fila.dni() == null
+                    ? null
+                    : rol == Rol.ALUMNO
+                        ? UsernamePolicy.generarAlumnoDesdeDocumento(fila.dni())
+                        : UsernamePolicy.generarDesdeDocumento(fila.dni()))
+                : cuentaExistente.getUsername()
             : fila.username();
+    if ((rol == Rol.ALUMNO || rol == Rol.DOCENTE)
+        && fila.username() != null
+        && !fila.username().isBlank()) {
+      agregar(
+          errores,
+          fila.fila(),
+          "username",
+          rol == Rol.ALUMNO
+              ? "El usuario del alumno se genera automáticamente"
+              : "El usuario del docente se genera automáticamente");
+    }
     if (fila.username() != null && !UsernamePolicy.esValido(fila.username().trim())) {
       agregar(errores, fila.fila(), "username", "Use solo letras y números en el usuario");
     }
-    if (usernameEfectivo != null
-        && !usernamesVistos.add(usernameEfectivo.trim().toLowerCase(Locale.ROOT))) {
-      agregar(errores, fila.fila(), "username", "Usuario repetido dentro del archivo");
+    if (usernameEfectivo != null) {
+      String username = usernameEfectivo.trim().toLowerCase(Locale.ROOT);
+      FilaUsuarioCsv anterior = primeraFilaUsername.putIfAbsent(username, fila);
+      if (anterior != null && !esRepeticionDeVinculo(anterior, fila)) {
+        agregar(errores, fila.fila(), "username", "Usuario repetido dentro del archivo");
+      }
     }
   }
 
@@ -297,10 +393,13 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
       return;
     }
     CuentaUsuario cuentaExistente = cuentas.findByPersonaDni(fila.dni()).orElse(null);
+    boolean usernameAutomatico = rol == Rol.ALUMNO || rol == Rol.DOCENTE;
     String username =
-        fila.username() == null
+        usernameAutomatico || fila.username() == null
             ? (cuentaExistente == null
-                ? UsernamePolicy.generarDesdeDocumento(fila.dni())
+                ? (rol == Rol.ALUMNO
+                    ? UsernamePolicy.generarAlumnoDesdeDocumento(fila.dni())
+                    : UsernamePolicy.generarDesdeDocumento(fila.dni()))
                 : cuentaExistente.getUsername())
             : fila.username().trim();
     if (cuentaExistente != null) {
@@ -438,5 +537,36 @@ public class CargaMasivaUsuariosServiceImpl implements CargaMasivaUsuariosServic
     } catch (IllegalArgumentException | NullPointerException e) {
       return null;
     }
+  }
+
+  private static boolean esValorBooleano(String valor) {
+    if (valor == null) return false;
+    String normalizado = valor.trim().toUpperCase(Locale.ROOT);
+    return Set.of("SI", "SÍ", "NO", "TRUE", "FALSE", "1", "0").contains(normalizado);
+  }
+
+  private static boolean esVerdadero(String valor) {
+    if (valor == null) return false;
+    return Set.of("SI", "SÍ", "TRUE", "1").contains(valor.trim().toUpperCase(Locale.ROOT));
+  }
+
+  private static boolean esRepeticionDeVinculo(FilaUsuarioCsv anterior, FilaUsuarioCsv actual) {
+    return rolDe(anterior) == Rol.APODERADO
+        && rolDe(actual) == Rol.APODERADO
+        && anterior.dniAlumno() != null
+        && actual.dniAlumno() != null
+        && !anterior.dniAlumno().equals(actual.dniAlumno())
+        && Objects.equals(anterior.dni(), actual.dni())
+        && Objects.equals(anterior.nombres(), actual.nombres())
+        && Objects.equals(anterior.apellidoPaterno(), actual.apellidoPaterno())
+        && Objects.equals(anterior.apellidoMaterno(), actual.apellidoMaterno())
+        && igualesIgnorandoMayusculas(anterior.correo(), actual.correo())
+        && Objects.equals(anterior.telefono(), actual.telefono())
+        && Objects.equals(anterior.fechaNacimiento(), actual.fechaNacimiento())
+        && igualesIgnorandoMayusculas(anterior.username(), actual.username());
+  }
+
+  private static boolean igualesIgnorandoMayusculas(String primero, String segundo) {
+    return primero == null ? segundo == null : segundo != null && primero.equalsIgnoreCase(segundo);
   }
 }
