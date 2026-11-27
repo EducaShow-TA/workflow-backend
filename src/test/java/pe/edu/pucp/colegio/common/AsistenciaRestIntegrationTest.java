@@ -39,9 +39,13 @@ import pe.edu.pucp.colegio.common.model.Area;
 import pe.edu.pucp.colegio.common.model.Docente;
 import pe.edu.pucp.colegio.common.model.EstadoAsistencia;
 import pe.edu.pucp.colegio.common.model.EstadoAsistenciaDocente;
+import pe.edu.pucp.colegio.common.model.EstadoMatricula;
+import pe.edu.pucp.colegio.common.model.EstadoPeriodo;
 import pe.edu.pucp.colegio.common.model.Estudiante;
 import pe.edu.pucp.colegio.common.model.Grado;
+import pe.edu.pucp.colegio.common.model.Matricula;
 import pe.edu.pucp.colegio.common.model.NivelEducativo;
+import pe.edu.pucp.colegio.common.model.Periodo;
 import pe.edu.pucp.colegio.common.model.Persona;
 import pe.edu.pucp.colegio.common.model.Seccion;
 import pe.edu.pucp.colegio.common.model.SesionClase;
@@ -347,6 +351,21 @@ class AsistenciaRestIntegrationTest {
     seccion.setVacantesTotales(30);
     grado.agregarSeccion(seccion);
     entityManager.persist(grado);
+
+    Periodo periodo = new Periodo();
+    periodo.setGrado(grado);
+    periodo.setSeccion(seccion);
+    periodo.setFechaInicio(FECHA_FIJA.withDayOfYear(1));
+    periodo.setFechaFin(FECHA_FIJA.withDayOfYear(FECHA_FIJA.lengthOfYear()));
+    periodo.setEstado(EstadoPeriodo.EN_CURSO);
+    entityManager.persist(periodo);
+
+    Matricula matricula = new Matricula();
+    matricula.setEstudiante(estudiante);
+    matricula.setPeriodo(periodo);
+    matricula.setFechaMatricula(FECHA_FIJA.withDayOfYear(1));
+    matricula.setEstado(EstadoMatricula.CONFIRMADA);
+    entityManager.persist(matricula);
 
     SesionClase sesion = new SesionClase();
     sesion.setSeccion(seccion);

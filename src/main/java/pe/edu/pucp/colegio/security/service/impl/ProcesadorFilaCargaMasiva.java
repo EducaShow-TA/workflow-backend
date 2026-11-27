@@ -18,6 +18,7 @@ import pe.edu.pucp.colegio.common.repository.EstudianteRepository;
 import pe.edu.pucp.colegio.common.repository.PersonaRepository;
 import pe.edu.pucp.colegio.common.repository.VinculoFamiliarRepository;
 import pe.edu.pucp.colegio.common.validation.UsernamePolicy;
+import pe.edu.pucp.colegio.security.dto.CuentaCargadaDTO;
 import pe.edu.pucp.colegio.security.dto.FilaUsuarioCsv;
 import pe.edu.pucp.colegio.security.model.CuentaUsuario;
 import pe.edu.pucp.colegio.security.model.Rol;
@@ -122,6 +123,7 @@ public class ProcesadorFilaCargaMasiva {
     }
 
     boolean vinculoCreado = false;
+    CuentaCargadaDTO cuentaApoderadoCreada = null;
     if (rol == Rol.DOCENTE) {
       if (docentes.findByPersonaId(persona.getId()).isEmpty()) {
         Docente docente = new Docente();
@@ -156,13 +158,9 @@ public class ProcesadorFilaCargaMasiva {
         estudiante = estudiantes.save(estudiante);
       }
 
-      Apoderado apoderado =
-          apoderados
-              .findByPersonaDni(fila.dniApoderado())
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "No existe el apoderado indicado para el alumno"));
+      ResultadoApoderado resultadoApoderado = asegurarApoderado(fila);
+      Apoderado apoderado = resultadoApoderado.apoderado();
+      cuentaApoderadoCreada = resultadoApoderado.cuentaCreada();
       vinculoCreado = vincular(estudiante, apoderado, parentesco(fila.parentesco()), true);
     }
     return new ResultadoProcesamientoFila(
@@ -172,8 +170,63 @@ public class ProcesadorFilaCargaMasiva {
         cuentaCreada,
         datosActualizados,
         vinculoCreado,
-        contrasenhaTemporal);
+        contrasenhaTemporal,
+        cuentaApoderadoCreada);
   }
+
+  private ResultadoApoderado asegurarApoderado(FilaUsuarioCsv fila) {
+    Persona persona = personas.findByDni(fila.dniApoderado()).orElse(null);
+    Apoderado apoderado = apoderados.findByPersonaDni(fila.dniApoderado()).orElse(null);
+    CuentaUsuario cuenta = cuentas.findByPersonaDni(fila.dniApoderado()).orElse(null);
+    if (persona == null) {
+      persona =
+          new Persona(
+              fila.dniApoderado(),
+              fila.nombresApoderado().trim(),
+              fila.apellidoPaternoApoderado().trim(),
+              fila.apellidoMaternoApoderado().trim());
+      persona.setTelefono(fila.telefonoApoderado().trim());
+      persona.setCorreo(fila.correoApoderado() == null ? null : fila.correoApoderado().trim());
+      persona = personas.save(persona);
+    } else if (apoderado == null && cuenta == null && fila.nombresApoderado() != null) {
+      persona.setNombre(fila.nombresApoderado().trim());
+      persona.setApellidoPaterno(fila.apellidoPaternoApoderado().trim());
+      persona.setApellidoMaterno(fila.apellidoMaternoApoderado().trim());
+      persona.setTelefono(fila.telefonoApoderado().trim());
+      persona.setCorreo(fila.correoApoderado() == null ? null : fila.correoApoderado().trim());
+      persona = personas.save(persona);
+    }
+
+    if (apoderado == null) {
+      apoderado = new Apoderado();
+      apoderado.setPersona(persona);
+      apoderado = apoderados.save(apoderado);
+    } else if (!Boolean.TRUE.equals(apoderado.getActive())) {
+      apoderado.setActive(true);
+      apoderado = apoderados.save(apoderado);
+    }
+
+    if (cuenta != null) {
+      if (cuenta.getRol() != Rol.APODERADO || !Boolean.TRUE.equals(cuenta.getActive())) {
+        throw new IllegalArgumentException(
+            "El apoderado ya tiene una cuenta con otro rol o inactiva");
+      }
+      return new ResultadoApoderado(apoderado, null);
+    }
+
+    String username = UsernamePolicy.generarDesdeDocumento(fila.dniApoderado());
+    if (cuentas.existsByUsernameIgnoreCase(username)) {
+      throw new IllegalArgumentException("No se pudo generar un usuario único para el apoderado");
+    }
+    String password = ContrasenhaTemporal.generar();
+    cuentas.save(new CuentaUsuario(username, encoder.encode(password), Rol.APODERADO, persona));
+    return new ResultadoApoderado(
+        apoderado,
+        new CuentaCargadaDTO(
+            fila.fila(), Rol.APODERADO.name(), fila.dniApoderado(), username, password));
+  }
+
+  private record ResultadoApoderado(Apoderado apoderado, CuentaCargadaDTO cuentaCreada) {}
 
   private boolean vincular(
       Estudiante estudiante, Apoderado apoderado, Parentesco parentesco, boolean esPrincipal) {

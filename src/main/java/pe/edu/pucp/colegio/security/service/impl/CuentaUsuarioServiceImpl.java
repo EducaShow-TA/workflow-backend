@@ -241,6 +241,7 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
 
     if (!request.activo().equals(cuenta.getActive())) {
       cuenta.setActive(request.activo());
+      actualizarEstadoPerfil(cuenta.getPersona(), cuenta.getRol(), request.activo());
       auditorias.save(
           new RegistroAuditoria(
               responsable == null ? null : responsable.getId(),
@@ -279,7 +280,9 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
     if (rolAnterior == request.rol()) {
       return aDto(cuenta);
     }
-    asegurarPerfil(cuenta.getPersona(), request.rol());
+    actualizarEstadoPerfil(cuenta.getPersona(), rolAnterior, false);
+    actualizarEstadoPerfil(
+        cuenta.getPersona(), request.rol(), Boolean.TRUE.equals(cuenta.getActive()));
     cuenta.setRol(request.rol());
     auditorias.save(
         new RegistroAuditoria(
@@ -301,31 +304,40 @@ public class CuentaUsuarioServiceImpl implements CuentaUsuarioService {
     return aDto(cuenta);
   }
 
-  private void asegurarPerfil(Persona persona, Rol rol) {
+  private void actualizarEstadoPerfil(Persona persona, Rol rol, boolean activo) {
+    if (persona == null) {
+      return;
+    }
     if (rol == Rol.ALUMNO) {
       Estudiante estudiante = estudiantes.findByPersonaDni(persona.getDni()).orElse(null);
-      if (estudiante == null) {
+      if (estudiante == null && activo) {
         estudiante = new Estudiante();
         estudiante.setPersona(persona);
       }
-      estudiante.setActive(true);
-      estudiantes.save(estudiante);
+      if (estudiante != null) {
+        estudiante.setActive(activo);
+        estudiantes.save(estudiante);
+      }
     } else if (rol == Rol.APODERADO) {
       Apoderado apoderado = apoderados.findByPersonaDni(persona.getDni()).orElse(null);
-      if (apoderado == null) {
+      if (apoderado == null && activo) {
         apoderado = new Apoderado();
         apoderado.setPersona(persona);
       }
-      apoderado.setActive(true);
-      apoderados.save(apoderado);
+      if (apoderado != null) {
+        apoderado.setActive(activo);
+        apoderados.save(apoderado);
+      }
     } else if (rol == Rol.DOCENTE) {
       var docente = docentes.findByPersonaId(persona.getId()).orElse(null);
-      if (docente == null) {
+      if (docente == null && activo) {
         docente = new pe.edu.pucp.colegio.common.model.Docente();
         docente.setPersona(persona);
       }
-      docente.setActive(true);
-      docentes.save(docente);
+      if (docente != null) {
+        docente.setActive(activo);
+        docentes.save(docente);
+      }
     }
   }
 

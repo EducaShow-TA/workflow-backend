@@ -58,12 +58,17 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
 
   @org.springframework.data.jpa.repository.EntityGraph(
       attributePaths = {"estudiante", "estudiante.persona"})
+  @Query(
+      "select m from Matricula m where m.periodo.id = :periodoId and m.active = true "
+          + "and m.estudiante.active = true and m.estado in :estados")
   List<Matricula> findAllByPeriodoIdAndActiveTrueAndEstadoIn(
-      Integer periodoId, List<pe.edu.pucp.colegio.common.model.EstadoMatricula> estados);
+      @Param("periodoId") Integer periodoId,
+      @Param("estados") List<pe.edu.pucp.colegio.common.model.EstadoMatricula> estados);
 
   @Query(
       "select count(distinct m.estudiante.id) from Matricula m "
           + "where m.periodo.seccion.id = :seccionId and m.active = true "
+          + "and m.estudiante.active = true "
           + "and m.periodo.fechaInicio between :desde and :hasta "
           + "and m.estado in (pe.edu.pucp.colegio.common.model.EstadoMatricula.EN_REGISTRO, "
           + "pe.edu.pucp.colegio.common.model.EstadoMatricula.CONFIRMADA)")
@@ -81,6 +86,7 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
   @Query(
       "select count(distinct m.estudiante.id) from Matricula m "
           + "where m.periodo.seccion.id = :seccionId and m.active = true "
+          + "and m.estudiante.active = true "
           + "and m.periodo.fechaInicio between :desde and :hasta "
           + "and m.estado = pe.edu.pucp.colegio.common.model.EstadoMatricula.EN_REGISTRO")
   long countPendientesPorSeccionEntre(
@@ -119,7 +125,7 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Integer> {
   @org.springframework.data.jpa.repository.EntityGraph(
       attributePaths = {"estudiante", "estudiante.persona"})
   @Query(
-      "select m from Matricula m where m.active = true "
+      "select m from Matricula m where m.active = true and m.estudiante.active = true "
           + "and m.estado = pe.edu.pucp.colegio.common.model.EstadoMatricula.CONFIRMADA "
           + "and m.periodo.seccion.id = :seccionId "
           + "and m.periodo.fechaInicio <= :fecha and m.periodo.fechaFin >= :fecha")

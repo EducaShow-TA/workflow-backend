@@ -968,6 +968,248 @@
       "description": "La ventana global US-1.1 se configura al inicio de este flujo. El periodo académico posterior sigue asociado a grado y sección.",
       "item": [
         {
+          "id": "6bd27c6a-3110-4aaf-8616-b6599810d817",
+          "name": "Determinar año escolar para la apertura",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('anhioBase', String(new Date().getFullYear()));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consulta de periodos del año actual', () => pm.response.to.have.status(200));",
+                  "const periodos = pm.response.json();",
+                  "const ahora = new Date();",
+                  "const hoy = [ahora.getFullYear(), String(ahora.getMonth() + 1).padStart(2, '0'), String(ahora.getDate()).padStart(2, '0')].join('-');",
+                  "const anhio = Number(pm.environment.get('anhioBase'));",
+                  "const clasesEmpezadas = periodos.some(p => p.fechaInicio <= hoy);",
+                  "const anhioEscolar = hoy === `${anhio}-01-01` ? anhio : clasesEmpezadas ? anhio + 1 : anhio;",
+                  "pm.environment.set('anhioApertura', String(anhioEscolar));",
+                  "pm.environment.set('anhioCierre', String(anhioEscolar - 1));",
+                  "console.log(`Año escolar de apertura: ${anhioEscolar}; año que requiere cierre: ${anhioEscolar - 1}`);",
+                  "pm.execution.setNextRequest('Preparar actas del año anterior');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos?anhio={{anhioBase}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "periodos"],
+              "query": [{"key": "anhio", "value": "{{anhioBase}}", "disabled": false}]
+            }
+          }
+        },
+        {
+          "id": "6bd27c6a-3110-4aaf-8616-b6599810d806",
+          "name": "Preparar actas del año anterior",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('anhioCierre')) throw new Error('Ejecuta primero la determinación del año escolar en Collection Runner');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consulta de periodos del año anterior', () => pm.response.to.have.status(200));",
+                  "const periodos = pm.response.json();",
+                  "const pendientes = periodos.filter(p => !p.actasCerradas).map(p => p.periodoId);",
+                  "pm.environment.set('periodosPorCerrar', JSON.stringify(pendientes));",
+                  "console.log(`Periodos del año anterior: ${periodos.length}; actas abiertas: ${pendientes.length}`);",
+                  "pm.execution.setNextRequest(periodos.length === 0 ? 'Crear periodo académico anterior para cierre' : pendientes.length ? 'Cerrar actas del periodo pendiente' : 'Preparar año académico para matrícula');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos?anhio={{anhioCierre}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "periodos"
+              ],
+              "query": [
+                {
+                  "key": "anhio",
+                  "value": "{{anhioCierre}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear periodo académico anterior para cierre",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const baseUrl = pm.environment.get('baseUrl');",
+                  "const headers = { Authorization: `Bearer ${pm.environment.get('token')}` };",
+                  "const response = await new Promise((resolve, reject) => pm.sendRequest({ method: 'GET', url: `${baseUrl}/api/v1/secciones`, header: headers }, (error, result) => error ? reject(error) : resolve(result)));",
+                  "if (response.code < 200 || response.code >= 300) throw new Error(`No se pudieron consultar las secciones: ${response.code} ${response.text()}`);",
+                  "const seccion = response.json().find(s => s.gradoNumero === 1);",
+                  "if (!seccion) throw new Error('No hay una sección de primer grado para crear el periodo anterior.');",
+                  "pm.environment.set('seccionCierreId', String(seccion.id));",
+                  "pm.environment.set('gradoCierreId', pm.environment.get('gradoId') || '1');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Periodo académico anterior creado', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('periodoPorCerrar', String(pm.response.json().id));",
+                  "pm.environment.set('periodosPorCerrar', JSON.stringify([pm.response.json().id]));",
+                  "pm.execution.setNextRequest('Cerrar actas del periodo pendiente');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gradoId\": {{gradoCierreId}},\n  \"seccionId\": {{seccionCierreId}},\n  \"fechaInicio\": \"{{anhioCierre}}-03-01\",\n  \"fechaFin\": \"{{anhioCierre}}-12-20\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "periodos"]
+            }
+          }
+        },
+        {
+          "id": "b4a7e735-11db-4ae7-a9ec-cd52d1642a04",
+          "name": "Cerrar actas del periodo pendiente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pendientes = JSON.parse(pm.environment.get('periodosPorCerrar') || '[]');",
+                  "if (pendientes.length) pm.environment.set('periodoPorCerrar', String(pendientes[0]));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(`Cierre de actas del periodo ${pm.environment.get('periodoPorCerrar')}`, () => pm.response.to.have.status(200));",
+                  "const pendientes = JSON.parse(pm.environment.get('periodosPorCerrar') || '[]');",
+                  "pendientes.shift();",
+                  "pm.environment.set('periodosPorCerrar', JSON.stringify(pendientes));",
+                  "pm.execution.setNextRequest(pendientes.length ? 'Cerrar actas del periodo pendiente' : 'Preparar año académico para matrícula');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos/{{periodoPorCerrar}}/cierre-actas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "periodos",
+                "{{periodoPorCerrar}}",
+                "cierre-actas"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Preparar año académico para matrícula",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consulta de periodos del año de matrícula', () => pm.response.to.have.status(200));",
+                  "const periodos = pm.response.json();",
+                  "const baseUrl = pm.environment.get('baseUrl');",
+                  "const headers = { Authorization: `Bearer ${pm.environment.get('token')}` };",
+                  "const seccionesResponse = await new Promise((resolve, reject) => pm.sendRequest({ method: 'GET', url: `${baseUrl}/api/v1/secciones`, header: headers }, (error, result) => error ? reject(error) : resolve(result)));",
+                  "if (seccionesResponse.code < 200 || seccionesResponse.code >= 300) throw new Error(`No se pudieron consultar las secciones: ${seccionesResponse.code} ${seccionesResponse.text()}`);",
+                  "const secciones = seccionesResponse.json();",
+                  "const anhio = Number(pm.environment.get('anhioApertura'));",
+                  "const faltantes = secciones.filter(s => !periodos.some(p => p.seccionId === s.id));",
+                  "if (faltantes.length) {",
+                  "  const hoy = new Date();",
+                  "  const inicio = anhio === hoy.getFullYear() ? new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) : new Date(anhio, 0, 1);",
+                  "  const fin = new Date(anhio, 11, 31);",
+                  "  const iso = d => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');",
+                  "  const apertura = await new Promise((resolve, reject) => pm.sendRequest({ method: 'POST', url: `${baseUrl}/api/v1/periodos/anhio`, header: { ...headers, 'Content-Type': 'application/json' }, body: { mode: 'raw', raw: JSON.stringify({ anhio, fechaInicio: iso(inicio), fechaFin: iso(fin) }) } }, (error, result) => error ? reject(error) : resolve(result)));",
+                  "  if (apertura.code < 200 || apertura.code >= 300) throw new Error(`No se pudo preparar el año académico ${anhio}: ${apertura.code} ${apertura.text()}`);",
+                  "  console.log(`Periodos creados para ${apertura.json().length} secciones del año ${anhio}`);",
+                  "} else console.log(`El año académico ${anhio} ya tiene periodos para todas las secciones activas`);",
+                  "const cierreAnual = await new Promise((resolve, reject) => pm.sendRequest({ method: 'GET', url: `${baseUrl}/api/v1/periodos?anhio=${anhio}`, header: headers }, (error, result) => error ? reject(error) : resolve(result)));",
+                  "if (cierreAnual.code < 200 || cierreAnual.code >= 300) throw new Error(`No se pudieron verificar las actas de ${anhio}: ${cierreAnual.code} ${cierreAnual.text()}`);",
+                  "await Promise.all(cierreAnual.json().filter(p => !p.actasCerradas).map(p => new Promise((resolve, reject) => pm.sendRequest({ method: 'POST', url: `${baseUrl}/api/v1/periodos/${p.periodoId}/cierre-actas`, header: headers }, (error, result) => error ? reject(error) : result.code < 200 || result.code >= 300 ? reject(new Error(`No se pudieron cerrar las actas del periodo ${p.periodoId}: ${result.code} ${result.text()}`)) : resolve(result)))));",
+                  "const siguiente = anhio + 1;",
+                  "pm.environment.set('anhioPeriodoPrueba', String(siguiente));",
+                  "const siguienteResponse = await new Promise((resolve, reject) => pm.sendRequest({ method: 'GET', url: `${baseUrl}/api/v1/periodos?anhio=${siguiente}`, header: headers }, (error, result) => error ? reject(error) : resolve(result)));",
+                  "if (siguienteResponse.code < 200 || siguienteResponse.code >= 300) throw new Error(`No se pudieron consultar los periodos de ${siguiente}: ${siguienteResponse.code} ${siguienteResponse.text()}`);",
+                  "if (secciones.some(s => !siguienteResponse.json().some(p => p.seccionId === s.id))) {",
+                  "  const inicioSiguiente = `${siguiente}-01-01`;",
+                  "  const finSiguiente = `${siguiente}-12-31`;",
+                  "  const aperturaSiguiente = await new Promise((resolve, reject) => pm.sendRequest({ method: 'POST', url: `${baseUrl}/api/v1/periodos/anhio`, header: { ...headers, 'Content-Type': 'application/json' }, body: { mode: 'raw', raw: JSON.stringify({ anhio: siguiente, fechaInicio: inicioSiguiente, fechaFin: finSiguiente }) } }, (error, result) => error ? reject(error) : resolve(result)));",
+                  "  if (aperturaSiguiente.code < 200 || aperturaSiguiente.code >= 300) throw new Error(`No se pudo preparar el año académico ${siguiente}: ${aperturaSiguiente.code} ${aperturaSiguiente.text()}`);",
+                  "}",
+                  "pm.execution.setNextRequest('Configurar ventana de matrícula vigente (US-1.1)');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/periodos?anhio={{anhioApertura}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "periodos"],
+              "query": [{ "key": "anhio", "value": "{{anhioApertura}}", "disabled": false }]
+            }
+          }
+        },
+        {
           "name": "Configurar ventana de matrícula vigente (US-1.1)",
           "event": [
             {
@@ -975,9 +1217,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const ahora = new Date();",
-                  "const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());",
-                  "const limite = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 30);",
+                  "const hoy = new Date();",
+                  "const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());",
+                  "const limite = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 30);",
                   "const fecha = d => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');",
                   "pm.environment.set('fechaInicioMatricula', fecha(inicio));",
                   "pm.environment.set('fechaLimiteMatricula', fecha(limite));"
@@ -989,9 +1231,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Ventana de matrícula creada y vigente', () => pm.response.to.have.status(201));",
-                  "pm.expect(pm.response.json().estado).to.eql('VIGENTE');",
-                  "pm.environment.set('ventanaMatriculaId', String(pm.response.json().id));"
+                  "pm.test('Ventana de matrícula creada y vigente', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.estado).to.eql('VIGENTE');",
+                  "  pm.environment.set('ventanaMatriculaId', String(body.id));",
+                  "});"
                 ]
               }
             }
@@ -1006,7 +1251,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\"\n}",
+              "raw": "{\r\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\r\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\",\r\n  \"montoMatricula\": 500,\r\n  \"montoPension\": 800\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1027,7 +1272,7 @@
           }
         },
         {
-          "name": "Estado PENDIENTE antes de la fecha de inicio",
+          "name": "La apertura anual normaliza fechas y queda vigente",
           "event": [
             {
               "listen": "prerequest",
@@ -1046,9 +1291,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Ventana pendiente creada', () => pm.response.to.have.status(201));",
-                  "pm.expect(pm.response.json().estado).to.eql('PENDIENTE');",
-                  "pm.environment.set('ventanaMatriculaPendienteId', String(pm.response.json().id));"
+                  "pm.test('Ventana anual normalizada y vigente', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.estado).to.eql('VIGENTE');",
+                  "  pm.expect(body.fechaInicio).to.eql(pm.environment.get('fechaInicioMatricula'));",
+                  "  pm.expect(body.fechaLimite).to.eql('2100-12-31');",
+                  "  pm.environment.set('ventanaMatriculaPendienteId', String(body.id));",
+                  "});"
                 ]
               }
             }
@@ -1063,7 +1313,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"{{inicioPendiente}}\",\n  \"fechaLimite\": \"{{limitePendiente}}\"\n}",
+              "raw": "{\r\n  \"fechaInicio\": \"{{inicioPendiente}}\",\r\n  \"fechaLimite\": \"{{limitePendiente}}\",\r\n  \"anhioEscolar\": {{anhioBase}},\r\n  \"montoMatricula\": 500,\r\n  \"montoPension\": 800\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1084,7 +1334,7 @@
           }
         },
         {
-          "name": "Rechazar ventana con fecha de inicio pasada",
+          "name": "Rechazar tarifa de matrícula no positiva",
           "event": [
             {
               "listen": "prerequest",
@@ -1103,7 +1353,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('No permite crear una ventana con fechas pasadas', () => pm.response.to.have.status(422));"
+                  "pm.test('Rechaza una tarifa de matrícula no positiva', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().message).to.include('tarifa de matrícula');",
+                  "});"
                 ]
               }
             }
@@ -1118,7 +1371,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"{{inicioVencido}}\",\n  \"fechaLimite\": \"{{limiteVencido}}\"\n}",
+              "raw": "{\r\n  \"fechaInicio\": \"{{inicioVencido}}\",\r\n  \"fechaLimite\": \"{{limiteVencido}}\",\r\n  \"anhioEscolar\": {{anhioBase}},\r\n  \"montoMatricula\": 0,\r\n  \"montoPension\": 800\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1139,7 +1392,7 @@
           }
         },
         {
-          "name": "Rechazar fecha límite igual al inicio",
+          "name": "Rechazar pensión no positiva",
           "request": {
             "method": "POST",
             "header": [
@@ -1150,7 +1403,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"2099-01-01\",\n  \"fechaLimite\": \"2099-01-01\"\n}",
+              "raw": "{\r\n  \"fechaInicio\": \"2099-01-01\",\r\n  \"fechaLimite\": \"2099-01-01\",\r\n  \"anhioEscolar\": {{anhioBase}},\r\n  \"montoMatricula\": 500,\r\n  \"montoPension\": 0\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1175,7 +1428,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Fecha límite no posterior se rechaza', () => pm.response.to.have.status(422));"
+                  "pm.test('Rechaza una pensión no positiva', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().message).to.include('pensión mensual');",
+                  "});"
                 ]
               }
             }
@@ -1252,7 +1508,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\"\n}",
+              "raw": "{\n  \"fechaInicio\": \"{{fechaInicioMatricula}}\",\n  \"fechaLimite\": \"{{fechaLimiteMatricula}}\",\n  \"montoMatricula\": 500,\n  \"montoPension\": 800\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1286,26 +1542,11 @@
           ]
         },
         {
-          "name": "Crear periodo académico para la sección recién creada",
+          "name": "Consultar periodo académico para la sección recién creada",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"gradoId\": {{gradoId}},\n  \"seccionId\": {{seccionId}},\n  \"fechaInicio\": \"2026-03-01\",\n  \"fechaFin\": \"2026-12-20\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos",
+              "raw": "{{baseUrl}}/api/v1/periodos?anhio={{anhioPeriodoPrueba}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1313,7 +1554,8 @@
                 "api",
                 "v1",
                 "periodos"
-              ]
+              ],
+              "query": [{ "key": "anhio", "value": "{{anhioPeriodoPrueba}}", "disabled": false }]
             }
           },
           "event": [
@@ -1322,8 +1564,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Periodo académico creado', () => pm.response.to.have.status(201));",
-                  "pm.environment.set('periodoId', String(pm.response.json().id));"
+                  "pm.test('Periodo académico disponible para la sección', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const periodo = pm.response.json().find(p => String(p.seccionId) === pm.environment.get('seccionId'));",
+                  "  pm.expect(periodo, 'No existe periodo académico para la sección de prueba').to.exist;",
+                  "  pm.environment.set('periodoId', String(periodo.periodoId));",
+                  "});"
                 ]
               }
             }
@@ -2496,7 +2742,7 @@
                   "const compromiso = rows.find(x => String(x.matriculaId) === String(matriculaId));",
                   "pm.expect(compromiso, `compromiso para matriculaId ${matriculaId}; IDs recibidos: ${rows.map(x => x.matriculaId).join(', ')}`).to.exist;",
                   "pm.expect(compromiso.concepto).to.eql('Pensión escolar');",
-                  "pm.expect(compromiso.montoTotal).to.eql(1200);",
+                  "pm.expect(compromiso.montoTotal).to.eql(9600);",
                   "pm.expect(compromiso.numeroCuotas).to.eql(12);",
                   "pm.environment.set('compromisoId', String(compromiso.id));"
                 ]
@@ -2541,16 +2787,19 @@
                   "const boleta = rows.find(x => String(x.compromisoId) === pm.environment.get('compromisoId') && x.mecanismoGeneracion === 'AUTOMATICO');",
                   "pm.expect(boleta, 'primera boleta automática').to.exist;",
                   "pm.expect(boleta.estadoPago).to.eql('PENDIENTE');",
-                  "pm.expect(boleta.monto).to.eql(100);",
+                  "pm.expect(boleta.monto).to.eql(800);",
                   "pm.expect(boleta.fechaGeneracion).to.be.a('string');",
-                  "pm.environment.set('boletaId', String(boleta.id));"
+                  "pm.environment.set('boletaId', String(boleta.id));",
+                  "const matricula = rows.find(x => String(x.compromisoId) === pm.environment.get('compromisoId') && x.tipoCargo === 'MATRICULA');",
+                  "pm.expect(matricula, 'boleta automática de matrícula').to.exist;",
+                  "pm.environment.set('boletaMatriculaId', String(matricula.id));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Generar boleta manual del siguiente mes (US-1.4)",
+          "name": "Rechazar boleta manual de mes ya generado automáticamente (US-1.4)",
           "request": {
             "method": "POST",
             "header": [
@@ -2587,10 +2836,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Boleta manual creada', () => pm.response.to.have.status(201));",
-                  "pm.expect(pm.response.json().mecanismoGeneracion).to.eql('MANUAL');",
-                  "pm.expect(pm.response.json().estadoPago).to.eql('PENDIENTE');",
-                  "pm.environment.set('boletaManualId', String(pm.response.json().id));"
+                  "pm.test('No duplica una cuota ya generada automáticamente', () => {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().message).to.include('Ya existe una boleta');",
+                  "  pm.environment.set('boletaManualId', pm.environment.get('boletaId'));",
+                  "});"
                 ]
               }
             }
@@ -2746,7 +2996,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"monto\": 100,\n  \"medioPago\": \"VIRTUAL\",\n  \"referencia\": \"PEN-{{$guid}}\"\n}",
+              "raw": "{\n  \"monto\": 800,\n  \"medioPago\": \"VIRTUAL\",\n  \"referencia\": \"PEN-{{$guid}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2775,7 +3025,7 @@
                 "exec": [
                   "pm.test('Pago registrado y comprobante emitido', () => pm.response.to.have.status(201));",
                   "pm.expect(pm.response.json().boletaId).to.eql(Number(pm.environment.get('boletaId')));",
-                  "pm.expect(pm.response.json().montoPagado).to.eql(100);",
+                  "pm.expect(pm.response.json().montoPagado).to.eql(800);",
                   "pm.environment.set('comprobanteId', String(pm.response.json().id));"
                 ]
               }
@@ -2824,7 +3074,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"monto\": 100,\n  \"medioPago\": \"VIRTUAL\",\n  \"referencia\": \"PEN-SEGUNDO-INTENTO\"\n}",
+              "raw": "{\n  \"monto\": 800,\n  \"medioPago\": \"VIRTUAL\",\n  \"referencia\": \"PEN-SEGUNDO-INTENTO\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2931,7 +3181,7 @@
                   "pm.expect(reporte.boletas).to.be.an('array');",
                   "pm.expect(reporte.montoPendiente).to.be.a('number');",
                   "pm.expect(reporte.familiasMorosas).to.be.a('number');",
-                  "pm.expect(reporte.boletas.some(x => String(x.id) === pm.environment.get('boletaManualId'))).to.eql(true);"
+                  "pm.expect(reporte.boletas.some(x => String(x.id) === pm.environment.get('boletaMatriculaId'))).to.eql(true);"
                 ]
               }
             }
@@ -3539,9 +3789,76 @@
                 "exec": [
                   "pm.test('El docente tiene clases asignadas', () => pm.response.to.have.status(200));",
                   "const clases = pm.response.json();",
-                  "const clase = clases.find(x => String(x.periodoId) === pm.environment.get('periodoId') && x.areaCodigo === pm.environment.get('areaTareasCodigo'));",
-                  "pm.expect(clase, `periodoId=${pm.environment.get('periodoId')}; area=${pm.environment.get('areaTareasCodigo')}; clases=${JSON.stringify(clases)}`).to.exist;",
-                  "pm.expect(clase.competencias.some(x => x.codigo === pm.environment.get('competenciaIndependienteCodigo')), 'competencia de la tarea asignada al área del docente').to.eql(true);"
+                  "const clase = clases.find(x => String(x.seccionId) === pm.environment.get('seccionId') && x.areaCodigo === pm.environment.get('areaTareasCodigo'));",
+                  "pm.expect(clase, `seccionId=${pm.environment.get('seccionId')}; area=${pm.environment.get('areaTareasCodigo')}; clases=${JSON.stringify(clases)}`).to.exist;",
+                  "pm.expect(clase.competencias.some(x => x.codigo === pm.environment.get('competenciaIndependienteCodigo')), 'competencia de la tarea asignada al área del docente').to.eql(true);",
+                  "pm.environment.set('periodoDocenteId', String(clase.periodoId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea del periodo del docente (US-3.7)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{docenteToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodoId\": {{periodoDocenteId}},\n  \"competenciaCodigo\": \"{{competenciaIndependienteCodigo}}\",\n  \"titulo\": \"Tarea docente Postman {{$guid}}\",\n  \"descripcion\": \"Tarea del periodo de la clase asignada al docente\",\n  \"fechaLimite\": \"{{fechaLimiteTareaDocente}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tareas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tareas"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const fecha = new Date();",
+                  "fecha.setDate(fecha.getDate() + 1);",
+                  "const fechaLimite = [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, '0'), String(fecha.getDate()).padStart(2, '0')].join('-') + 'T23:59:00';",
+                  "pm.environment.set('fechaLimiteTareaDocente', fechaLimite);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DOCENTE puede crear una tarea de su clase', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('tareaDocenteId', String(pm.response.json().id));"
                 ]
               }
             }
@@ -3562,7 +3879,7 @@
             },
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/tareas?periodoId={{periodoId}}",
+              "raw": "{{baseUrl}}/api/v1/tareas?periodoId={{periodoDocenteId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3574,7 +3891,7 @@
               "query": [
                 {
                   "key": "periodoId",
-                  "value": "{{periodoId}}"
+                  "value": "{{periodoDocenteId}}"
                 }
               ]
             }
@@ -3587,7 +3904,7 @@
                 "exec": [
                   "pm.test('DOCENTE tiene acceso al seguimiento de tareas', () => pm.response.to.have.status(200));",
                   "const tareas = pm.response.json();",
-                  "pm.expect(tareas.some(x => String(x.id) === pm.environment.get('tareaId')), `tareaId ${pm.environment.get('tareaId')}; tareas visibles: ${tareas.map(x => x.id).join(', ')}`).to.eql(true);"
+                  "pm.expect(tareas.some(x => String(x.id) === pm.environment.get('tareaDocenteId')), `tareaDocenteId ${pm.environment.get('tareaDocenteId')}; periodoId ${pm.environment.get('periodoDocenteId')}; tareas visibles: ${tareas.map(x => x.id).join(', ')}`).to.eql(true);"
                 ]
               }
             }
@@ -4006,7 +4323,7 @@
                 "carga-masiva"
               ]
             },
-            "description": "Genera el CSV de prueba automáticamente en el script previo: APODERADO, ALUMNO vinculado a ese apoderado y DOCENTE, con DNI y correos únicos por ejecución. El Runner ejecuta la carga sin seleccionar archivo local.",
+            "description": "Genera el CSV de prueba automáticamente en el script previo: ALUMNO con apoderado nuevo incluido en la misma fila y DOCENTE, con DNI y correos únicos por ejecución. Comprueba las tres cuentas creadas y el vínculo familiar sin seleccionar archivo local.",
             "header": [
               {
                 "key": "Content-Type",
@@ -4025,10 +4342,9 @@
                   "pm.environment.set(\"csvSuffix\", suffix);",
                   "pm.environment.set(\"csvBoundary\", boundary);",
                   "pm.environment.set(\"csvContenido\", [",
-                  "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,parentesco\",",
-                  "  `APODERADO,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,rosa${suffix},987654321,,,`,",
-                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,luis${suffix},,2011-05-14,4${suffix},MADRE`,",
-                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,carlos${suffix},,,,`",
+                  "  \"rol,dni,nombres,apellido_paterno,apellido_materno,correo,username,telefono,fecha_nacimiento,dni_apoderado,nombres_apoderado,apellido_paterno_apoderado,apellido_materno_apoderado,correo_apoderado,telefono_apoderado,parentesco\",",
+                  "  `ALUMNO,7${suffix},Luis,Torres,Quispe,luis.${suffix}@colegio.edu.pe,,,2011-05-14,4${suffix},Rosa,Quispe,Mamani,rosa.${suffix}@correo.com,+51987654321,MADRE`,",
+                  "  `DOCENTE,1${suffix},Carlos,Vega,Rios,carlos.${suffix}@colegio.edu.pe,,,,,,,,,,`",
                   "].join(\"\\r\\n\"));"
                 ]
               }
@@ -4040,17 +4356,18 @@
                 "exec": [
                   "const body = pm.response.json();",
                   "pm.test(\"Carga masiva completa\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Procesa las tres filas sin rechazo\", () => {",
+                  "pm.test(\"Procesa las dos filas sin rechazo\", () => {",
                   "  pm.expect(body.exitoso).to.eql(true);",
-                  "  pm.expect(body.totalFilas).to.eql(3);",
+                  "  pm.expect(body.totalFilas).to.eql(2);",
                   "  pm.expect(body.usuariosCreados).to.eql(3);",
                   "  pm.expect(body.usuariosVinculados).to.eql(1);",
                   "  pm.expect(body.filasRechazadas).to.eql(0);",
-                  "  pm.expect(body.resultados).to.have.lengthOf(3);",
-                  "  pm.expect(body.resultados.map((fila) => fila.estado)).to.eql([\"CREADO\", \"CREADO_Y_VINCULADO\", \"CREADO\"]);",
+                  "  pm.expect(body.resultados).to.have.lengthOf(2);",
+                  "  pm.expect(body.resultados.map((fila) => fila.estado)).to.eql([\"CREADO_Y_VINCULADO\", \"CREADO\"]);",
                   "});",
-                  "pm.test(\"Devuelve contraseñas temporales para las tres cuentas nuevas\", () => {",
+                  "pm.test(\"Devuelve contraseñas temporales para alumno, apoderado y docente\", () => {",
                   "  pm.expect(body.cuentas).to.have.lengthOf(3);",
+                  "  pm.expect(body.cuentas.map((cuenta) => cuenta.rol)).to.eql([\"ALUMNO\", \"APODERADO\", \"DOCENTE\"]);",
                   "  body.cuentas.forEach((cuenta) => pm.expect(cuenta.contrasenhaTemporal).to.be.a(\"string\").and.not.empty);",
                   "});"
                 ]
