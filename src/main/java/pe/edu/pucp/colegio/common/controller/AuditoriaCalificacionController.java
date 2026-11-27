@@ -28,6 +28,7 @@ public class AuditoriaCalificacionController {
 
   @GetMapping
   public PagedModel<AuditoriaCalificacionResponse> listar(
+      @RequestParam(required = false) Integer anhio,
       @RequestParam(required = false) Integer periodoId,
       @RequestParam(required = false) Integer matriculaId,
       @RequestParam(required = false) Integer estudianteId,
@@ -41,6 +42,7 @@ public class AuditoriaCalificacionController {
           Pageable pageable) {
     return new PagedModel<>(
         auditoria.listar(
+            anhio,
             periodoId,
             matriculaId,
             estudianteId,

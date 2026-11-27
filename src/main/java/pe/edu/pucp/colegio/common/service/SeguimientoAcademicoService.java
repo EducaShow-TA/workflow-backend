@@ -96,7 +96,13 @@ public class SeguimientoAcademicoService {
 
   @Transactional
   public TareaResponse crearTarea(TareaRequest request) {
-    Periodo periodo = periodo(request.periodoId());
+    Periodo periodo =
+        periodos
+            .findByIdAndActiveTrueForUpdate(request.periodoId())
+            .orElseThrow(() -> new BusinessException("Período no encontrado"));
+    if (Boolean.TRUE.equals(periodo.getActasCerradas())) {
+      throw new BusinessException("No se pueden crear tareas: las actas están cerradas");
+    }
     Competencia competencia = competencia(request.competenciaCodigo());
     Tarea tarea = new Tarea();
     tarea.setPeriodo(periodo);

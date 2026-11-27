@@ -12,4 +12,5 @@ public record MiClaseResponse(
     String areaCodigo,
     String areaNombre,
     int totalAlumnos,
+    boolean actasCerradas,
     List<CompetenciaClaseResponse> competencias) {}

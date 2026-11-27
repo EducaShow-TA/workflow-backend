@@ -2,6 +2,7 @@ package pe.edu.pucp.colegio.common.service;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -193,6 +194,7 @@ public class AuditoriaCalificacionService {
 
   @Transactional(readOnly = true)
   public Page<AuditoriaCalificacionResponse> listar(
+      Integer anhio,
       Integer periodoId,
       Integer matriculaId,
       Integer estudianteId,
@@ -200,8 +202,13 @@ public class AuditoriaCalificacionService {
       String tipoCalificacion,
       GrupoAccionCalificacion grupo,
       Pageable pageable) {
+    LocalDate desde = LocalDate.of(anhio == null ? 1900 : anhio, 1, 1);
+    LocalDate hasta = anhio == null ? LocalDate.of(9999, 1, 1) : desde.plusYears(1);
     var registros =
         auditoria.buscar(
+            anhio != null,
+            desde,
+            hasta,
             periodoId,
             matriculaId,
             estudianteId,
