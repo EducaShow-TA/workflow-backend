@@ -111,6 +111,7 @@ public class MisClasesService {
               area.getCodigo(),
               area.getNombre(),
               alumnosDe(periodo).size(),
+              Boolean.TRUE.equals(periodo.getActasCerradas()),
               competencias));
     }
 
