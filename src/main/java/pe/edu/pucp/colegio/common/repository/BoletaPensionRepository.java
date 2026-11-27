@@ -60,7 +60,7 @@ public interface BoletaPensionRepository
 
   @Query(
       "select count(b) > 0 from BoletaPension b "
-          + "where b.active = true and b.mesCobro = :mes "
+          + "where b.active = true and b.compromiso.active = true and b.mesCobro = :mes "
           + "and b.tipoCargo = pe.edu.pucp.colegio.common.model.TipoCargoBoleta.PENSION "
           + "and lower(b.compromiso.concepto) = lower(:concepto) "
           + "and b.compromiso.matricula.estudiante.id = :estudianteId")
