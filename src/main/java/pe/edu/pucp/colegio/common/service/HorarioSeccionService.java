@@ -3,6 +3,7 @@ package pe.edu.pucp.colegio.common.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -220,11 +221,13 @@ public class HorarioSeccionService {
     if ("TEMPORAL".equalsIgnoreCase(request.tipoVigencia())) {
       return actualizarTemporalmente(horario, sesion, request, hoy);
     }
-    if (sesion.getVigenteDesde().isAfter(hoy)) {
+    LocalDate ultimoDiaDictado = ultimoDiaDictado(sesion);
+    if (sesion.getVigenteDesde().isAfter(ultimoDiaDictado)) {
       SesionHorario anterior = copia(sesion);
       aplicar(horario, sesion, request, fechaDeConsulta(horario));
-      actualizarOcurrenciasFuturas(sesion, hoy);
+      borrarOcurrencias(sesion);
       sesion = sesiones.save(sesion);
+      generacionSesiones.generarParaHorario(horario.getSeccion().getId(), horario.getAnio());
       auditoria.registrar(
           usuarioActual(),
           horario,
@@ -237,14 +240,14 @@ public class HorarioSeccionService {
       return respuesta(sesion);
     }
 
-    LocalDate vigenciaNueva = hoy.plusDays(1);
+    LocalDate vigenciaNueva = ultimoDiaDictado.plusDays(1);
     if (vigenciaNueva.getYear() != horario.getAnio()) {
       throw new ConflictException(
           "La asignación tiene sesiones fechadas; los cambios para el próximo año requieren un horario nuevo");
     }
     LocalDate finAnterior = sesion.getVigenteHasta();
     SesionHorario anterior = copia(sesion);
-    sesion.setVigenteHasta(hoy);
+    sesion.setVigenteHasta(ultimoDiaDictado);
     sesiones.save(sesion);
 
     SesionHorario nueva = new SesionHorario();
@@ -253,7 +256,8 @@ public class HorarioSeccionService {
     nueva.setVigenteHasta(finAnterior);
     aplicar(horario, nueva, request, vigenciaNueva);
     nueva = sesiones.save(nueva);
-    actualizarOcurrenciasFuturas(sesion, hoy, nueva);
+    actualizarOcurrenciasFuturas(sesion, ultimoDiaDictado, nueva);
+    generacionSesiones.generarParaHorario(horario.getSeccion().getId(), horario.getAnio());
     auditoria.registrar(
         usuarioActual(),
         horario,
@@ -347,12 +351,9 @@ public class HorarioSeccionService {
     ocurrencia.setSesionHorario(sesion);
     ocurrencia.setArea(sesion.getArea());
     ocurrencia.setDocente(sesion.getDocente());
+    ocurrencia.setHoraFin(null);
     ocurrencia.setHoraInicio(sesion.getBloque().getHoraInicio());
     ocurrencia.setHoraFin(sesion.getBloque().getHoraFin());
-  }
-
-  private void actualizarOcurrenciasFuturas(SesionHorario sesion, LocalDate hoy) {
-    actualizarOcurrenciasFuturas(sesion, hoy, sesion);
   }
 
   private void actualizarOcurrenciasFuturas(
@@ -369,6 +370,7 @@ public class HorarioSeccionService {
         ocurrencia.setSesionHorario(sesionNueva);
         ocurrencia.setArea(sesionNueva.getArea());
         ocurrencia.setDocente(docenteNuevo);
+        ocurrencia.setHoraFin(null);
         ocurrencia.setHoraInicio(sesionNueva.getBloque().getHoraInicio());
         ocurrencia.setHoraFin(sesionNueva.getBloque().getHoraFin());
       } else if (!Boolean.TRUE.equals(ocurrencia.getCancelada())) {
@@ -383,13 +385,13 @@ public class HorarioSeccionService {
     HorarioSeccion horario = buscar(horarioId);
     SesionHorario sesion = buscarSesion(horarioId, sesionId);
     SesionHorario anterior = copia(sesion);
-    if (sesionesClase.existsBySesionHorarioId(sesion.getId())) {
-      LocalDate hoy = LocalDate.now(clock);
-      sesion.setVigenteHasta(
-          sesion.getVigenteDesde().isAfter(hoy) ? sesion.getVigenteDesde().minusDays(1) : hoy);
+    LocalDate ultimoDiaDictado = ultimoDiaDictado(sesion);
+    if (!sesion.getVigenteDesde().isAfter(ultimoDiaDictado)) {
+      sesion.setVigenteHasta(ultimoDiaDictado);
       sesiones.save(sesion);
       for (var ocurrencia :
-          sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(sesion.getId(), hoy)) {
+          sesionesClase.findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(
+              sesion.getId(), ultimoDiaDictado)) {
         ocurrencia.setCancelada(true);
         ocurrencia.setMotivoCancelacion("La asignación semanal fue retirada");
       }
@@ -404,7 +406,9 @@ public class HorarioSeccionService {
           null);
       return;
     }
+    boolean teniaClases = borrarOcurrencias(sesion);
     sesiones.delete(sesion);
+    LocalDate hoy = LocalDate.now(clock);
     auditoria.registrar(
         usuarioActual(),
         horario,
@@ -412,8 +416,41 @@ public class HorarioSeccionService {
         anterior,
         null,
         "PERMANENTE",
-        LocalDate.now(clock),
+        teniaClases && sesion.getVigenteDesde().isAfter(hoy) ? sesion.getVigenteDesde() : hoy,
         null);
+  }
+
+  /**
+   * Último día que conserva la versión actual de la asignación: hoy si la clase de hoy ya empezó o
+   * tiene asistencia; si no, ayer, y el cambio rige desde hoy mismo.
+   */
+  private LocalDate ultimoDiaDictado(SesionHorario sesion) {
+    LocalDateTime ahora = LocalDateTime.now(clock);
+    LocalDate hoy = ahora.toLocalDate();
+    boolean claseDeHoyIniciada =
+        sesionesClase.findAllBySesionHorarioIdAndFechaAndActiveTrue(sesion.getId(), hoy).stream()
+            .filter(ocurrencia -> !Boolean.TRUE.equals(ocurrencia.getCancelada()))
+            .anyMatch(
+                ocurrencia ->
+                    !ocurrencia.getHoraInicio().isAfter(ahora.toLocalTime())
+                        || asistencias.existsBySesionClaseIdAndActiveTrue(ocurrencia.getId()));
+    return claseDeHoyIniciada ? hoy : hoy.minusDays(1);
+  }
+
+  /**
+   * Quita las clases fechadas de una asignación que todavía no se dictó; indica si tenía alguna.
+   */
+  private boolean borrarOcurrencias(SesionHorario sesion) {
+    var ocurrencias = sesionesClase.findAllBySesionHorarioId(sesion.getId());
+    for (var ocurrencia : ocurrencias) {
+      if (asistencias.existsBySesionClaseId(ocurrencia.getId())) {
+        throw new ConflictException(
+            "No se puede cambiar la asignación: ya hay asistencia registrada en una de sus clases");
+      }
+    }
+    sesionesClase.deleteAll(ocurrencias);
+    sesionesClase.flush();
+    return !ocurrencias.isEmpty();
   }
 
   private SesionHorario copia(SesionHorario original) {

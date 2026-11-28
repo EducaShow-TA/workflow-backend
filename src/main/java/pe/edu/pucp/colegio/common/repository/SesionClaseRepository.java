@@ -83,6 +83,8 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Intege
 
   boolean existsBySesionHorarioId(Integer sesionHorarioId);
 
+  List<SesionClase> findAllBySesionHorarioId(Integer sesionHorarioId);
+
   List<SesionClase> findAllByFechaAndSesionHorarioIsNotNullAndActiveTrue(LocalDate fecha);
 
   List<SesionClase> findAllBySesionHorarioIdAndFechaAfterAndActiveTrue(

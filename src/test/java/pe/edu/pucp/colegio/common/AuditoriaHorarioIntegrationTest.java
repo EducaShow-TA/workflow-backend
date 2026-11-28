@@ -154,7 +154,7 @@ class AuditoriaHorarioIntegrationTest {
   }
 
   @Test
-  void actualizarSesion_conCierreDeVigencia_rigeDesdeManiana() throws Exception {
+  void actualizarSesion_delAnioEnCursoSinDictar_seCorrigeDesdeHoy() throws Exception {
     Escenario e = escenario();
     int horarioId = crearHorario(e, ANIO_ACTUAL);
     int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
@@ -167,7 +167,7 @@ class AuditoriaHorarioIntegrationTest {
     assertThat(registros)
         .extracting(AuditoriaHorario::getAccion)
         .containsExactly("ACTUALIZACIÓN", "CREACIÓN");
-    assertThat(registros.get(0).getVigenteDesde()).isEqualTo(HOY.plusDays(1));
+    assertThat(registros.get(0).getVigenteDesde()).isEqualTo(HOY);
   }
 
   @Test
@@ -246,7 +246,7 @@ class AuditoriaHorarioIntegrationTest {
   }
 
   @Test
-  void eliminarSesion_conClasesGeneradas_rigeDesdeManiana() throws Exception {
+  void eliminarSesion_conClasesSinDictar_rigeDesdeHoy() throws Exception {
     Escenario e = escenario();
     int horarioId = crearHorario(e, ANIO_ACTUAL);
     int sesionId = idDe(agregarSesion(horarioId, e, e.bloque1Id(), "MONDAY"));
@@ -258,7 +258,7 @@ class AuditoriaHorarioIntegrationTest {
     AuditoriaHorario retiro = registros(horarioId).get(0);
     assertThat(retiro.getAccion()).isEqualTo("ELIMINACIÓN");
     assertThat(retiro.getValoresNuevos()).isNull();
-    assertThat(retiro.getVigenteDesde()).isEqualTo(HOY.plusDays(1));
+    assertThat(retiro.getVigenteDesde()).isEqualTo(HOY);
   }
 
   @Test
