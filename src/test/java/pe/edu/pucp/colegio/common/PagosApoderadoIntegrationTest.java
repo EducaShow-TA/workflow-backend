@@ -52,6 +52,7 @@ class PagosApoderadoIntegrationTest {
   private int boletaEnMora;
   private int boletaPendiente;
   private int boletaAjena;
+  private int compromisoHija;
   private int comprobantePagado;
 
   @BeforeEach
@@ -83,6 +84,7 @@ class PagosApoderadoIntegrationTest {
         insertar("insert into estudiantes(persona_id) values (?)", persona("H" + sufijo, "María"));
     vincular(apoderado, hija);
     int compromiso = compromiso(hija, periodo, apoderado, 4);
+    compromisoHija = compromiso;
     boletaPagada = boleta(compromiso, "2035-03-01", "2035-03-15", "PAGADA");
     comprobantePagado =
         insertar(
@@ -192,6 +194,47 @@ class PagosApoderadoIntegrationTest {
         "PENDIENTE",
         jdbc.queryForObject(
             "select estado_pago from boletas_pension where id=?", String.class, boletaAjena));
+  }
+
+  @Test
+  void noSePuedeSaltarUnaBoletaAnteriorSinPagar() throws Exception {
+    mvc.perform(pagar(boletaPendiente))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value("Primero se debe pagar la pensión de abril 2035"));
+
+    assertEquals(
+        "PENDIENTE",
+        jdbc.queryForObject(
+            "select estado_pago from boletas_pension where id=?", String.class, boletaPendiente));
+  }
+
+  @Test
+  void laMatriculaSePagaAntesQueLasPensionesAunqueVenzaDespues() throws Exception {
+    int matricula =
+        insertar(
+            "insert into boletas_pension(compromiso_id,mes_cobro,fecha_vencimiento,monto,mora,estado_pago,mecanismo_generacion,fecha_generacion,active,tipo_cargo) values (?,'2035-06-01','2035-06-15',350,0,'PENDIENTE','AUTOMATICO',CURRENT_TIMESTAMP,true,'MATRICULA')",
+            compromisoHija);
+
+    mvc.perform(pagar(boletaEnMora))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value("Primero se debe pagar la matrícula 2035"));
+
+    mvc.perform(pagar(boletaPendiente, boletaEnMora, matricula))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$[0].boletaId").value(matricula))
+        .andExpect(jsonPath("$[1].boletaId").value(boletaEnMora))
+        .andExpect(jsonPath("$[2].boletaId").value(boletaPendiente));
+  }
+
+  @Test
+  void tesoreriaTambienRespetaElOrden() throws Exception {
+    mvc.perform(
+            post("/api/v1/boletas-pension/{id}/pagos", boletaPendiente)
+                .with(user("caja-orden").roles("ADMINISTRADOR"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"monto\":350,\"medioPago\":\"PRESENCIAL\"}"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message").value("Primero se debe pagar la pensión de abril 2035"));
   }
 
   @Test
