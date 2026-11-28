@@ -233,7 +233,7 @@ public class PagosApoderadoService {
         boleta.getMesCobro(),
         boleta.getFechaVencimiento(),
         boleta.getMonto(),
-        boleta.getMora(),
+        boleta.getRecargoMora(),
         boleta.calcularMontoTotal(),
         boleta.getEstadoPago(),
         boleta.getTipoCargo(),

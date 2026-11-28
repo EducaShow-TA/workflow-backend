@@ -1272,7 +1272,7 @@
           }
         },
         {
-          "name": "La apertura anual normaliza fechas y queda vigente",
+          "name": "La actualización anual normaliza fechas y conserva vigencia",
           "event": [
             {
               "listen": "prerequest",
@@ -1292,19 +1292,18 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Ventana anual normalizada y vigente', () => {",
-                  "  pm.response.to.have.status(201);",
+                  "  pm.response.to.have.status(200);",
                   "  const body = pm.response.json();",
                   "  pm.expect(body.estado).to.eql('VIGENTE');",
                   "  pm.expect(body.fechaInicio).to.eql(pm.environment.get('fechaInicioMatricula'));",
                   "  pm.expect(body.fechaLimite).to.eql('2100-12-31');",
-                  "  pm.environment.set('ventanaMatriculaPendienteId', String(body.id));",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
               {
                 "key": "Content-Type",
@@ -1313,7 +1312,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"fechaInicio\": \"{{inicioPendiente}}\",\r\n  \"fechaLimite\": \"{{limitePendiente}}\",\r\n  \"anhioEscolar\": {{anhioBase}},\r\n  \"montoMatricula\": 500,\r\n  \"montoPension\": 800\r\n}",
+              "raw": "{\r\n  \"fechaInicio\": \"{{inicioPendiente}}\",\r\n  \"fechaLimite\": \"{{limitePendiente}}\",\r\n  \"montoMatricula\": 500,\r\n  \"montoPension\": 800\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1321,14 +1320,15 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos-matricula",
+              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "v1",
-                "periodos-matricula"
+                "periodos-matricula",
+                "{{ventanaMatriculaId}}"
               ]
             }
           }
@@ -2672,35 +2672,6 @@
               }
             }
           ]
-        },
-        {
-          "name": "Desactivar ventana pendiente creada en esta ejecución",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/periodos-matricula/{{ventanaMatriculaPendienteId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "periodos-matricula",
-                "{{ventanaMatriculaPendienteId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Ventana pendiente desactivada', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
         }
       ]
     },
@@ -3791,6 +3762,7 @@
                   "const clases = pm.response.json();",
                   "const clase = clases.find(x => String(x.seccionId) === pm.environment.get('seccionId') && x.areaCodigo === pm.environment.get('areaTareasCodigo'));",
                   "pm.expect(clase, `seccionId=${pm.environment.get('seccionId')}; area=${pm.environment.get('areaTareasCodigo')}; clases=${JSON.stringify(clases)}`).to.exist;",
+                  "pm.expect(clase.actasCerradas, 'la clase usada en este caso tiene las actas cerradas').to.eql(true);",
                   "pm.expect(clase.competencias.some(x => x.codigo === pm.environment.get('competenciaIndependienteCodigo')), 'competencia de la tarea asignada al área del docente').to.eql(true);",
                   "pm.environment.set('periodoDocenteId', String(clase.periodoId));"
                 ]
@@ -3799,7 +3771,7 @@
           ]
         },
         {
-          "name": "Crear tarea del periodo del docente (US-3.7)",
+          "name": "Rechazar tarea del periodo del docente con actas cerradas (US-3.7)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -3857,8 +3829,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('DOCENTE puede crear una tarea de su clase', () => pm.response.to.have.status(200));",
-                  "pm.environment.set('tareaDocenteId', String(pm.response.json().id));"
+                  "pm.test('DOCENTE no puede crear tareas si las actas están cerradas', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().message).to.include('las actas están cerradas');",
+                  "});"
                 ]
               }
             }
@@ -3902,9 +3876,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('DOCENTE tiene acceso al seguimiento de tareas', () => pm.response.to.have.status(200));",
-                  "const tareas = pm.response.json();",
-                  "pm.expect(tareas.some(x => String(x.id) === pm.environment.get('tareaDocenteId')), `tareaDocenteId ${pm.environment.get('tareaDocenteId')}; periodoId ${pm.environment.get('periodoDocenteId')}; tareas visibles: ${tareas.map(x => x.id).join(', ')}`).to.eql(true);"
+                  "pm.test('DOCENTE tiene acceso al seguimiento de tareas', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
                 ]
               }
             }

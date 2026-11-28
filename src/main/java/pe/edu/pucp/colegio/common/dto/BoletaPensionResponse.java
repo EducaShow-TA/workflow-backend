@@ -8,6 +8,7 @@ import pe.edu.pucp.colegio.common.model.EstadoBoleta;
 import pe.edu.pucp.colegio.common.model.MecanismoGeneracion;
 import pe.edu.pucp.colegio.common.model.TipoCargoBoleta;
 
+/** El campo JSON {@code mora} es el recargo monetario, separado de {@code estadoPago}. */
 public record BoletaPensionResponse(
     Integer id,
     Integer compromisoId,
