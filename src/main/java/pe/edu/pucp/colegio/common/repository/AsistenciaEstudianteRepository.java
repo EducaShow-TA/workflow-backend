@@ -16,6 +16,8 @@ public interface AsistenciaEstudianteRepository
 
   boolean existsBySesionClaseIdAndActiveTrue(Integer sesionClaseId);
 
+  boolean existsBySesionClaseId(Integer sesionClaseId);
+
   @EntityGraph(
       attributePaths = {"estudiante", "estudiante.persona", "sesionClase", "sesionClase.seccion"})
   Optional<AsistenciaEstudiante> findByIdAndActiveTrue(Integer id);
