@@ -93,7 +93,10 @@ public class PagosApoderadoService {
         .toList();
   }
 
-  /** Paga todas las boletas o ninguna: si una falla, la transacción completa se revierte. */
+  /**
+   * Paga todas las boletas o ninguna, en orden: si una falla o deja una anterior sin pagar, la
+   * transacción completa se revierte.
+   */
   @Transactional
   public List<ComprobantePagoResponse> pagar(String username, PagoApoderadoRequest request) {
     if (!pagoSimuladoEnabled) {
@@ -120,7 +123,7 @@ public class PagosApoderadoService {
                             () ->
                                 new ResponseStatusException(
                                     HttpStatus.NOT_FOUND, "No existe la boleta de pensión")))
-            .sorted(Comparator.comparing(BoletaPension::getMesCobro))
+            .sorted(FinanzasService.ORDEN_DE_PAGO)
             .toList();
     for (BoletaPension boleta : seleccionadas) {
       exigirHijoVinculado(apoderado, boleta);

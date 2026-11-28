@@ -6,9 +6,12 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -310,6 +313,7 @@ public class FinanzasService {
         || comprobantes.existsByBoletaIdAndActiveTrue(boletaId)) {
       throw new ConflictException("La boleta ya tiene un pago registrado");
     }
+    exigirPagoEnOrden(boleta);
     BigDecimal importe = boleta.calcularMontoTotal().setScale(2, RoundingMode.HALF_UP);
     if (request.monto().setScale(2, RoundingMode.HALF_UP).compareTo(importe) != 0) {
       throw new BusinessException(
@@ -608,6 +612,36 @@ public class FinanzasService {
             () ->
                 new ResponseStatusException(
                     HttpStatus.NOT_FOUND, "No existe la boleta de pensión"));
+  }
+
+  /** La matrícula se paga primero y luego las pensiones, de la más antigua a la más reciente. */
+  public static final Comparator<BoletaPension> ORDEN_DE_PAGO =
+      Comparator.comparing(
+              (BoletaPension boleta) -> boleta.getTipoCargo() != TipoCargoBoleta.MATRICULA)
+          .thenComparing(BoletaPension::getMesCobro);
+
+  private void exigirPagoEnOrden(BoletaPension boleta) {
+    boletas
+        .findAllByCompromisoIdAndActiveTrueOrderByMesCobroAsc(boleta.getCompromiso().getId())
+        .stream()
+        .filter(otra -> otra.getEstadoPago() != EstadoBoleta.PAGADA)
+        .filter(otra -> ORDEN_DE_PAGO.compare(otra, boleta) < 0)
+        .min(ORDEN_DE_PAGO)
+        .ifPresent(
+            anterior -> {
+              throw new BusinessException("Primero se debe pagar " + nombrarCargo(anterior));
+            });
+  }
+
+  private static String nombrarCargo(BoletaPension boleta) {
+    YearMonth mes = boleta.getMesCobro();
+    if (boleta.getTipoCargo() == TipoCargoBoleta.MATRICULA) {
+      return "la matrícula " + mes.getYear();
+    }
+    return "la pensión de "
+        + mes.getMonth().getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es-PE"))
+        + " "
+        + mes.getYear();
   }
 
   private BoletaPension buscarBoletaParaPago(Integer id) {
