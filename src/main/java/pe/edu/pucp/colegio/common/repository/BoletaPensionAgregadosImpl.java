@@ -19,7 +19,7 @@ public class BoletaPensionAgregadosImpl implements BoletaPensionAgregados {
     var cb = entidades.getCriteriaBuilder();
     var consulta = cb.createQuery(BigDecimal.class);
     var raiz = consulta.from(BoletaPension.class);
-    var importe = cb.sum(raiz.<BigDecimal>get("monto"), raiz.<BigDecimal>get("mora"));
+    var importe = cb.sum(raiz.<BigDecimal>get("monto"), raiz.<BigDecimal>get("recargoMora"));
     consulta.select(cb.coalesce(cb.sum(importe), BigDecimal.ZERO));
     consulta.where(
         cb.and(

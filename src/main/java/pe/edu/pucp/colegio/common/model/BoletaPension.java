@@ -35,8 +35,9 @@ public class BoletaPension extends EntidadBase {
   @Column(name = "fecha_vencimiento", nullable = false)
   private LocalDate fechaVencimiento;
 
-  @Column(nullable = false, precision = 12, scale = 2)
-  private BigDecimal mora = BigDecimal.ZERO;
+  /** Recargo monetario por mora; es distinto del estado de pago EN_MORA. */
+  @Column(name = "mora", nullable = false, precision = 12, scale = 2)
+  private BigDecimal recargoMora = BigDecimal.ZERO;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "estado_pago", nullable = false, length = 20)
@@ -85,12 +86,24 @@ public class BoletaPension extends EntidadBase {
     fechaVencimiento = value;
   }
 
-  public BigDecimal getMora() {
-    return mora;
+  public BigDecimal getRecargoMora() {
+    return recargoMora;
   }
 
+  public void setRecargoMora(BigDecimal value) {
+    recargoMora = value;
+  }
+
+  /** Compatibilidad para usos existentes; el valor representa el recargo, no el estado de mora. */
+  @Deprecated
+  public BigDecimal getMora() {
+    return getRecargoMora();
+  }
+
+  /** Compatibilidad para usos existentes; el valor representa el recargo, no el estado de mora. */
+  @Deprecated
   public void setMora(BigDecimal value) {
-    mora = value;
+    setRecargoMora(value);
   }
 
   public EstadoBoleta getEstadoPago() {
@@ -138,6 +151,6 @@ public class BoletaPension extends EntidadBase {
   }
 
   public BigDecimal calcularMontoTotal() {
-    return monto.add(mora);
+    return monto.add(recargoMora);
   }
 }

@@ -531,7 +531,7 @@ public class FinanzasService {
     b.setMonto(c.getMontoCuota(indice));
     b.setFechaVencimiento(
         indice == 1 ? c.getPrimerVencimiento() : mes.atDay(c.getDiaVencimiento()));
-    b.setMora(BigDecimal.ZERO.setScale(2));
+    b.setRecargoMora(BigDecimal.ZERO.setScale(2));
     b.setEstadoPago(EstadoBoleta.PENDIENTE);
     b.setMecanismoGeneracion(mecanismo);
     b.setFechaGeneracion(LocalDateTime.now(clock));
@@ -563,7 +563,7 @@ public class FinanzasService {
     boleta.setMesCobro(mes);
     boleta.setMonto(monto.setScale(2, RoundingMode.HALF_UP));
     boleta.setFechaVencimiento(vencimiento);
-    boleta.setMora(BigDecimal.ZERO.setScale(2));
+    boleta.setRecargoMora(BigDecimal.ZERO.setScale(2));
     boleta.setEstadoPago(EstadoBoleta.PENDIENTE);
     boleta.setMecanismoGeneracion(MecanismoGeneracion.AUTOMATICO);
     boleta.setFechaGeneracion(LocalDateTime.now(clock));
@@ -650,7 +650,7 @@ public class FinanzasService {
         p.getSeccion().getCodigo(),
         b.getMesCobro(),
         b.getMonto(),
-        b.getMora(),
+        b.getRecargoMora(),
         b.calcularMontoTotal(),
         b.getFechaVencimiento(),
         b.getEstadoPago(),
